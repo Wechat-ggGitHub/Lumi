@@ -1,0 +1,5 @@
+module CNodeAPI {
+    header "/usr/local/include/node/node_api.h"
+    link "node"
+    export *
+}

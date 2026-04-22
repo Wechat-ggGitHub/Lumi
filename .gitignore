@@ -4,3 +4,4 @@ dist-electron/
 release/
 *.tsbuildinfo
 .DS_Store
+.build/
