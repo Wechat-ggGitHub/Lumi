@@ -4,181 +4,154 @@
 
 ## Pattern Overview
 
-**Overall:** Electron + Next.js hybrid with shared state machine
+**Overall:** Electron + Next.js hybrid monolith with dual-process architecture
 
 **Key Characteristics:**
-- Dual-process model: Electron main process (Node.js/CJS) + Next.js standalone server (React/SSR)
-- Centralized state machine (`ShrewStore`) shared across both code paths via `globalThis`
-- On-demand window lifecycle: voice-bar and summary popup BrowserWindows created and destroyed as needed
-- IPC bridge between Electron main process and Next.js renderer windows via `ipcMain`/`ipcRenderer`
-- `globalThis` bridge from Electron main process to Next.js API routes for store and executor access
+- Two parallel code paths: Electron main process (CJS/esbuild) and Next.js app (React 19/App Router)
+- Next.js runs as a standalone HTTP server on localhost, consumed by Electron BrowserWindows
+- Shared state via `ShrewStore` class instantiated in Electron main and accessed from Next.js API routes via `globalThis`
+- IPC between Electron main process and BrowserWindow renderers using `ipcMain`/`ipcRenderer`
+- Finite state machine governs all application behavior with whitelist-validated transitions
+- Native modules (better-sqlite3, sherpa-onnx-node, uiohook-napi) run exclusively in Node.js (main process or API routes), never in browser context
 
 ## Layers
 
-**Electron Main Process:**
-- Purpose: System-level integration, window lifecycle, global shortcuts, audio recording, tray management
-- Location: `electron/`
-- Contains: Application lifecycle, BrowserWindow creation/destruction, IPC handler registration, shortcut listening, recording orchestration
-- Depends on: `src/lib/` modules (store, db, claude-client, sherpa, keychain), native modules (better-sqlite3, sherpa-onnx-node, uiohook-napi)
-- Used by: Nobody (this is the top-level orchestrator)
-- Key file: `electron/main.ts` (500 lines, the central coordinator)
+**Electron Main Process Layer:**
+- Purpose: System integration, window lifecycle, hardware access (keyboard, microphone), tray icon, IPC coordination
+- Location: `Shrew/electron/`
+- Contains: Window managers (`VoiceBarWindow`, `SummaryPopupWindow`), hardware controllers (`ShortcutManager`, `AudioRecorder`), tray (`ShrewTray`)
+- Depends on: All `src/lib/` modules via direct import (path `../src/lib/*`)
+- Used by: Next.js API routes via `globalThis` bridge; BrowserWindow renderers via IPC
 
-**Next.js Application (UI Layer):**
-- Purpose: All UI rendering -- voice-bar, summary popup, settings, onboarding, API routes
-- Location: `src/app/`, `src/components/`
-- Contains: React pages, UI components, Next.js API route handlers
-- Depends on: `src/lib/` (for types), Electron `ipcRenderer` (for IPC communication), `globalThis` (for store/executor in API routes)
-- Used by: Electron BrowserWindows load these pages via HTTP URLs
+**Next.js Application Layer:**
+- Purpose: All UI rendering (pages and components) and HTTP API endpoints
+- Location: `Shrew/src/`
+- Contains: App Router pages, React components, API routes, shared libraries
+- Depends on: Electron main process (via IPC from renderer, via `globalThis` from API routes)
+- Used by: Electron BrowserWindows load these pages via `http://127.0.0.1:{port}/{route}`
 
 **Shared Library Layer:**
-- Purpose: Core business logic shared between Electron and Next.js
-- Location: `src/lib/`
-- Contains: State machine (`store.ts`), Claude SDK client (`claude-client.ts`), database layer (`db.ts`), voice recognition (`sherpa.ts`), keychain (`keychain.ts`)
-- Depends on: `src/types/`, external packages (better-sqlite3, sherpa-onnx-node, @anthropic-ai/claude-agent-sdk, electron)
-- Used by: Both `electron/` and `src/app/api/` routes
+- Purpose: Business logic and data access used by both Electron and Next.js
+- Location: `Shrew/src/lib/`
+- Contains: State machine (`store.ts`), database (`db.ts`), Claude SDK client (`claude-client.ts`), voice recognition (`sherpa.ts`), keychain (`keychain.ts`)
+- Depends on: External packages (better-sqlite3, sherpa-onnx-node, @anthropic-ai/claude-agent-sdk, electron)
+- Used by: Electron main process (direct import), Next.js API routes (via `globalThis` bridge)
 
-**Type Definitions:**
-- Purpose: Shared TypeScript types for app state, IPC messages, settings, execution records
-- Location: `src/types/`
-- Contains: `index.ts` (all domain types), `declarations.d.ts` (ambient module declarations)
-- Depends on: Nothing
-- Used by: All layers
+**Native Module Layer:**
+- Purpose: Low-level system interaction requiring native binaries
+- Location: `Shrew/electron/native/key-event-tap/` (Swift), npm packages (better-sqlite3, sherpa-onnx-node, uiohook-napi)
+- Contains: Swift N-API module for CGEventTap keyboard interception
+- Depends on: macOS system frameworks (CoreGraphics, ApplicationServices)
+- Used by: Electron main process
 
 ## Data Flow
 
-**Voice-to-Execution Flow (Primary User Journey):**
+**Voice Command Execution Flow:**
 
 1. User presses Right Command key
-2. `ShortcutManager` in `electron/shortcuts.ts` detects keydown via `uIOhook`
-3. `handleRightCommand()` in `electron/main.ts` queries `store.getRightCommandAction()`
-4. Store returns `'start-recording'` (from idle state)
-5. `VoiceBarWindow.show()` creates a BrowserWindow at screen bottom, loads `http://127.0.0.1:{port}/voice-bar`
-6. `AudioRecorder.startRecording()` spawns macOS `afrecord` to capture WAV audio
-7. User presses Right Command again
-8. Store returns `'stop-recording'`, recording stops
-9. Store transitions: `recording` -> `transcribing`
-10. `AudioRecorder.transcribe()` loads sherpa-onnx model (lazy) and runs SenseVoice inference
-11. Transcript text sent to voice-bar via `voiceBar.send('voice:transcript', { text })`
-12. Store transitions: `transcribing` -> `editing`
-13. User edits text in VoiceInput component, presses Enter or Send button
-14. VoiceInput sends `voice:send` IPC message with text
-15. `executePrompt()` in main.ts transitions store: `editing` -> `sending` -> `executing`
-16. `executeClaude()` calls Claude Agent SDK `query()` with AsyncGenerator iteration
-17. SDK sub-state callbacks update store via `store.setSdkSubState()`
-18. Tray dot color updates in real-time (gray/blue/green/red/yellow)
-19. On completion, store transitions: `executing` -> `idle`, substate set to `completed`/`failed`
-20. Execution record written to SQLite via `updateExecution()`
+2. `ShortcutManager` (uiohook-napi) fires callback in `electron/main.ts`
+3. `handleRightCommand()` reads current state from `ShrewStore.getRightCommandAction()`
+4. State-dependent action:
+   - **idle** -> `VoiceBarWindow.show()`, `AudioRecorder.startRecording()`, transition to `recording`
+   - **recording** -> `AudioRecorder.stopRecording()`, transition to `transcribing`, then `recorder.transcribe()` via sherpa-onnx
+   - **editing** -> transition to `recording` for append
+   - **executing** -> abort current Claude execution
+5. Transcription result sent to voice-bar via IPC `voice:transcript`
+6. User edits text in VoiceInput component, presses Enter/Send
+7. Voice-bar sends IPC `voice:send` with text to main process
+8. `executePrompt()` transitions state to `sending` -> `executing`, inserts DB record, calls `executeClaude()`
+9. `executeClaude()` streams Claude Agent SDK messages via AsyncGenerator, updates `ShrewStore` sub-states
+10. On completion: DB record updated, state transitions to `idle`, tray dot color updated
 
 **State Management:**
-- Single `ShrewStore` instance created in `electron/main.ts` at app startup
-- Exposed to Next.js API routes via `(globalThis as any).__shrewStore`
-- Exposed to Next.js API routes via `(globalThis as any).__shrewExecutor`
-- Renderer windows receive state updates via IPC events (not polling)
-- Tray icon reflects state via `store.dotColor` computed property
-- Summary popup receives push updates via `summary:update` IPC channel
+- Single `ShrewStore` instance created in `electron/main.ts` line 412
+- Exposed to Next.js via `(globalThis as any).__shrewStore` (line 385)
+- Two-tier state: `AppState` (application lifecycle) and `SdkSubState` (Claude execution progress)
+- All transitions validated against `VALID_TRANSITIONS` whitelist in `src/lib/store.ts`
+- Observer pattern: `store.onChange(callback)` with unsubscribe return
 
-**Settings Persistence Flow:**
-1. Settings UI (`src/app/settings/page.tsx`) calls `ipcRenderer.invoke('settings:save', data)`
-2. Main process writes JSON to `~/Library/Application Support/Shrew/settings.json`
-3. API Key separately encrypted via `electron/safeStorage` -> `~/Library/Application Support/Shrew/secure/anthropic-key.enc`
+**Window Lifecycle:**
+- VoiceBar and SummaryPopup are created on demand and destroyed after use (not cached)
+- Settings/Onboarding use the `mainWindow` BrowserWindow (singleton, reused)
+- All windows load Next.js pages via `http://127.0.0.1:{port}/{route}`
+- Production: Next.js standalone server spawned on random port by Electron main process
+- Development: Next.js dev server on port 3000, Electron connects to it
 
 ## Key Abstractions
 
 **ShrewStore (State Machine):**
-- Purpose: Central application state with whitelisted transitions
-- Examples: `src/lib/store.ts`
-- Pattern: Finite state machine with two layers:
-  - App state: `idle -> recording -> transcribing -> editing -> sending -> executing -> idle/error`
-  - SDK sub-state: `thinking | executing_tool | compacting | rate_limited | authenticating | completed | failed | cancelled | null`
-  - Valid transitions defined in `VALID_TRANSITIONS` map
-  - Observer pattern via `onChange()` for listener registration
-  - Computed `dotColor` property maps state to tray icon color
-  - Computed `getRightCommandAction()` maps state to shortcut behavior
+- Purpose: Central runtime state governing all application behavior
+- Implementation: `src/lib/store.ts` - class with whitelist-validated `transition()` method
+- State graph: `idle` -> `recording` -> `transcribing` -> `editing` -> `sending` -> `executing` -> `idle` (with `error` branch)
+- SDK sub-states: `thinking`, `executing_tool`, `compacting`, `rate_limited`, `authenticating`, `completed`, `failed`, `cancelled`
+- Derives `dotColor` (tray indicator) and `getRightCommandAction()` (keyboard behavior) from current state
+- Examples: `Shrew/src/lib/store.ts`
 
-**Window Managers:**
-- Purpose: Lifecycle management for ephemeral BrowserWindows
-- Examples: `electron/voice-bar.ts`, `electron/summary-popup.ts`
-- Pattern: Manager classes that create/show/hide/close BrowserWindows on demand. Each holds a reference to the current window (or null). The `show()` method creates a new window if none exists. Windows are loaded by URL pointing to Next.js routes.
+**Window Manager Classes:**
+- Purpose: Lifecycle management for specialized BrowserWindows
+- Pattern: Each window type is a class with `show()`, `close()`, `send()` methods
+- Examples: `Shrew/electron/voice-bar.ts` (`VoiceBarWindow`), `Shrew/electron/summary-popup.ts` (`SummaryPopupWindow`)
+- VoiceBar: Screen-bottom centered, frameless, transparent, always-on-top, visible on all workspaces
+- SummaryPopup: Positioned below tray icon, frameless, auto-close on blur
 
-**AudioRecorder:**
-- Purpose: Record audio via macOS system tool, transcribe via sherpa-onnx
-- Examples: `electron/recorder.ts`
-- Pattern: Delegates recording to `afrecord` child process, delegates transcription to `VoiceRecognizer` class. Lazy model loading on first use.
+**Claude Execution Client:**
+- Purpose: Async streaming interface to Claude Agent SDK
+- Implementation: `src/lib/claude-client.ts` - `executeClaude()` returns `Promise<ClaudeExecutionResult>`
+- Uses `query()` AsyncGenerator from `@anthropic-ai/claude-agent-sdk`
+- Callback interface: `onSubState(substate, toolName?)`, `onError(error)`
+- Supports abort via `AbortController` signal chaining
+- Examples: `Shrew/src/lib/claude-client.ts`
 
-**VoiceRecognizer:**
-- Purpose: Wrapper around sherpa-onnx SenseVoice model for local speech-to-text
-- Examples: `src/lib/sherpa.ts`
-- Pattern: Lazy-load singleton. `load()` dynamically imports `sherpa-onnx-node` and initializes the recognizer. `transcribe()` reads a WAV file and returns text.
-
-**Claude Executor:**
-- Purpose: Interface with Claude Agent SDK for task execution
-- Examples: `src/lib/claude-client.ts`
-- Pattern: AsyncGenerator-based streaming. `executeClaude()` iterates over `query()` messages, dispatches callbacks for each message type (assistant, tool_progress, system, result, rate_limit_event, auth_status). Supports abort via `AbortController`.
+**Audio Pipeline:**
+- Purpose: Record audio and transcribe to text locally
+- Components: `AudioRecorder` (recording via macOS `afrecord`) + `VoiceRecognizer` (sherpa-onnx SenseVoice)
+- Lazy loading: Voice model loaded on first use, not at startup
+- Temp files: Written to `~/Library/Application Support/Shrew/tmp/`, cleaned after transcription
+- Examples: `Shrew/electron/recorder.ts`, `Shrew/src/lib/sherpa.ts`
 
 **Database Layer:**
-- Purpose: SQLite persistence for execution history
-- Examples: `src/lib/db.ts`
-- Pattern: Functional module with `initDb()` for schema creation, plus CRUD functions (`insertExecution`, `updateExecution`, `getActiveExecution`, `getRecentExecutions`, `getExecutionById`). Uses better-sqlite3 in WAL mode.
-
-**Keychain:**
-- Purpose: Encrypt and store API key using macOS-native encryption
-- Examples: `src/lib/keychain.ts`
-- Pattern: Uses Electron `safeStorage.encryptString()`/`decryptString()`. Writes encrypted buffer to filesystem at `~/Library/Application Support/Shrew/secure/anthropic-key.enc`.
-
-**ShrewTray:**
-- Purpose: Menu bar presence with dynamic status dot
-- Examples: `electron/tray.ts`
-- Pattern: Creates Electron `Tray` with pixel-level RGBA buffer rendering for status dots (no image files needed). Callbacks (`onPopupRequested`, `onSettingsRequested`) injected by main.ts.
-
-**ShortcutManager:**
-- Purpose: Global keyboard shortcut detection
-- Examples: `electron/shortcuts.ts`
-- Pattern: Uses `uIOhook` from `uiohook-napi` for system-wide key event listening. Filters for Right Command key only, with 200ms debounce.
+- Purpose: Persistent storage for execution history
+- Implementation: `src/lib/db.ts` - functional module (not class), takes `Database` as first parameter
+- Schema: Single `execution_history` table with indexed `created_at`
+- SQLite in WAL mode for concurrent read/write
+- Location: `~/Library/Application Support/Shrew/shrew.db`
+- Examples: `Shrew/src/lib/db.ts`
 
 ## Entry Points
 
 **Electron Main Process:**
-- Location: `electron/main.ts`
-- Triggers: Electron app startup (configured as `"main": "dist-electron/main.js"` in `package.json`)
-- Responsibilities: Starts Next.js standalone server (production mode), initializes database, creates store, tray, window managers, shortcut manager, recorder, registers IPC handlers, checks onboarding status
+- Location: `Shrew/electron/main.ts`
+- Triggers: Electron app startup (`app.whenReady()`)
+- Responsibilities: Initializes all subsystems (DB, store, tray, shortcuts, recorder, IPC), manages window lifecycle, starts Next.js server in production
 
 **Next.js Standalone Server:**
-- Location: `.next/standalone/server.js` (built from Next.js app)
-- Triggers: Spawned by Electron main process in production mode on random port
-- Responsibilities: Serves all UI pages and API routes
+- Location: Built to `.next/standalone/server.js`
+- Triggers: Spawned by Electron main process in production, or `npm run dev` in development
+- Responsibilities: Serves all UI pages and API routes via HTTP on localhost
 
-**Build Entry Points:**
-- Electron build: `scripts/build-electron.mjs` -- esbuild bundles `electron/main.ts` to `dist-electron/main.js`
-- Next.js build: `next build` with `output: 'standalone'` config
+**Build Entry Point:**
+- Location: `Shrew/scripts/build-electron.mjs`
+- Triggers: `npm run build:electron` or `npm run electron:dev`
+- Responsibilities: esbuild bundles `electron/main.ts` to `dist-electron/main.js` with native modules externalized
 
 ## Error Handling
 
-**Strategy:** Layered with graceful degradation
+**Strategy:** Fail-silently with user-facing feedback via tray dot and voice-bar error messages
 
 **Patterns:**
-- State machine error state: Invalid transitions are silently ignored. `error` state can only transition back to `idle`
-- Recording/transcription errors: Voice bar receives `voice:error` IPC message, store transitions to `error` then `idle`
-- Claude execution errors: Caught in `executeClaude()` try/catch, status set to `failed`, error passed via `onError` callback, record updated in DB
-- Abort handling: `AbortController` propagated from main process to Claude SDK. On cancel, status set to `cancelled`
-- Server startup failure: Dialog error box shown, app quits
-- Health check retry: `waitForServer()` polls `/api/health` with 500ms intervals, up to 20 retries
+- State machine `error` state with automatic transition to `idle` (see `handleRightCommand` catch block in `electron/main.ts` lines 189-193)
+- Claude execution errors captured as `failed` status in `ClaudeExecutionResult` and persisted to DB
+- Voice-bar receives `voice:error` IPC message for display to user
+- Missing API key results in red tray dot (no crash)
+- Next.js server startup failure shows dialog and quits app
 
 ## Cross-Cutting Concerns
 
-**Logging:** Console.log/error only. Next.js server stdout/stderr logged with `[next-server]` prefix. No structured logging framework.
+**Logging:** `console.log`/`console.error` only. Next.js server stdout/stderr captured with `[next-server]` prefix. No structured logging framework.
 
-**Validation:** API route input validation in `src/app/api/chat/route.ts` (checks for required `prompt` and `cwd`). State machine validation via whitelist. Settings are stored as JSON with defaults.
+**Validation:** State machine transition whitelist in `src/lib/store.ts`. IPC message types defined in `src/types/index.ts` (typed but not runtime-validated). API route input validation (prompt + cwd required in `api/chat/route.ts`).
 
-**Authentication:** API key stored encrypted using Electron `safeStorage` (backed by macOS Keychain). Validated on save by calling Anthropic API with a minimal request. No session management -- single-user desktop app.
-
-**IPC Communication:** Bidirectional via Electron `ipcMain`/`ipcRenderer`:
-- `ipcMain.on()` for fire-and-forget messages (voice:send, voice:cancel, summary:ready)
-- `ipcMain.handle()` for request/response (settings:load, settings:save, onboarding:*)
-- `webContents.send()` for main-to-renderer push (voice:transcript, summary:update)
-
-**globalThis Bridge:** Store and executor exposed on `globalThis` so Next.js API routes (running in Node.js context) can access them directly without IPC:
-- `__shrewStore` -> `ShrewStore` instance
-- `__shrewExecutor` -> `{ execute: executePrompt }`
+**Authentication:** API key stored encrypted via Electron `safeStorage` (macOS Keychain-backed). File at `~/Library/Application Support/Shrew/secure/anthropic-key.enc`. Key validation during onboarding via test API call. Permission mode hardcoded to `bypassPermissions`.
 
 ---
 

@@ -5,241 +5,239 @@
 ## Directory Layout
 
 ```
-Shrew/                          # Project root
-├── electron/                   # Electron main process modules
-│   ├── main.ts                 # App lifecycle, window mgmt, IPC, orchestration hub
-│   ├── tray.ts                 # Menu bar tray icon with dynamic status dots
-│   ├── voice-bar.ts            # Voice input floating bar window manager
-│   ├── summary-popup.ts        # Summary popup window manager (below tray icon)
-│   ├── shortcuts.ts            # Global Right Command key listener (uIOhook)
-│   ├── recorder.ts             # Audio recording (afrecord) + transcription (sherpa-onnx)
-│   └── native/                 # Swift native modules
-│       └── key-event-tap/      # macOS key event tap (Swift/CNodeAPI)
-├── src/                        # Next.js application + shared libraries
-│   ├── app/                    # Next.js App Router pages and API routes
-│   │   ├── layout.tsx          # Root HTML layout
-│   │   ├── api/                # API route handlers
-│   │   │   ├── chat/route.ts   # Claude execution entry (POST)
-│   │   │   ├── health/route.ts # Health check (GET) for server readiness
-│   │   │   └── status/route.ts # Runtime state query (GET)
-│   │   ├── voice-bar/page.tsx  # Voice input floating bar UI
-│   │   ├── summary/page.tsx    # Summary popup UI
-│   │   ├── settings/page.tsx   # Settings page (API key, cwd, VAD timeout)
-│   │   └── onboarding/page.tsx # First-launch onboarding flow
-│   ├── components/             # React UI components
-│   │   ├── VoiceInput.tsx      # Voice input bar with recording/transcribing/editing states
-│   │   ├── SummaryPanel.tsx    # Execution status summary with history list
-│   │   ├── StatusDot.tsx       # Colored dot indicator with CSS animations
-│   │   └── Onboarding.tsx      # Multi-step onboarding wizard
-│   ├── lib/                    # Shared business logic (used by both electron/ and src/)
-│   │   ├── store.ts            # ShrewStore state machine (app state + SDK sub-state)
-│   │   ├── claude-client.ts    # Claude Agent SDK wrapper (AsyncGenerator streaming)
-│   │   ├── db.ts               # SQLite data layer (better-sqlite3, WAL mode)
-│   │   ├── sherpa.ts           # sherpa-onnx SenseVoice speech recognition wrapper
-│   │   └── keychain.ts         # API key encryption (Electron safeStorage)
-│   ├── types/                  # TypeScript type definitions
-│   │   ├── index.ts            # Domain types (AppState, SdkSubState, ExecutionRecord, etc.)
-│   │   └── declarations.d.ts   # Ambient module declarations (sherpa-onnx-node)
-│   └── __tests__/              # Test files
-│       ├── store.test.ts       # ShrewStore state machine tests
-│       └── db.test.ts          # Database layer tests
-├── scripts/                    # Build scripts
-│   └── build-electron.mjs      # esbuild config for Electron main process
-├── resources/                  # Static resources bundled with app
-│   └── tray/                   # Tray icon resources (currently placeholder)
-├── dist-electron/              # Built Electron main process output (gitignored)
-├── .next/                      # Next.js build output (gitignored)
-├── release/                    # Electron Builder output (DMG/ZIP)
-├── package.json                # Dependencies and scripts
-├── tsconfig.json               # TypeScript config for Next.js (src/)
-├── tsconfig.electron.json      # TypeScript config for Electron (electron/)
-├── next.config.ts              # Next.js config (standalone output, externals)
-├── electron-builder.yml        # Electron Builder packaging config
-└── jest.config.ts              # Jest test config (ts-jest, module aliases)
+Shrew/                             # Project root (Electron + Next.js hybrid)
+├── electron/                      # Electron main process source (CJS, built by esbuild)
+│   ├── main.ts                    # Application entry point, orchestrator of all subsystems
+│   ├── tray.ts                    # Menu bar tray icon with dynamic status dot
+│   ├── voice-bar.ts               # Voice input floating bar window manager
+│   ├── summary-popup.ts           # Summary popup window manager (below tray icon)
+│   ├── shortcuts.ts               # Global keyboard shortcut listener (Right Command)
+│   ├── recorder.ts                # Audio recording (afrecord) + transcription coordinator
+│   └── native/                    # Native Swift modules
+│       └── key-event-tap/         # Swift N-API module for CGEventTap (alternative to uiohook)
+│           ├── Package.swift
+│           └── Sources/
+│               ├── KeyEventTap.swift
+│               └── CNodeAPI/
+│                   └── module.modulemap
+├── src/                           # Next.js application (React 19, App Router)
+│   ├── app/                       # Next.js App Router pages and API routes
+│   │   ├── layout.tsx             # Root layout (HTML shell)
+│   │   ├── api/                   # API route handlers
+│   │   │   ├── chat/route.ts      # Claude execution API endpoint
+│   │   │   ├── health/route.ts    # Server readiness probe
+│   │   │   └── status/route.ts    # Runtime state query
+│   │   ├── voice-bar/page.tsx     # Voice input floating bar UI
+│   │   ├── summary/page.tsx       # Summary popup UI
+│   │   ├── settings/page.tsx      # Settings page (API key, workdir, VAD timeout)
+│   │   └── onboarding/page.tsx    # First-launch setup wizard
+│   ├── components/                # React components (shared across pages)
+│   │   ├── VoiceInput.tsx         # Voice input bar with transcript editing
+│   │   ├── SummaryPanel.tsx       # Execution summary and history display
+│   │   ├── StatusDot.tsx          # Colored status indicator dot
+│   │   └── Onboarding.tsx         # Multi-step onboarding wizard component
+│   ├── lib/                       # Shared business logic (used by both Electron and Next.js)
+│   │   ├── store.ts               # ShrewStore state machine (AppState + SdkSubState)
+│   │   ├── claude-client.ts       # Claude Agent SDK AsyncGenerator streaming wrapper
+│   │   ├── db.ts                  # SQLite data layer (better-sqlite3, WAL mode)
+│   │   ├── sherpa.ts              # sherpa-onnx SenseVoice local speech recognition
+│   │   └── keychain.ts            # API key encryption via Electron safeStorage
+│   ├── types/                     # TypeScript type definitions
+│   │   ├── index.ts               # Core types (AppState, SdkSubState, ExecutionRecord, etc.)
+│   │   └── declarations.d.ts      # Module declarations (sherpa-onnx-node)
+│   └── __tests__/                 # Test files
+│       ├── store.test.ts          # State machine unit tests
+│       └── db.test.ts             # Database layer unit tests
+├── scripts/                       # Build and tooling scripts
+│   └── build-electron.mjs         # esbuild config for Electron main process
+├── resources/                     # Static resources bundled into app
+│   └── tray/                      # Tray icon assets (currently .gitkeep)
+├── dist-electron/                 # Built Electron output (gitignored, generated)
+├── release/                       # Electron-builder output (gitignored, generated)
+├── .next/                         # Next.js build output (gitignored, generated)
+├── package.json                   # Dependencies and scripts
+├── tsconfig.json                  # TypeScript config (path alias @/* -> ./src/*)
+├── next.config.ts                 # Next.js config (standalone output, webpack fallbacks)
+├── jest.config.ts                 # Jest config (ts-jest, module aliases)
+├── electron-builder.yml           # Electron-builder packaging config (DMG/ZIP)
+└── CLAUDE.md                      # Project instructions for Claude Code
 ```
 
 ## Directory Purposes
 
 **`electron/`:**
-- Purpose: Electron main process modules -- system integration, window management, hardware access
-- Contains: TypeScript source files (CJS output via esbuild), native Swift module
-- Key files: `electron/main.ts` (central orchestrator), `electron/tray.ts` (menu bar presence)
-- Build output: `dist-electron/main.js`
+- Purpose: Electron main process modules — system-level integration, window management, hardware access
+- Contains: TypeScript files compiled to CJS by esbuild
+- Key files: `Shrew/electron/main.ts` (orchestrator), `Shrew/electron/voice-bar.ts`, `Shrew/electron/tray.ts`
+- Note: These files import directly from `../src/lib/` — the shared library layer
 
 **`src/app/`:**
-- Purpose: Next.js 15 App Router -- all pages and API routes
-- Contains: Page components (`page.tsx`), API route handlers (`route.ts`), root layout
-- Key files: `src/app/api/chat/route.ts` (Claude execution endpoint), `src/app/voice-bar/page.tsx` (voice UI)
+- Purpose: Next.js App Router — each subdirectory is a route
+- Contains: `page.tsx` files for UI routes, `route.ts` files for API endpoints
+- Key files: `Shrew/src/app/api/chat/route.ts`, `Shrew/src/app/voice-bar/page.tsx`
 
 **`src/components/`:**
-- Purpose: Reusable React UI components used by page components
-- Contains: React functional components with `'use client'` directive
-- Key files: `src/components/VoiceInput.tsx` (voice input bar), `src/components/SummaryPanel.tsx` (execution summary)
+- Purpose: Reusable React components used by page files
+- Contains: UI components with `'use client'` directive (all are client components)
+- Key files: `Shrew/src/components/VoiceInput.tsx`, `Shrew/src/components/SummaryPanel.tsx`
 
 **`src/lib/`:**
-- Purpose: Shared business logic used by both Electron main process and Next.js API routes
-- Contains: TypeScript modules with no framework-specific coupling (except `keychain.ts` and `sherpa.ts` which depend on Electron APIs)
-- Key files: `src/lib/store.ts` (state machine), `src/lib/claude-client.ts` (SDK wrapper), `src/lib/db.ts` (data layer)
+- Purpose: Shared business logic and data access — imported by both Electron and Next.js code
+- Contains: Pure TypeScript modules (classes and functions)
+- Key files: `Shrew/src/lib/store.ts`, `Shrew/src/lib/claude-client.ts`, `Shrew/src/lib/db.ts`
+- Note: Some modules depend on Electron APIs (e.g., `keychain.ts` uses `electron.safeStorage`, `sherpa.ts` uses `electron.app`)
 
 **`src/types/`:**
-- Purpose: Shared TypeScript type definitions for the entire application
-- Contains: Type exports and ambient module declarations
-- Key files: `src/types/index.ts` (all domain types), `src/types/declarations.d.ts` (sherpa-onnx-node)
+- Purpose: Shared TypeScript type definitions
+- Contains: `index.ts` (all core types), `declarations.d.ts` (ambient module declarations)
+- Key files: `Shrew/src/types/index.ts`
 
 **`src/__tests__/`:**
-- Purpose: Unit tests
-- Contains: Jest test files co-located by module name (not by directory)
-- Key files: `src/__tests__/store.test.ts`, `src/__tests__/db.test.ts`
+- Purpose: Unit tests for `src/lib/` modules
+- Contains: Jest test files using ts-jest
+- Key files: `Shrew/src/__tests__/store.test.ts`, `Shrew/src/__tests__/db.test.ts`
 
 **`scripts/`:**
-- Purpose: Build automation scripts
-- Contains: esbuild configuration for Electron main process bundling
-- Key files: `scripts/build-electron.mjs`
+- Purpose: Build tooling
+- Contains: esbuild configuration for Electron main process compilation
+- Key files: `Shrew/scripts/build-electron.mjs`
 
 **`electron/native/`:**
-- Purpose: Platform-native Swift modules for macOS system APIs
-- Contains: Swift source files with CNodeAPI bindings
-- Key files: `electron/native/key-event-tap/Sources/KeyEventTap.swift`
+- Purpose: Swift native modules for macOS system APIs
+- Contains: Swift Package Manager projects with N-API bindings
+- Key files: `Shrew/electron/native/key-event-tap/Sources/KeyEventTap.swift`
+- Note: Currently scaffolding/prototype — production uses uiohook-napi instead
+
+**`resources/`:**
+- Purpose: Static assets bundled into the application package
+- Contains: Tray icon assets directory (currently empty with .gitkeep)
+- Key files: `Shrew/resources/tray/.gitkeep`
 
 ## Key File Locations
 
 **Entry Points:**
-- `electron/main.ts`: Electron main process entry (built to `dist-electron/main.js`, referenced by `package.json` `"main"`)
-- `src/app/layout.tsx`: Next.js root layout
-- `scripts/build-electron.mjs`: Electron build script
+- `Shrew/electron/main.ts`: Electron main process entry (app lifecycle, all initialization)
+- `Shrew/src/app/layout.tsx`: Next.js root layout
 
 **Configuration:**
-- `package.json`: Dependencies, npm scripts, Electron entry point
-- `tsconfig.json`: TypeScript config for Next.js/`src/` (ES2022, bundler resolution, `@/*` alias)
-- `tsconfig.electron.json`: TypeScript config for `electron/` (extends base, CJS output)
-- `next.config.ts`: Next.js config (`output: 'standalone'`, server externals, client fallbacks)
-- `electron-builder.yml`: Packaging config (DMG/ZIP targets, extraResources for .next standalone)
-- `jest.config.ts`: Test config (ts-jest, node environment, `@/*` alias)
+- `Shrew/package.json`: Dependencies and npm scripts
+- `Shrew/tsconfig.json`: TypeScript config with `@/*` path alias
+- `Shrew/next.config.ts`: Next.js standalone output + webpack fallbacks for browser context
+- `Shrew/jest.config.ts`: Jest test runner config
+- `Shrew/electron-builder.yml`: macOS app packaging (DMG/ZIP)
+- `Shrew/scripts/build-electron.mjs`: esbuild bundler for Electron main process
 
 **Core Logic:**
-- `src/lib/store.ts`: Application state machine (`ShrewStore` class)
-- `src/lib/claude-client.ts`: Claude Agent SDK execution wrapper
-- `src/lib/db.ts`: SQLite database layer (schema, CRUD functions)
-- `src/lib/sherpa.ts`: sherpa-onnx speech recognition wrapper
-- `src/lib/keychain.ts`: API key encryption/storage
+- `Shrew/src/lib/store.ts`: Application state machine (`ShrewStore` class)
+- `Shrew/src/lib/claude-client.ts`: Claude Agent SDK streaming wrapper
+- `Shrew/src/lib/db.ts`: SQLite database layer (schema, CRUD operations)
+- `Shrew/src/lib/sherpa.ts`: sherpa-onnx local voice recognition
+- `Shrew/src/lib/keychain.ts`: Encrypted API key storage
 
-**Type Definitions:**
-- `src/types/index.ts`: All shared types (`AppState`, `SdkSubState`, `DotColor`, `ExecutionRecord`, `AppSettings`, `IpcMessages`)
-- `src/types/declarations.d.ts`: Ambient module declarations for native packages
+**IPC & Communication:**
+- `Shrew/src/types/index.ts`: Type definitions including `IpcMessages` interface
+- IPC handlers registered in `Shrew/electron/main.ts` (function `registerIpcHandlers`, lines 277-389)
 
-**UI Components:**
-- `src/components/VoiceInput.tsx`: Voice input bar (recording pulse, transcribing spinner, editing textarea)
-- `src/components/SummaryPanel.tsx`: Execution summary with history list
-- `src/components/StatusDot.tsx`: Animated colored dot component
-- `src/components/Onboarding.tsx`: Multi-step setup wizard
+**Window Managers:**
+- `Shrew/electron/voice-bar.ts`: Floating voice input window
+- `Shrew/electron/summary-popup.ts`: Summary popup below tray icon
+- `Shrew/electron/tray.ts`: Menu bar tray with status dot
 
-**Electron Modules:**
-- `electron/tray.ts`: Menu bar tray with pixel-rendered status dots
-- `electron/voice-bar.ts`: Floating voice input window manager
-- `electron/summary-popup.ts`: Summary popup window manager
-- `electron/shortcuts.ts`: Global Right Command key listener
-- `electron/recorder.ts`: Audio recording and transcription orchestration
+**Hardware Controllers:**
+- `Shrew/electron/shortcuts.ts`: Global keyboard hook (uiohook-napi)
+- `Shrew/electron/recorder.ts`: Audio recording via macOS afrecord
 
 **Testing:**
-- `src/__tests__/store.test.ts`: State machine transition tests
-- `src/__tests__/db.test.ts`: Database CRUD tests
+- `Shrew/src/__tests__/store.test.ts`: State machine tests (transitions, dotColor, actions)
+- `Shrew/src/__tests__/db.test.ts`: Database CRUD tests with temp SQLite files
 
 ## Naming Conventions
 
 **Files:**
-- Electron modules: kebab-case (`voice-bar.ts`, `summary-popup.ts`, `build-electron.mjs`)
-- Next.js pages: kebab-case directories with `page.tsx` (`voice-bar/page.tsx`, `summary/page.tsx`)
-- API routes: kebab-case directories with `route.ts` (`api/chat/route.ts`, `api/health/route.ts`)
-- React components: PascalCase (`VoiceInput.tsx`, `SummaryPanel.tsx`, `StatusDot.tsx`)
-- Library modules: kebab-case (`claude-client.ts`, `keychain.ts`)
-- Test files: `<module-name>.test.ts` (`store.test.ts`, `db.test.ts`)
-- Config files: kebab-case or dot-prefix per tool convention (`electron-builder.yml`, `jest.config.ts`)
+- Electron modules: `kebab-case.ts` (e.g., `voice-bar.ts`, `summary-popup.ts`)
+- React components: `PascalCase.tsx` (e.g., `VoiceInput.tsx`, `SummaryPanel.tsx`)
+- Page files: Always `page.tsx` (Next.js App Router convention)
+- API routes: Always `route.ts` (Next.js App Router convention)
+- Test files: `{module-name}.test.ts` in `__tests__/` directory
+- Type files: `index.ts` for barrel exports, `declarations.d.ts` for ambient types
 
 **Directories:**
-- Next.js routes: kebab-case matching URL paths (`voice-bar/`, `summary/`, `settings/`, `onboarding/`)
-- Feature directories: kebab-case (`key-event-tap/`)
-- Build output: kebab-case with prefix (`dist-electron/`)
+- Route directories: `kebab-case` matching URL path (e.g., `voice-bar/`, `settings/`)
+- Library directories: Short lowercase (e.g., `lib/`, `types/`, `components/`)
+- Electron modules: Flat files in `electron/` directory (no subdirectories for TS modules)
 
 **Exports:**
-- Classes: PascalCase (`ShrewStore`, `VoiceBarWindow`, `AudioRecorder`, `VoiceRecognizer`, `ShrewTray`, `ShortcutManager`, `SummaryPopupWindow`)
-- Functions: camelCase (`executeClaude`, `initDb`, `insertExecution`, `saveApiKey`, `loadApiKey`)
-- Types: PascalCase (`AppState`, `SdkSubState`, `DotColor`, `ExecutionRecord`, `AppSettings`, `ClaudeExecutionResult`, `ClaudeCallbacks`)
-
-**Constants:**
-- UPPERCASE_SNAKE_CASE for true constants (`VALID_TRANSITIONS`, `SCHEMA`)
-- camelCase for computed config objects in components (`stepStyle`, `buttonStyle`, `descStyle`)
+- Classes: Named exports with PascalCase (e.g., `export class ShrewStore`)
+- Functions: Named exports with camelCase (e.g., `export function executeClaude`)
+- Types: Named exports with PascalCase (e.g., `export type AppState`)
 
 ## Where to Add New Code
 
-**New Feature (full stack):**
-- Electron module: `electron/<feature>.ts` -- new module class
-- Import and wire in: `electron/main.ts` -- add to initialization, register IPC handlers
-- Next.js page: `src/app/<feature>/page.tsx` -- new route page
-- React component: `src/components/<ComponentName>.tsx` -- UI component
-- API route (if needed): `src/app/api/<feature>/route.ts` -- server endpoint
-- Types: Add to `src/types/index.ts`
-- Build: Add native dependencies to `external` array in `scripts/build-electron.mjs`
+**New Feature (with UI + Electron integration):**
+- Primary UI page: `Shrew/src/app/{route-name}/page.tsx`
+- React component: `Shrew/src/components/{ComponentName}.tsx`
+- Shared logic: `Shrew/src/lib/{module-name}.ts`
+- IPC types: Add to `IpcMessages` interface in `Shrew/src/types/index.ts`
+- IPC handlers: Add to `registerIpcHandlers()` in `Shrew/electron/main.ts`
+- Tests: `Shrew/src/__tests__/{module-name}.test.ts`
 
-**New UI Page:**
-- Page: `src/app/<route>/page.tsx`
-- Component: `src/components/<ComponentName>.tsx`
-- Must include `'use client'` directive if using hooks or Electron IPC
-- Load in BrowserWindow from `electron/main.ts` via `http://127.0.0.1:${serverPort}/<route>`
+**New Electron Window:**
+- Window manager class: `Shrew/electron/{window-name}.ts`
+- Follow pattern from `Shrew/electron/voice-bar.ts` (class with `show()`, `close()`, `send()`)
+- Create Next.js page for content: `Shrew/src/app/{route-name}/page.tsx`
+- Register in `Shrew/electron/main.ts` initialization
 
-**New Shared Library Module:**
-- Implementation: `src/lib/<module-name>.ts`
-- Types: `src/types/index.ts`
-- Accessible from both `electron/` and `src/app/` via `@/lib/<module-name>`
+**New API Route:**
+- Route handler: `Shrew/src/app/api/{route-name}/route.ts`
+- Export `GET` and/or `POST` named functions
+- Access shared state via `(globalThis as any).__shrewStore`
 
-**New IPC Channel:**
-- Define message type in `src/types/index.ts` under `IpcMessages` interface
-- Register handler in `registerIpcHandlers()` in `electron/main.ts`
-- Send from renderer via `ipcRenderer.send()` or `ipcRenderer.invoke()`
-- Push to renderer via `win.webContents.send()`
+**New Library Module:**
+- Implementation: `Shrew/src/lib/{module-name}.ts`
+- Access from Electron: Direct import (path `../src/lib/{module-name}`)
+- Access from Next.js API routes: Via `globalThis` bridge or direct import
+- Tests: `Shrew/src/__tests__/{module-name}.test.ts`
 
-**New Window Manager:**
-- Create class in `electron/<window-name>.ts` following `VoiceBarWindow` pattern
-- Accept `serverPort` in constructor
-- Implement `show()`, `close()`, `send()` methods
-- Instantiate in `electron/main.ts` initialization
+**New Type:**
+- Core types: `Shrew/src/types/index.ts`
+- Ambient declarations: `Shrew/src/types/declarations.d.ts`
 
-**New Test:**
-- Test file: `src/__tests__/<module-name>.test.ts`
-- Import via `@/lib/<module-name>` alias (configured in `jest.config.ts`)
+**Utilities:**
+- Shared helpers: `Shrew/src/lib/{utility-name}.ts`
+- Build scripts: `Shrew/scripts/{script-name}.mjs`
 
 ## Special Directories
 
 **`dist-electron/`:**
-- Purpose: Compiled Electron main process output
-- Generated: Yes (by `scripts/build-electron.mjs` via esbuild)
-- Committed: No (build artifact)
+- Purpose: esbuild output for compiled Electron main process
+- Generated: Yes (by `npm run build:electron`)
+- Committed: No (gitignored)
+- Output: Single `main.js` file (CJS bundle)
 
 **`.next/`:**
 - Purpose: Next.js build output including standalone server
-- Generated: Yes (by `next build`)
-- Committed: No (build artifact)
+- Generated: Yes (by `npm run build`)
+- Committed: No (gitignored)
+- Contains: `standalone/` server, `static/` assets
 
 **`release/`:**
-- Purpose: Electron Builder output (DMG, ZIP, .app bundles)
-- Generated: Yes (by `electron-builder`)
-- Committed: No (build artifact)
+- Purpose: Electron-builder packaging output (DMG, ZIP)
+- Generated: Yes (by `npm run electron:build`)
+- Committed: No
+- Contains: `mac-arm64/Shrew.app` and disk images
 
-**`electron/native/`:**
-- Purpose: Swift native modules compiled for macOS
-- Generated: Partially (`.build/` artifacts are generated, `Sources/` is committed)
-- Committed: Source files yes, build artifacts no
+**`electron/native/key-event-tap/.build/`:**
+- Purpose: Swift Package Manager build artifacts
+- Generated: Yes (by Swift build)
+- Committed: No
+- Contains: Compiled Swift objects and module cache
 
-**`resources/`:**
-- Purpose: Static resources bundled into the app
-- Generated: No
-- Committed: Yes (currently placeholder with `.gitkeep`)
-
-**Runtime Data Locations (not in repo):**
-- `~/Library/Application Support/Shrew/shrew.db` -- SQLite database
-- `~/Library/Application Support/Shrew/secure/anthropic-key.enc` -- Encrypted API key
-- `~/Library/Application Support/Shrew/models/sensevoice-small-int8.onnx` -- Voice model
-- `~/Library/Application Support/Shrew/settings.json` -- App settings
-- `~/Library/Application Support/Shrew/tmp/` -- Temporary audio recordings
+**User Data (runtime, not in repo):**
+- `~/Library/Application Support/Shrew/shrew.db` - SQLite database
+- `~/Library/Application Support/Shrew/secure/anthropic-key.enc` - Encrypted API key
+- `~/Library/Application Support/Shrew/models/sensevoice-small-int8.onnx` - Voice model
+- `~/Library/Application Support/Shrew/tmp/` - Temporary audio recordings
+- `~/Library/Application Support/Shrew/settings.json` - App settings
 
 ---
 

@@ -2,212 +2,196 @@
 
 **Analysis Date:** 2026-04-22
 
+## Language & Module Systems
+
+**Two code paths, two module systems:**
+- `src/` files (Next.js): ESM (`import`/`export`), TypeScript strict mode, ES2022 target
+- `electron/` files: Written in ESM TypeScript, compiled to CJS via esbuild (`format: 'cjs'` in `scripts/build-electron.mjs`)
+- Path alias `@/*` maps to `./src/*` in both `tsconfig.json` and esbuild alias config
+
 ## Naming Patterns
 
 **Files:**
-- `kebab-case` for all files: `voice-bar.ts`, `summary-popup.ts`, `claude-client.ts`, `keychain.ts`
-- Test files mirror source name with `.test.ts` suffix: `store.test.ts` for `store.ts`
-- React components use `PascalCase` filenames: `VoiceInput.tsx`, `SummaryPanel.tsx`, `Onboarding.tsx`
-- Type declaration files use `lowercase.d.ts`: `declarations.d.ts`
+- Library modules: `kebab-case` -- `claude-client.ts`, `keychain.ts`, `sherpa.ts`
+- Electron modules: `kebab-case` -- `voice-bar.ts`, `summary-popup.ts`, `shortcuts.ts`
+- React components: `PascalCase` -- `VoiceInput.tsx`, `StatusDot.tsx`, `SummaryPanel.tsx`, `Onboarding.tsx`
+- Test files: `kebab-case.test.ts` -- `store.test.ts`, `db.test.ts`
+- Types: Single `index.ts` barrel in `src/types/`
+- API routes: `route.ts` inside `src/app/api/<name>/route.ts`
+
+**Types & Interfaces:**
+- Union type literals for state enums: `type AppState = 'idle' | 'recording' | ...`
+- `PascalCase` for types and interfaces: `AppState`, `SdkSubState`, `ExecutionRecord`, `AppSettings`, `DotColor`
+- Interface suffix for callback contracts: `ClaudeCallbacks`, `IpcMessages`
+- `Record<X, Y>` for constant maps: `Record<DotColor, [number, number, number, number]>`, `Record<DotColor, string>`
+
+**Functions:**
+- `camelCase` for all functions: `insertExecution()`, `updateExecution()`, `getActiveExecution()`
+- Boolean getters use `is`/`has` prefix: `isLoaded`, `hasApiKey()`
+- Descriptive verb-noun naming: `loadApiKey()`, `saveApiKey()`, `deleteApiKey()`
 
 **Classes:**
-- `PascalCase` with descriptive noun: `ShrewStore`, `ShrewTray`, `VoiceBarWindow`, `SummaryPopupWindow`, `ShortcutManager`, `AudioRecorder`, `VoiceRecognizer`
-
-**Functions (exported):**
-- `camelCase` for utility/data functions: `initDb()`, `insertExecution()`, `updateExecution()`, `executeClaude()`, `saveApiKey()`, `loadApiKey()`
-- `camelCase` for private methods: `handleRightCommand()`, `updateTrayDot()`, `registerIpcHandlers()`
-- React components as `PascalCase` named exports: `export function VoiceInput(...)`, `export function SummaryPanel(...)`
+- `PascalCase` class names: `ShrewStore`, `VoiceRecognizer`, `AudioRecorder`, `ShrewTray`, `VoiceBarWindow`, `SummaryPopupWindow`, `ShortcutManager`
+- Private members prefixed with underscore: `_appState`, `_sdkSubState`, `_listeners`, `_isLoaded`
+- Public getters without underscore: `get appState()`, `get sdkSubState()`, `get dotColor()`
 
 **Variables:**
-- `camelCase` for locals and module-level state: `serverPort`, `currentAbortController`, `recordingProcess`
+- `camelCase` for local variables: `serverPort`, `nextServer`, `currentAbortController`
 - `SCREAMING_SNAKE_CASE` for constants: `VALID_TRANSITIONS`, `SCHEMA`
-- Private fields prefixed with underscore: `_appState`, `_sdkSubState`, `_listeners`, `_isLoaded`
-
-**Types:**
-- `PascalCase` type aliases: `AppState`, `SdkSubState`, `DotColor`, `RightCommandAction`
-- `PascalCase` interfaces: `ExecutionRecord`, `AppSettings`, `IpcMessages`, `ClaudeExecutionResult`, `ClaudeCallbacks`
-- Type parameters use descriptive names: not observed (no generics in codebase)
+- Module-level single-instance variables use simple names: `db`, `store`, `tray`, `recorder`
 
 ## Code Style
 
 **Formatting:**
-- No formatter config detected (no `.prettierrc`, `biome.json`, or `eslint` config)
-- 2-space indentation throughout
+- No formatter config detected (no `.prettierrc`, no `eslint`, no `biome.json`)
+- 2-space indentation used consistently throughout
 - Single quotes for strings
-- Semicolons used consistently
+- Semicolons used
 - Trailing commas in multi-line objects/arrays
 
-**Linting:**
-- No ESLint or Biome configuration detected
-- TypeScript `strict: true` in `tsconfig.json` provides compile-time type checking
-- `skipLibCheck: true` skips type checking of declaration files
-
-**Module Systems (dual):**
-- `electron/` modules: CJS (compiled by esbuild with `format: 'cjs'` in `scripts/build-electron.mjs`)
-- `src/` modules: ESM (Next.js handles bundling; `"module": "esnext"` in `tsconfig.json`)
-- Path alias `@/*` maps to `./src/*` in both `tsconfig.json` and esbuild alias config
+**TypeScript Configuration:**
+- Strict mode enabled (`"strict": true` in `tsconfig.json`)
+- ES2022 target
+- `moduleResolution: "bundler"`
+- JSX: `"preserve"` (Next.js handles transform)
+- `noEmit: true` for Next.js path; `noEmit: false` for electron build
 
 ## Import Organization
 
-**Order (Electron main process):**
-1. Electron APIs: `import { app, BrowserWindow, ipcMain } from 'electron';`
-2. Node.js built-ins: `import path from 'path';`, `import fs from 'fs';`
-3. External packages: `import Database from 'better-sqlite3';`
-4. Local modules (relative): `import { ShrewTray } from './tray';`
-5. Shared modules (path alias): `import { ShrewStore } from '../src/lib/store';`
-6. Type-only imports: `import type { ExecutionRecord, AppSettings, DotColor } from '../src/types';`
-
-**Order (Next.js / React):**
-1. React: `import { useState, useEffect, useRef, useCallback } from 'react';`
-2. External packages: `import Database from 'better-sqlite3';`
-3. Path alias imports: `import type { AppState, SdkSubState } from '@/types';`
-4. Relative imports: `import { StatusDot } from './StatusDot';`
+**Order (observed pattern in `electron/main.ts` and others):**
+1. External packages: `electron`, `path`, `fs`, `child_process`, `crypto`
+2. Internal modules from `electron/`: `./tray`, `./voice-bar`, `./shortcuts`
+3. Cross-boundary internal from `../src/`: `../src/lib/store`, `../src/lib/db`, `../src/types`
+4. Type-only imports use `import type`: `import type { AppState, SdkSubState } from '@/types'`
 
 **Path Aliases:**
-- `@/*` -> `./src/*` (configured in `tsconfig.json` and `scripts/build-electron.mjs`)
-- Electron modules use relative paths to `../src/` to access shared code
+- `@/*` maps to `./src/*` -- used in Next.js pages and lib files
+- Cross-boundary imports from `electron/` to `src/` use relative paths: `../src/lib/store`, `../src/types`
+- Dynamic `import()` used for native modules to handle lazy loading: `await import('sherpa-onnx-node')`, `await import('@anthropic-ai/claude-agent-sdk')`
 
 ## Error Handling
 
 **Patterns:**
-- **State machine guard:** Invalid state transitions are silently ignored (no throw):
-  ```typescript
-  // src/lib/store.ts
-  transition(newState: AppState): void {
-    const allowed = VALID_TRANSITIONS[this._appState];
-    if (!allowed.includes(newState)) return; // silent guard
-  }
-  ```
+- Synchronous functions throw directly: `throw new Error('Recognizer not loaded')` in `src/lib/sherpa.ts`
+- Async functions use try/catch with typed error casting: `catch (error) { ... (error as Error).message }`
+- IPC handlers catch and propagate errors via IPC channels: `voice:error` with `{ message: string }`
+- API routes use `NextResponse.json({ error: ... }, { status: ... })` pattern
+- Empty catch blocks used sparingly for non-critical cleanup: `try { fs.unlinkSync(filePath); } catch {}` in `electron/recorder.ts`
+- Guard clauses at function entry: `if (!this.recognizer) throw new Error(...)`, `if (fields.length === 0) return`
 
-- **Promise chains with catch:** Error flows through `.catch()` to state machine:
-  ```typescript
-  // electron/main.ts
-  recorder.stopRecording().then(...).catch(err => {
-    voiceBar.send('voice:error', { message: err.message });
-    store.transition('error');
-    store.transition('idle');
-  });
-  ```
-
-- **Try/catch with re-throw:** Native module failures re-throw with context:
-  ```typescript
-  // src/lib/sherpa.ts
-  } catch (error) {
-    throw new Error(`Failed to load voice model: ${(error as Error).message}`);
-  }
-  ```
-
-- **Empty catch blocks:** Used deliberately for non-critical cleanup:
-  ```typescript
-  try { fs.unlinkSync(filePath); } catch {}
-  ```
-
-- **API route error handling:** Returns JSON with appropriate HTTP status:
-  ```typescript
-  // src/app/api/chat/route.ts
-  return NextResponse.json({ error: (error as Error).message }, { status: 500 });
-  ```
-
-- **Type assertions for error access:** `(error as Error).message` pattern used consistently
+**Error propagation flow:**
+1. Native/SDK errors caught in `executeClaude()` (`src/lib/claude-client.ts`)
+2. Passed to `callbacks.onError()` which logs via `console.error`
+3. Status set to `'failed'` in store state machine
+4. Tray dot turns red for visual feedback
 
 ## Logging
 
-**Framework:** `console` only (no logging library)
+**Framework:** Console (`console.log`, `console.error`)
 
 **Patterns:**
-- `console.log` for informational output with prefix: `console.log('[next-server]', msg.trim());`
-- `console.error` for errors: `console.error('Failed to start Next.js server:', err);`
-- Logging is confined to `electron/main.ts` and `electron/shortcuts.ts` only
-- No logging in shared `src/lib/` modules or React components
+- Prefixed log messages for subsystems: `console.log('[next-server]', msg.trim())` in `electron/main.ts`
+- Error logging at catch sites: `console.error('Claude execution error:', error)`
+- No structured logging library or log levels
 
 ## Comments
 
-**When to Comment:**
-- Module-level comments explain the runtime context:
-  ```typescript
-  // src/lib/keychain.ts
-  // 注意：此文件在 Electron main process 中使用
-  // safeStorage 在 renderer 中不可用
-  ```
-- Inline comments explain non-obvious decisions:
-  ```typescript
-  // electron/main.ts
-  // 超时保护：5秒后如果还没 Ready 就 resolve
-  // 语音模型延迟加载：应用启动时不加载，首次使用语音时才加载
-  ```
-- Chinese language used for user-facing strings and comments describing behavior
-- Technical terms kept in English (e.g., "AbortController", "IPC")
+**Language:** Code comments are written in Chinese (Simplified) throughout:
+- `// 全局状态` (global state)
+- `// 使用 macOS 的 afrecord 或 sox 录音` (use macOS afrecord or sox for recording)
+- `// 回调，由 main.ts 注入` (callbacks injected by main.ts)
 
-**JSDoc/TSDoc:**
-- Not used. The codebase relies on TypeScript types for documentation.
-- Function signatures with typed parameters serve as self-documentation.
+**When to Comment:**
+- Section separators with `//` comments for function grouping: `// IPC Handlers`, `// 启动应用`
+- Inline explanations for non-obvious decisions: `// MVP 用 child_process 调用系统录音工具`
+- Module-level comments for cross-boundary notes: `// 注意：此文件在 Electron main process 中使用` in `src/lib/keychain.ts`
+
+**No JSDoc/TSDoc:** No doc comments observed on functions, classes, or types.
 
 ## Function Design
 
-**Size:** Functions vary from 1-liners to ~80 lines. The longest function is `executeClaude()` at ~100 lines (`src/lib/claude-client.ts`), followed by `handleRightCommand()` at ~50 lines (`electron/main.ts`).
+**Size:** Functions range from 3-50 lines. The largest function is `executeClaude()` at ~90 lines in `src/lib/claude-client.ts`.
 
 **Parameters:**
-- Object parameters for multi-arg functions: `insertExecution(db, { cwd, user_prompt, sdk_session_id? })`
-- Callback objects for event-driven patterns: `executeClaude(prompt, cwd, apiKey, { onSubState, onError }, abortSignal?)`
-- Database connection passed as first argument to all DB functions (not stored globally)
+- Object parameters for functions with 3+ args: `insertExecution(db, { cwd, user_prompt })`, `updateExecution(db, id, { status, summary, ... })`
+- `Partial<Pick<...>>` for update patterns: `Partial<Pick<ExecutionRecord, 'status' | 'summary' | ...>>`
+- Callback interfaces for async communication: `ClaudeCallbacks { onSubState, onError }`
 
 **Return Values:**
-- Synchronous functions return directly or `void`
-- Async functions return `Promise<T>` where T is a specific interface (e.g., `ClaudeExecutionResult`)
-- Null for optional results: `getActiveExecution()` returns `ExecutionRecord | null`
-- Functions that create resources return the ID: `insertExecution()` returns `string`
+- `void` for state-mutating functions that notify listeners
+- Result interfaces for async operations: `ClaudeExecutionResult`
+- `null` for optional returns: `loadApiKey(): string | null`, `getActiveExecution(): ExecutionRecord | null`
+- Unsubscribe pattern for listeners: `onChange(callback): () => void`
 
 ## Module Design
 
 **Exports:**
-- Named exports only (no default exports in library code)
-- React page components use `export default function PageName()` (Next.js convention)
-- Shared components use named exports: `export function VoiceInput(...)`
-- One export per file for classes; multiple for utility function files
+- Named exports exclusively -- no default exports in lib files
+- React components use named exports: `export function VoiceInput(...)`, `export function SummaryPanel(...)`
+- Page-level components use default exports (Next.js requirement): `export default function VoiceBarPage()`
+- Electron classes use named exports: `export class ShrewTray`, `export class AudioRecorder`
 
 **Barrel Files:**
-- Not used. No `index.ts` re-export files in any directory.
-- Import directly from the module file: `import { ShrewStore } from '@/lib/store'`
+- Types consolidated in `src/types/index.ts` -- single import point for all shared types
+- No barrel files for lib or components -- direct imports from individual files
 
-**Class vs Function Pattern:**
-- Classes for stateful/stateful-singleton objects: `ShrewStore`, `ShrewTray`, `VoiceBarWindow`, `AudioRecorder`, `VoiceRecognizer`, `ShortcutManager`
-- Functions for stateless operations: DB operations (`insertExecution`, `updateExecution`), keychain operations (`saveApiKey`, `loadApiKey`), SDK wrapper (`executeClaude`)
+**Class pattern (Electron modules):**
+- Each electron module is a single class in a single file
+- Constructor sets up configuration, `show()`/`close()` lifecycle methods
+- Optional callback properties for event injection: `onPopupRequested?: () => void`
+- Null-safety pattern: `if (this.win && !this.win.isDestroyed())` before every window operation
 
-## React Patterns
+**Data layer pattern (`src/lib/db.ts`):**
+- Pure functions that accept a `Database` instance as first argument
+- No module-level database connection -- always passed in
+- SQL strings inline in functions, schema as module-level `SCHEMA` constant
+- `as` type assertions for query results: `.get() as ExecutionRecord`
 
-**Component Style:**
-- Function components only (no class components)
-- `'use client'` directive on all interactive components and pages
-- Inline styles throughout (no CSS modules, no Tailwind, no styled-components)
-- Style objects defined as module-level constants for reuse: `const stepStyle: React.CSSProperties = { ... }`
+## React Component Conventions
 
-**State Management:**
-- `useState` for local component state
-- `useEffect` for IPC listener registration with cleanup
-- `useRef` for DOM references
-- `useCallback` for memoized handlers passed as props
-- No global state library; Electron IPC is the cross-window state mechanism
+**Directive:** All pages and components that use hooks or IPC start with `'use client'`
 
-**IPC in React:**
-- Direct `require('electron').ipcRenderer` inside `useEffect` or event handlers
-- No preload script / contextBridge pattern (nodeIntegration enabled, contextIsolation disabled)
-- Type-safe channel names defined in `src/types/index.ts` (`IpcMessages` interface) but not enforced at IPC call sites
+**State management:**
+- Local `useState` only -- no global state library
+- IPC via `require('electron').ipcRenderer` directly in components (no abstraction layer)
+- Type unions for finite states: `type Step = 'welcome' | 'accessibility' | ...`
 
-## TypeScript Conventions
+**Styling:**
+- Inline styles exclusively -- no CSS modules, no Tailwind, no styled-components
+- `React.CSSProperties` typed style objects for reusable styles: `const stepStyle: React.CSSProperties = {...}`
+- Apple system font: `fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif'`
+- CSS-in-JS animation via `<style>` tags: `<style>{`@keyframes pulse { ... }`}</style>`
 
-**Strictness:**
-- `strict: true` enabled (includes `strictNullChecks`, `noImplicitAny`, etc.)
-- Type-only imports use `import type` syntax consistently
-- Generic `any` used sparingly, mainly for Electron SDK interop:
-  ```typescript
-  (globalThis as any).__shrewStore = store;
-  (srv.address() as any).port
-  ```
+**Component structure:**
+- Helper components defined in same file: `RecordingPulse` and `Spinner` in `VoiceInput.tsx`
+- Props interfaces defined inline: `type VoiceInputProps = { onSend: ...; onCancel: ... }`
+- `useCallback` for event handlers that are dependencies of other hooks
 
-**Type Organization:**
-- All shared types in `src/types/index.ts`
-- Module-specific types defined inline (e.g., `ClaudeCallbacks`, `ClaudeExecutionResult` in `claude-client.ts`)
-- Ambient declarations for untyped packages in `src/types/declarations.d.ts`
+## IPC Convention
+
+**Channel naming:** `domain:action` pattern
+- `voice:send`, `voice:cancel`, `voice:ready` (voice-bar to main)
+- `voice:start-recording`, `voice:transcript` (main to voice-bar)
+- `state:app-state`, `state:sdk-substate` (state updates)
+- `summary:update`, `summary:ready`
+- `settings:load`, `settings:save`, `settings:save-api-key`, `settings:pick-directory`
+- `onboarding:check-accessibility`, `onboarding:download-model`, etc.
+
+**Types defined centrally:** `IpcMessages` interface in `src/types/index.ts` documents all channels
+
+**Communication pattern:**
+- `ipcMain.on()` for fire-and-forget messages (voice:send, voice:cancel)
+- `ipcMain.handle()` for request-response (settings:load, onboarding:validate-api-key)
+- `webContents.send()` for main-to-renderer pushes (voice:transcript, summary:update)
+
+## Cross-Boundary Sharing
+
+**Electron to Next.js sharing via `globalThis`:**
+- `(globalThis as any).__shrewStore = store` in `electron/main.ts`
+- `(globalThis as any).__shrewExecutor = { execute: executePrompt }`
+- Accessed in API routes: `const store = (globalThis as any).__shrewStore`
+
+**Shared types:** `src/types/index.ts` imported by both electron and Next.js code
 
 ---
 
