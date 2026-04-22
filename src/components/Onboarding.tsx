@@ -48,7 +48,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     onComplete();
   };
 
-  const steps: Record<Step, JSX.Element> = {
+  const steps: Record<Step, React.ReactNode> = {
     welcome: (
       <OnboardingStep
         title="欢迎使用 Shrew"

@@ -17,9 +17,8 @@ export default function VoiceBarPage() {
     <html lang="zh-CN">
       <body style={{
         margin: 0,
-        background: 'transparent',
+        background: 'transparent' as const,
         overflow: 'hidden',
-        WebkitAppRegion: 'no-drag',
       }}>
         <div style={{
           display: 'flex',

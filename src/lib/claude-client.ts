@@ -72,24 +72,30 @@ export async function executeClaude(
           break;
 
         case 'tool_use_summary':
-          // Intermediate progress summary, no state change
           break;
 
-        case 'status':
-          if ('status' in message && message.status === 'compacting') {
+        case 'system':
+          if ('subtype' in message && message.subtype === 'status' && message.status === 'compacting') {
             callbacks.onSubState('compacting');
           }
           break;
 
         case 'result':
-          summary = message.result || '';
-          if ('total_cost_usd' in message) costUsd = message.total_cost_usd as number;
-          if ('duration_ms' in message) durationMs = message.duration_ms as number;
-          if ('num_turns' in message) numTurns = message.num_turns as number;
-          if ('session_id' in message) sdkSessionId = message.session_id as string ?? sdkSessionId;
-          if (message.subtype === 'error_during_execution') {
+          if (message.subtype === 'success') {
+            const success = message as any;
+            summary = success.result || '';
+            costUsd = success.total_cost_usd;
+            durationMs = success.duration_ms;
+            numTurns = success.num_turns;
+            sdkSessionId = success.session_id ?? sdkSessionId;
+          } else {
+            const err = message as any;
             status = 'failed';
-            errorMsg = message.result;
+            errorMsg = err.errors?.[0] || 'Execution failed';
+            durationMs = err.duration_ms;
+            numTurns = err.num_turns;
+            costUsd = err.total_cost_usd;
+            sdkSessionId = err.session_id ?? sdkSessionId;
           }
           break;
 
