@@ -1,0 +1,24 @@
+appId: com.shrew.app
+productName: Shrew
+directories:
+  output: release
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  minimumSystemVersion: "13.0.0"
+asarUnpack:
+  - "**/*.node"
+  - "**/*.dylib"
+extraResources:
+  - from: "electron/native/key-event-tap/build/Release/"
+    to: "native/"
+files:
+  - "dist-electron/**/*"
+  - ".next/standalone/**/*"
+  - ".next/static/**/*"
+  - "public/**/*"
+  - "!node_modules/**/*"
