@@ -56,7 +56,7 @@ export function updateExecution(
 }
 
 export function getActiveExecution(db: Database.Database): ExecutionRecord | null {
-  return db.prepare(`SELECT * FROM execution_history WHERE status = 'running' ORDER BY created_at DESC LIMIT 1`).get() as ExecutionRecord | null;
+  return db.prepare(`SELECT * FROM execution_history WHERE status = 'running' ORDER BY created_at DESC LIMIT 1`).get() ?? null;
 }
 
 export function getRecentExecutions(db: Database.Database, limit: number): ExecutionRecord[] {
@@ -64,5 +64,5 @@ export function getRecentExecutions(db: Database.Database, limit: number): Execu
 }
 
 export function getExecutionById(db: Database.Database, id: string): ExecutionRecord | null {
-  return db.prepare(`SELECT * FROM execution_history WHERE id = ?`).get(id) as ExecutionRecord | null;
+  return db.prepare(`SELECT * FROM execution_history WHERE id = ?`).get(id) ?? null;
 }

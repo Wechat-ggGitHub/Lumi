@@ -62,15 +62,18 @@ test('updateExecution marks completion', () => {
 });
 
 test('getRecentExecutions returns ordered by created_at desc', () => {
+  const baseTime = new Date('2026-01-01T00:00:00Z');
   for (let i = 0; i < 5; i++) {
     const id = insertExecution(db, {
       cwd: '/Users/test',
       user_prompt: `指令 ${i}`,
     });
-    updateExecution(db, id, { status: 'completed', completed_at: new Date().toISOString() });
+    const time = new Date(baseTime.getTime() + i * 1000).toISOString();
+    db.prepare(`UPDATE execution_history SET status = 'completed', created_at = ? WHERE id = ?`).run(time, id);
   }
 
   const recent = getRecentExecutions(db, 3);
   expect(recent.length).toBe(3);
-  expect(new Date(recent[0].created_at) > new Date(recent[2].created_at)).toBe(true);
+  expect(recent[0].user_prompt).toBe('指令 4');
+  expect(recent[2].user_prompt).toBe('指令 2');
 });
