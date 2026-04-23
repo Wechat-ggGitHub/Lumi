@@ -554,8 +554,10 @@ app.whenReady().then(async () => {
     shortcutManager.start(() => handleRightCommand());
   }
 
-  // 初始化录音器
+  // 初始化录音器并预创建 voice-bar 窗口
   recorder = new AudioRecorder();
+  voiceBar.preCreate();
+  recorder.setWindow(voiceBar.getWindow()!);
 
   // 注册 IPC
   registerIpcHandlers();
@@ -610,6 +612,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   shortcutManager?.stop();
+  voiceBar?.destroy();
   db?.close();
   if (nextServer) {
     nextServer.kill();
