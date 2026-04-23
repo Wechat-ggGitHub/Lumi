@@ -18,7 +18,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sherpa-onnx-node": "^1.10.0",
-    "uiohook-napi": "^1.5.5"
+    "uiohook-napi": "^1.5.5",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
@@ -26,6 +27,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "@types/ws": "^8.18.1",
     "concurrently": "^9.0.0",
     "electron": "^35.0.0",
     "electron-builder": "^25.0.0",
