@@ -2,18 +2,31 @@ import { systemPreferences, ipcMain, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { VoiceRecognizer } from '../src/lib/sherpa';
+import { DoubaoASR } from '../src/lib/doubao-asr';
 import { createWavBuffer } from '../src/lib/wav-writer';
+
+interface VolcengineCredentials {
+  appId: string;
+  accessToken: string;
+}
 
 export class AudioRecorder {
   private win: BrowserWindow | null = null;
   private tmpDir: string;
-  private recognizer: VoiceRecognizer;
+  private asr: DoubaoASR;
+  private hasCredentials: boolean;
 
-  constructor() {
+  constructor(credentials?: VolcengineCredentials | null) {
     this.tmpDir = path.join(app.getPath('userData'), 'tmp');
     if (!fs.existsSync(this.tmpDir)) fs.mkdirSync(this.tmpDir, { recursive: true });
-    this.recognizer = new VoiceRecognizer();
+
+    if (credentials?.appId && credentials?.accessToken) {
+      this.asr = new DoubaoASR(credentials.appId, credentials.accessToken);
+      this.hasCredentials = true;
+    } else {
+      this.asr = new DoubaoASR('', '');
+      this.hasCredentials = false;
+    }
   }
 
   setWindow(win: BrowserWindow): void {
@@ -25,6 +38,15 @@ export class AudioRecorder {
   }
 
   async startRecording(): Promise<void> {
+    if (!this.win || this.win.isDestroyed()) {
+      throw new Error('语音窗口不可用');
+    }
+
+    const granted = await systemPreferences.askForMediaAccess('microphone');
+    if (!granted) {
+      throw new Error('麦克风访问被拒绝，请在系统设置中允许麦克风权限');
+    }
+
     return new Promise((resolve, reject) => {
       if (!this.win || this.win.isDestroyed()) {
         return reject(new Error('语音窗口不可用'));
@@ -32,14 +54,16 @@ export class AudioRecorder {
 
       const timeout = setTimeout(() => {
         reject(new Error('录音启动超时'));
-      }, 5000);
+      }, 10000);
 
       ipcMain.once('voice:capture-started', (_event, success: boolean) => {
         clearTimeout(timeout);
+        console.log('[recorder] Received capture-started:', success);
         if (success) resolve();
         else reject(new Error('麦克风访问被拒绝，请在系统设置中允许麦克风权限'));
       });
 
+      console.log('[recorder] Sending voice:start-capture to window');
       this.win.webContents.send('voice:start-capture');
     });
   }
@@ -64,10 +88,8 @@ export class AudioRecorder {
   }
 
   async transcribe(audioPath?: string): Promise<string> {
-    if (!this.recognizer.isLoaded) {
-      console.log('[recorder] Loading voice model...');
-      await this.recognizer.load();
-      console.log('[recorder] Voice model loaded successfully');
+    if (!this.hasCredentials) {
+      throw new Error('请先在设置中配置火山引擎语音识别凭证');
     }
 
     const filePath = audioPath || '';
@@ -83,15 +105,11 @@ export class AudioRecorder {
       throw new Error('音频文件过小，可能录制失败');
     }
 
-    const text = await this.recognizer.transcribe(filePath);
+    const text = await this.asr.transcribe(filePath);
     console.log(`[recorder] Transcription result: "${text}" (length: ${text.length})`);
 
     try { fs.unlinkSync(filePath); } catch {}
 
     return text;
-  }
-
-  getRecognizer(): VoiceRecognizer {
-    return this.recognizer;
   }
 }
