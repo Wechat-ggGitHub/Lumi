@@ -34,14 +34,15 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
     const ipcRenderer = getIpcRenderer();
     if (!ipcRenderer) return;
 
-    const handlers: Record<string, (...args: unknown[]) => void> = {
-      'voice:transcript': (_: unknown, data: { text: string; isAppending: boolean }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handlers: Record<string, (...args: any[]) => void> = {
+      'voice:transcript': (_: any, data: { text: string; isAppending: boolean }) => {
         setText(prev => data.isAppending ? prev + data.text : data.text);
         setStatus('editing');
         textareaRef.current?.focus();
       },
       'voice:transcribing': () => setStatus('transcribing'),
-      'voice:error': (_: unknown, data: { message: string }) => {
+      'voice:error': (_: any, data: { message: string }) => {
         if (statusRef.current === 'recording' || statusRef.current === 'transcribing') {
           setErrorMessage(data.message);
           setStatus('error');
