@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { AudioCapture } from '@/lib/audio-capture';
 
 type VoiceInputProps = {
   onSend: (text: string) => void;
@@ -16,20 +17,30 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
   const statusRef = useRef(status);
   statusRef.current = status;
 
+  const audioCaptureRef = useRef<AudioCapture | null>(null);
+
+  // Initialize AudioCapture once
+  useEffect(() => {
+    audioCaptureRef.current = new AudioCapture();
+    return () => {
+      audioCaptureRef.current?.close();
+      audioCaptureRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const ipcRenderer = getIpcRenderer();
     if (!ipcRenderer) return;
 
-    const handlers = {
+    const handlers: Record<string, (...args: unknown[]) => void> = {
       'voice:transcript': (_: unknown, data: { text: string; isAppending: boolean }) => {
         setText(prev => data.isAppending ? prev + data.text : data.text);
         setStatus('editing');
         textareaRef.current?.focus();
       },
       'voice:transcribing': () => setStatus('transcribing'),
-      'voice:start-recording': () => setStatus('recording'),
       'voice:error': (_: unknown, data: { message: string }) => {
         if (statusRef.current === 'recording' || statusRef.current === 'transcribing') {
           setErrorMessage(data.message);
@@ -37,6 +48,21 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
           setTimeout(() => onCancel(), 2000);
         } else {
           setText(prev => prev + `\n[错误: ${data.message}]`);
+        }
+      },
+      'voice:start-capture': async () => {
+        setStatus('recording');
+        try {
+          await audioCaptureRef.current?.start();
+          ipcRenderer.send('voice:capture-started', true);
+        } catch {
+          ipcRenderer.send('voice:capture-started', false);
+        }
+      },
+      'voice:stop-capture': () => {
+        const result = audioCaptureRef.current?.stop();
+        if (result) {
+          ipcRenderer.send('voice:audio-data', result);
         }
       },
     };

@@ -67,6 +67,12 @@ export interface IpcMessages {
   'voice:transcribing': void;
   'voice:error': { message: string };
 
+  // voice-bar <-> main (audio capture)
+  'voice:start-capture': void;
+  'voice:stop-capture': void;
+  'voice:capture-started': boolean;
+  'voice:audio-data': { samples: Float32Array; sampleRate: number };
+
   // main -> summary-popup
   'summary:update': { execution: ExecutionRecord | null; history: ExecutionRecord[] };
 
