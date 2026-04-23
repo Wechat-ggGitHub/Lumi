@@ -1,37 +1,31 @@
 'use client';
 
 import { VoiceInput } from '@/components/VoiceInput';
+import { getIpcRenderer } from '@/lib/electron-ipc';
 
 export default function VoiceBarPage() {
   const handleSend = (text: string) => {
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('voice:send', { text });
+    getIpcRenderer()?.send('voice:send', { text });
   };
 
   const handleCancel = () => {
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('voice:cancel');
+    getIpcRenderer()?.send('voice:cancel');
   };
 
   return (
-    <html lang="zh-CN">
-      <body style={{
-        margin: 0,
-        background: 'transparent' as const,
-        overflow: 'hidden',
+    <>
+      <style>{`html, body { background: transparent !important; overflow: hidden !important; }`}</style>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        padding: '0 20px',
       }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          padding: '0 20px',
-        }}>
-          <div style={{ width: 600, maxWidth: '100%' }}>
-            <VoiceInput onSend={handleSend} onCancel={handleCancel} />
-          </div>
+        <div style={{ width: 600, maxWidth: '100%' }}>
+          <VoiceInput onSend={handleSend} onCancel={handleCancel} />
         </div>
-      </body>
-    </html>
+      </div>
+    </>
   );
 }

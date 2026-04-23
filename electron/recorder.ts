@@ -2,6 +2,7 @@ import { systemPreferences } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
+import { spawn } from 'child_process';
 import { VoiceRecognizer } from '../src/lib/sherpa';
 
 export class AudioRecorder {
@@ -20,28 +21,63 @@ export class AudioRecorder {
     return systemPreferences.askForMediaAccess('microphone');
   }
 
-  async startRecording(): Promise<void> {
-    // 使用 macOS 的 afrecord 或 sox 录音
-    // MVP 用 child_process 调用系统录音工具
-    const { spawn } = await import('child_process');
+  static checkRecordingAvailable(): boolean {
+    try {
+      const result = require('child_process').spawnSync('ffmpeg', ['-version'], { timeout: 3000 });
+      return result.status === 0;
+    } catch {
+      return false;
+    }
+  }
 
+  async startRecording(): Promise<void> {
     this.outputPath = path.join(
       path.dirname(this.outputPath),
       `recording-${Date.now()}.wav`
     );
 
-    // 使用 macOS 内置的 afrecord（无额外依赖）
-    this.recordingProcess = spawn('afrecord', [
-      '-f', 'WAVE',
-      '-r', '16000',
-      '-c', '1',
+    this.recordingProcess = spawn('ffmpeg', [
+      '-loglevel', 'error',
+      '-f', 'avfoundation',
+      '-i', ':0',
+      '-acodec', 'pcm_s16le',
+      '-ar', '16000',
+      '-ac', '1',
+      '-y',
       this.outputPath,
-    ]);
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
     return new Promise((resolve, reject) => {
-      this.recordingProcess!.on('error', (err) => reject(err));
-      // 录音开始后立即 resolve（不等待结束）
-      setTimeout(() => resolve(), 100);
+      let settled = false;
+
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        fn();
+      };
+
+      this.recordingProcess!.on('error', (err) => {
+        settle(() => reject(new Error(`录音启动失败，请确保已安装 ffmpeg: ${err.message}`)));
+      });
+
+      this.recordingProcess!.on('exit', (code) => {
+        if (code !== 0 && code !== null) {
+          settle(() => reject(new Error(`录音进程异常退出 (code: ${code})`)));
+        }
+      });
+
+      // ffmpeg 启动需要一点时间初始化 avfoundation
+      setTimeout(() => {
+        settle(() => {
+          if (this.recordingProcess && !this.recordingProcess.killed) {
+            resolve();
+          } else {
+            reject(new Error('录音启动失败'));
+          }
+        });
+      }, 800);
     });
   }
 
@@ -52,24 +88,40 @@ export class AudioRecorder {
         return;
       }
 
-      // 发送 SIGINT 停止录音
-      this.recordingProcess.kill('SIGINT');
+      try {
+        this.recordingProcess.stdin.write('q');
+      } catch {
+        this.recordingProcess.kill('SIGINT');
+      }
       this.recordingProcess = null;
 
-      // 等待文件写入完成
-      setTimeout(() => resolve(this.outputPath), 200);
+      setTimeout(() => resolve(this.outputPath), 500);
     });
   }
 
   async transcribe(audioPath?: string): Promise<string> {
     if (!this.recognizer.isLoaded) {
+      console.log('[recorder] Loading voice model...');
       await this.recognizer.load();
+      console.log('[recorder] Voice model loaded successfully');
     }
 
     const filePath = audioPath || this.outputPath;
-    const text = await this.recognizer.transcribe(filePath);
 
-    // 清理临时文件
+    if (!fs.existsSync(filePath)) {
+      console.error('[recorder] Audio file not found:', filePath);
+      throw new Error('音频文件不存在');
+    }
+
+    const stat = fs.statSync(filePath);
+    console.log(`[recorder] Audio file: ${filePath} (${stat.size} bytes)`);
+    if (stat.size < 44) {
+      throw new Error('音频文件过小，可能录制失败');
+    }
+
+    const text = await this.recognizer.transcribe(filePath);
+    console.log(`[recorder] Transcription result: "${text}" (length: ${text.length})`);
+
     try { fs.unlinkSync(filePath); } catch {}
 
     return text;

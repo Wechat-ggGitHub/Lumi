@@ -4,6 +4,7 @@ directories:
   output: release
 mac:
   category: public.app-category.developer-tools
+  icon: resources/icon.png
   target:
     - dmg
     - zip
@@ -13,12 +14,18 @@ mac:
 asarUnpack:
   - "**/*.node"
   - "**/*.dylib"
+  - "**/*.so"
 extraResources:
-  - from: "electron/native/key-event-tap/build/Release/"
-    to: "native/"
+  - from: ".next/standalone"
+    to: ".next/standalone"
+  - from: ".next/static"
+    to: ".next/standalone/.next/static"
+  - from: "public"
+    to: ".next/standalone/public"
 files:
   - "dist-electron/**/*"
-  - ".next/standalone/**/*"
-  - ".next/static/**/*"
-  - "public/**/*"
-  - "!node_modules/**/*"
+  - "node_modules/better-sqlite3/**/*"
+  - "node_modules/uiohook-napi/**/*"
+  - "node_modules/sherpa-onnx-node/**/*"
+  - "node_modules/sherpa-onnx-darwin-arm64/**/*"
+  - "node_modules/@anthropic-ai/**/*"

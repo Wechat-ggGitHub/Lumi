@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getIpcRenderer } from '@/lib/electron-ipc';
 
 type Step = 'welcome' | 'accessibility' | 'model-download' | 'api-key' | 'cwd' | 'done';
 
@@ -11,7 +12,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [error, setError] = useState('');
 
-  const ipcRenderer = typeof window !== 'undefined' ? require('electron').ipcRenderer : null;
+  const ipcRenderer = getIpcRenderer();
 
   const checkAccessibility = async () => {
     const granted = await ipcRenderer?.invoke('onboarding:check-accessibility');
@@ -20,12 +21,15 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const startDownload = async () => {
     setError('');
+    setDownloadProgress(0);
+    const progressHandler = (_: any, p: number) => setDownloadProgress(p);
+    ipcRenderer?.on('onboarding:download-progress', progressHandler);
     try {
-      await ipcRenderer?.invoke('onboarding:download-model', {
-        onProgress: (p: number) => setDownloadProgress(p),
-      });
+      await ipcRenderer?.invoke('onboarding:download-model');
+      ipcRenderer?.removeListener('onboarding:download-progress', progressHandler);
       setStep('api-key');
     } catch (e: any) {
+      ipcRenderer?.removeAllListeners('onboarding:download-progress');
       setError(e.message);
     }
   };
@@ -35,9 +39,9 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const validateApiKey = async () => {
     setError('');
     try {
-      await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim() });
+      await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim(), providerKey: 'glm-cn' });
       setStep('cwd');
-    } catch (e: any) {
+    } catch {
       setError('API Key 验证失败，请检查后重试');
     }
   };
@@ -97,12 +101,12 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     'api-key': (
       <div style={stepStyle}>
         <h2 style={titleStyle}>API Key</h2>
-        <p style={descStyle}>需要 Anthropic API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
+        <p style={descStyle}>需要 GLM API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
         <input
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
-          placeholder="sk-ant-..."
+          placeholder="从 open.bigmodel.cn 获取您的 API Key"
           style={{ ...inputStyle, marginBottom: 12 }}
         />
         {error && <p style={{ color: '#FF453A', fontSize: 13, marginBottom: 8 }}>{error}</p>}

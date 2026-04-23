@@ -1,20 +1,23 @@
 import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { spawn, ChildProcess } from 'child_process';
 import { ShrewTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
 import { SummaryPopupWindow } from './summary-popup';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution } from '../src/lib/db';
-import { saveApiKey, loadApiKey, hasApiKey } from '../src/lib/keychain';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById } from '../src/lib/db';
+import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile } from '../src/lib/keychain';
+import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import type { ExecutionRecord, AppSettings, DotColor } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
 
+const isDev = !app.isPackaged;
 const userDataDir = app.getPath('userData');
 const settingsPath = path.join(userDataDir, 'settings.json');
 const dbPath = path.join(userDataDir, 'shrew.db');
@@ -28,7 +31,100 @@ let shortcutManager: ShortcutManager;
 let recorder: AudioRecorder;
 let mainWindow: BrowserWindow | null = null;
 let serverPort = 3000;
+let nextServer: ChildProcess | null = null;
 let currentAbortController: AbortController | null = null;
+let detailWindow: BrowserWindow | null = null;
+
+// 启动 Next.js standalone 服务器（生产模式）
+function startNextServer(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const standaloneDir = path.join(process.resourcesPath, '.next', 'standalone');
+    const serverScript = path.join(standaloneDir, 'server.js');
+
+    if (!fs.existsSync(serverScript)) {
+      reject(new Error(`Standalone server not found at ${serverScript}`));
+      return;
+    }
+
+    // 找一个可用端口
+    const net = require('net');
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const port = (srv.address() as any).port;
+      srv.close(() => {
+        serverPort = port;
+
+        const env = {
+          ...process.env,
+          ELECTRON_RUN_AS_NODE: '1',
+          PORT: String(port),
+          HOSTNAME: '127.0.0.1',
+        };
+
+        nextServer = spawn(process.execPath, [serverScript], {
+          cwd: standaloneDir,
+          env,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        nextServer.stdout?.on('data', (data: Buffer) => {
+          const msg = data.toString();
+          console.log('[next-server]', msg.trim());
+          if (msg.includes('Ready') || msg.includes('started')) {
+            resolve(port);
+          }
+        });
+
+        nextServer.stderr?.on('data', (data: Buffer) => {
+          console.error('[next-server]', data.toString().trim());
+        });
+
+        nextServer.on('error', (err) => {
+          console.error('Failed to start Next.js server:', err);
+          reject(err);
+        });
+
+        nextServer.on('exit', (code) => {
+          console.log(`Next.js server exited with code ${code}`);
+          nextServer = null;
+        });
+
+        // 超时保护：5秒后如果还没 Ready 就 resolve（可能已经 Ready 了只是输出格式不同）
+        setTimeout(() => resolve(port), 5000);
+      });
+    });
+  });
+}
+
+// 等待服务器响应
+function waitForServer(port: number, maxRetries = 20): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    let attempts = 0;
+    const check = () => {
+      attempts++;
+      const req = http.get(`http://127.0.0.1:${port}/api/health`, (res: any) => {
+        resolve();
+      });
+      req.on('error', () => {
+        if (attempts >= maxRetries) {
+          reject(new Error('Server health check timed out'));
+        } else {
+          setTimeout(check, 500);
+        }
+      });
+      req.setTimeout(2000, () => {
+        req.destroy();
+        if (attempts >= maxRetries) {
+          reject(new Error('Server health check timed out'));
+        } else {
+          setTimeout(check, 500);
+        }
+      });
+    };
+    check();
+  });
+}
 
 function loadSettings(): AppSettings {
   try {
@@ -43,6 +139,8 @@ function loadSettings(): AppSettings {
     defaultCwd: '~/Documents',
     vadTimeout: 2,
     theme: 'system',
+    provider: 'glm-cn',
+    modelPreset: 'opus',
   };
 }
 
@@ -71,7 +169,14 @@ function handleRightCommand(): void {
   switch (action) {
     case 'start-recording':
       voiceBar.show();
-      recorder.startRecording();
+      recorder.startRecording().catch(err => {
+        console.error('Recording start failed:', err);
+        if (store.appState === 'recording') {
+          voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
+          store.transition('idle');
+          updateTrayDot();
+        }
+      });
       store.transition('recording');
       updateTrayDot();
       break;
@@ -88,20 +193,28 @@ function handleRightCommand(): void {
           store.transition('editing');
           voiceBar.send('voice:transcript', { text, isAppending: false });
         } else {
-          voiceBar.send('voice:error', { message: '未检测到语音，请重试' });
-          store.transition('editing');
+          // Empty transcription — show error and go back to idle
+          voiceBar.send('voice:error', { message: '未能识别语音，请重试' });
+          store.transition('idle');
         }
         updateTrayDot();
       }).catch(err => {
+        console.error('[main] Transcription error:', err);
         voiceBar.send('voice:error', { message: err.message });
-        store.transition('error');
         store.transition('idle');
         updateTrayDot();
       });
       break;
 
     case 'append-recording':
-      recorder.startRecording();
+      recorder.startRecording().catch(err => {
+        console.error('Append recording failed:', err);
+        if (store.appState === 'recording') {
+          voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
+          store.transition('idle');
+          updateTrayDot();
+        }
+      });
       store.transition('recording');
       updateTrayDot();
       break;
@@ -148,6 +261,8 @@ async function executePrompt(prompt: string): Promise<void> {
     prompt,
     settings.defaultCwd.replace('~', app.getPath('home')),
     apiKey,
+    settings.provider || 'glm-cn',
+    settings.modelPreset || 'opus',
     {
       onSubState: (substate, toolName) => {
         store.setSdkSubState(substate);
@@ -187,13 +302,23 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.on('voice:cancel', () => {
+    if (store.appState === 'recording') {
+      recorder.stopRecording().catch(() => {});
+    }
     voiceBar.close();
     store.transition('idle');
     updateTrayDot();
   });
 
   ipcMain.on('voice:request-append', () => {
-    recorder.startRecording();
+    recorder.startRecording().catch(err => {
+      console.error('Append recording failed:', err);
+      if (store.appState === 'recording') {
+        voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
+        store.transition('idle');
+        updateTrayDot();
+      }
+    });
     store.transition('recording');
     updateTrayDot();
   });
@@ -201,13 +326,53 @@ function registerIpcHandlers(): void {
   // summary
   ipcMain.on('summary:ready', () => updateSummaryPopup());
 
+  ipcMain.on('summary:open-detail', (_, { id }: { id: string }) => {
+    if (detailWindow && !detailWindow.isDestroyed()) {
+      detailWindow.close();
+    }
+
+    detailWindow = new BrowserWindow({
+      width: 500,
+      height: 600,
+      title: '执行详情',
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+      },
+    });
+
+    detailWindow.loadURL(`http://127.0.0.1:${serverPort}/summary/detail?id=${id}`);
+    detailWindow.on('closed', () => { detailWindow = null; });
+  });
+
+  ipcMain.on('summary:fetch-detail', (event, { id }: { id: string }) => {
+    const record = getExecutionById(db, id);
+    event.sender.send('summary:detail-data', { record });
+  });
+
   // settings
   ipcMain.handle('settings:load', () => {
     const settings = loadSettings();
     return { ...settings, hasApiKey: hasApiKey() };
   });
 
-  ipcMain.handle('settings:save-api-key', (_, { key }: { key: string }) => {
+  ipcMain.handle('settings:save-api-key', async (_, { key }: { key: string }) => {
+    const settings = loadSettings();
+    const provider = getProvider(settings.provider || 'glm-cn');
+    const response = await fetch(provider.validateEndpoint, {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: provider.defaultModels[2].modelId,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    });
+    if (!response.ok) throw new Error('Invalid API key');
     saveApiKey(key);
   });
 
@@ -232,49 +397,97 @@ function registerIpcHandlers(): void {
     shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
   });
 
-  ipcMain.handle('onboarding:download-model', async (_, { onProgress }: { onProgress: (p: number) => void }) => {
+  ipcMain.handle('onboarding:download-model', async (event) => {
     const modelDir = path.join(userDataDir, 'models');
     if (!fs.existsSync(modelDir)) fs.mkdirSync(modelDir, { recursive: true });
     const modelPath = path.join(modelDir, 'sensevoice-small-int8.onnx');
+    const tokensPath = path.join(modelDir, 'tokens.txt');
 
-    // 下载模型（URL 需要配置为实际下载地址）
-    const response = await fetch('https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.onnx');
-    if (!response.ok) throw new Error('Download failed');
-    const contentLength = Number(response.headers.get('content-length') || 0);
-    const fileStream = fs.createWriteStream(modelPath);
-    const reader = response.body!.getReader();
-    let downloaded = 0;
+    if (fs.existsSync(modelPath) && fs.existsSync(tokensPath)) return;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      fileStream.write(value);
-      downloaded += value.length;
-      if (contentLength > 0) {
-        onProgress(Math.round(downloaded / contentLength * 100));
+    const archiveName = 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2';
+    const extractedName = 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17';
+    const url = `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${archiveName}`;
+
+    const tmpDir = path.join(userDataDir, 'tmp-download');
+    const archivePath = path.join(tmpDir, archiveName);
+    const maxRetries = 3;
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
+        fs.mkdirSync(tmpDir, { recursive: true });
+
+        const response = await fetch(url, { redirect: 'follow' });
+        if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
+
+        const contentLength = Number(response.headers.get('content-length') || 0);
+        const fileStream = fs.createWriteStream(archivePath);
+        const reader = response.body!.getReader();
+        let downloaded = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          fileStream.write(value);
+          downloaded += value.length;
+          if (contentLength > 0) {
+            event.sender.send('onboarding:download-progress', Math.round(downloaded / contentLength * 100));
+          }
+        }
+        fileStream.end();
+
+        if (contentLength > 0 && downloaded !== contentLength) {
+          throw new Error(`Download incomplete: received ${downloaded} bytes, expected ${contentLength} bytes`);
+        }
+
+        const { execSync } = require('child_process');
+        execSync(`tar xjf "${archiveName}"`, { cwd: tmpDir });
+
+        const extractedDir = path.join(tmpDir, extractedName);
+        fs.renameSync(path.join(extractedDir, 'model.int8.onnx'), modelPath);
+        fs.renameSync(path.join(extractedDir, 'tokens.txt'), tokensPath);
+
+        fs.rmSync(tmpDir, { recursive: true });
+        return;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxRetries) {
+          event.sender.send('onboarding:download-progress', 0);
+        }
       }
     }
 
-    fileStream.end();
+    try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
+    throw new Error(`${lastError?.message || 'Download failed'} (after ${maxRetries} attempts)`);
   });
 
-  ipcMain.handle('onboarding:validate-api-key', async (_, { key }: { key: string }) => {
-    // 简单验证：尝试调用 Anthropic API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+  ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey?: string }) => {
+    const provider = getProvider(providerKey || 'glm-cn');
+    const headers: Record<string, string> = {
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    };
+    if (provider.authStyle === 'auth_token') {
+      headers['x-api-key'] = key;
+    } else {
+      headers['x-api-key'] = key;
+    }
+    const response = await fetch(provider.validateEndpoint, {
       method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: provider.defaultModels[2].modelId,
         max_tokens: 1,
         messages: [{ role: 'user', content: 'hi' }],
       }),
     });
     if (!response.ok) throw new Error('Invalid API key');
     saveApiKey(key);
+    // Save provider selection
+    const settings = loadSettings();
+    saveSettings({ ...settings, provider: provider.key });
   });
 
   ipcMain.handle('onboarding:finish', (_, { defaultCwd }: { defaultCwd: string }) => {
@@ -282,18 +495,37 @@ function registerIpcHandlers(): void {
     saveSettings({ ...settings, defaultCwd });
   });
 
-  // 暴露给 API routes
-  (globalThis as any).__shrewStore = store;
-  (globalThis as any).__shrewExecutor = {
-    execute: executePrompt,
-  };
+  ipcMain.on('onboarding:complete', () => {
+    mainWindow?.close();
+    createMainWindow();
+  });
+
+  // NOTE: globalThis IPC 不可用于 standalone 服务器（独立子进程）。
+  // 所有通信通过 Electron ipcMain/ipcRenderer 进行。
 }
 
 // 启动应用
 app.whenReady().then(async () => {
+  // 生产模式：启动 Next.js standalone 服务器
+  if (!isDev) {
+    try {
+      const port = await startNextServer();
+      await waitForServer(port);
+      console.log(`Next.js server started on port ${port}`);
+    } catch (err) {
+      console.error('Failed to start Next.js server:', err);
+      dialog.showErrorBox('启动失败', `无法启动内置服务器: ${err}`);
+      app.quit();
+      return;
+    }
+  }
+
   // 初始化数据库
   db = new Database(dbPath);
   initDb(db);
+
+  // 迁移旧的 API key 文件
+  migrateKeyFile();
 
   // 初始化状态管理
   store = new ShrewStore();
@@ -319,7 +551,7 @@ app.whenReady().then(async () => {
   shortcutManager = new ShortcutManager();
   const shortcutReady = await shortcutManager.init();
   if (shortcutReady) {
-    shortcutManager.start(handleRightCommand);
+    shortcutManager.start(() => handleRightCommand());
   }
 
   // 初始化录音器
@@ -368,9 +600,7 @@ function createOnboardingWindow(): void {
       contextIsolation: false,
     },
   });
-  // Onboarding 通过 settings 页面中的 Onboarding 组件实现
-  // 判断逻辑：如果没有 API key，显示 Onboarding；否则显示 Settings
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/settings`);
+  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/onboarding`);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 }
 
@@ -381,4 +611,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   shortcutManager?.stop();
   db?.close();
+  if (nextServer) {
+    nextServer.kill();
+    nextServer = null;
+  }
 });

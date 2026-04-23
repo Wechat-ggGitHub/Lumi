@@ -4,10 +4,9 @@ import { SummaryPanel } from '@/components/SummaryPanel';
 
 export default function SummaryPage() {
   return (
-    <html lang="zh-CN">
-      <body style={{ margin: 0, background: '#fff', overflow: 'hidden' }}>
-        <SummaryPanel />
-      </body>
-    </html>
+    <>
+      <style>{`html, body { background: #fff !important; overflow: hidden !important; }`}</style>
+      <SummaryPanel />
+    </>
   );
 }

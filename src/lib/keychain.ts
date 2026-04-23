@@ -7,7 +7,15 @@ import path from 'path';
 import { app } from 'electron';
 
 const KEYCHAIN_DIR = path.join(app.getPath('userData'), 'secure');
-const API_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
+const API_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
+const LEGACY_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
+
+// One-time migration: rename legacy key file to new name
+export function migrateKeyFile(): void {
+  if (fs.existsSync(LEGACY_KEY_FILE) && !fs.existsSync(API_KEY_FILE)) {
+    fs.renameSync(LEGACY_KEY_FILE, API_KEY_FILE);
+  }
+}
 
 export function saveApiKey(key: string): void {
   if (!safeStorage.isEncryptionAvailable()) {

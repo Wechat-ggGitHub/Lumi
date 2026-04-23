@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "electron:dev": "concurrently \"next build && next start\" \"wait-on http://127.0.0.1:3000 && electron .\"",
-    "electron:build": "next build && tsc -p tsconfig.electron.json && electron-builder"
+    "build:electron": "node scripts/build-electron.mjs",
+    "electron:dev": "node scripts/build-electron.mjs && concurrently \"next dev\" \"wait-on http://127.0.0.1:3000/api/health && electron .\"",
+    "electron:build": "next build && node scripts/copy-native-deps.mjs && node scripts/build-electron.mjs && electron-builder",
+    "rebuild": "electron-rebuild"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0",
@@ -15,9 +17,11 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sherpa-onnx-node": "^1.10.0"
+    "sherpa-onnx-node": "^1.10.0",
+    "uiohook-napi": "^1.5.5"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@types/better-sqlite3": "^7.6.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
@@ -25,6 +29,7 @@
     "concurrently": "^9.0.0",
     "electron": "^35.0.0",
     "electron-builder": "^25.0.0",
+    "esbuild": "^0.28.0",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.9",
     "typescript": "^5.7.0",

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution } from '../lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById } from '../lib/db';
 
 // 使用临时数据库
 const tmpDir = path.join(process.cwd(), '.tmp-test');
@@ -76,4 +76,31 @@ test('getRecentExecutions returns ordered by created_at desc', () => {
   expect(recent.length).toBe(3);
   expect(recent[0].user_prompt).toBe('指令 4');
   expect(recent[2].user_prompt).toBe('指令 2');
+});
+
+test('getExecutionById returns correct record', () => {
+  const id = insertExecution(db, {
+    cwd: '/Users/test/project',
+    user_prompt: '重构认证模块',
+  });
+
+  updateExecution(db, id, {
+    status: 'completed',
+    summary: '已将认证逻辑从 middleware 移至 service 层',
+    duration_ms: 25000,
+    num_turns: 5,
+  });
+
+  const record = getExecutionById(db, id);
+  expect(record).not.toBeNull();
+  expect(record!.id).toBe(id);
+  expect(record!.user_prompt).toBe('重构认证模块');
+  expect(record!.summary).toBe('已将认证逻辑从 middleware 移至 service 层');
+  expect(record!.status).toBe('completed');
+  expect(record!.duration_ms).toBe(25000);
+});
+
+test('getExecutionById returns null for non-existent id', () => {
+  const record = getExecutionById(db, 'non-existent-uuid');
+  expect(record).toBeNull();
 });

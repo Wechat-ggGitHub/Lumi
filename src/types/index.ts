@@ -39,6 +39,9 @@ export interface ExecutionRecord {
 }
 
 // 设置
+export type ProviderKey = 'glm-cn' | 'glm-global' | 'anthropic';
+export type ModelPreset = 'opus' | 'sonnet' | 'haiku';
+
 export interface AppSettings {
   shortcut: string;
   voiceModel: string;
@@ -46,6 +49,8 @@ export interface AppSettings {
   defaultCwd: string;
   vadTimeout: number;
   theme: string;
+  provider?: ProviderKey;
+  modelPreset?: ModelPreset;
 }
 
 // IPC 消息类型

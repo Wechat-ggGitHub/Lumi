@@ -99,3 +99,15 @@ test('rightCommand behavior per state', () => {
   const action5 = store.getRightCommandAction();
   expect(action5).toBe('cancel-execution');
 });
+
+test('transcribing can transition to idle (empty transcription scenario)', () => {
+  const store = new ShrewStore();
+  store.transition('recording');
+  store.transition('transcribing');
+  store.transition('idle');
+  expect(store.appState).toBe('idle');
+
+  // Verify we can restart recording from idle after empty transcription
+  store.transition('recording');
+  expect(store.appState).toBe('recording');
+});

@@ -5,3 +5,4 @@ release/
 *.tsbuildinfo
 .DS_Store
 .build/
+.superpowers/

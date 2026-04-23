@@ -1,19 +1,40 @@
-import { Tray, nativeImage, Menu, BrowserWindow } from 'electron';
-import path from 'path';
+import { Tray, nativeImage, Menu } from 'electron';
 import type { DotColor } from '../src/types';
 
-// 动态生成 Template 图标 (22x22 黑色 Shrew logo 轮廓)
+// 生成 Template 图标 (22x22)：一个小麦克风形状
 function createBaseIcon(): Electron.NativeImage {
   const size = 22;
-  // macOS Template 图标：黑色像素自动适配明暗模式
-  const img = nativeImage.createEmpty();
-  return img;
+  const canvas = Buffer.alloc(size * size * 4, 0);
+
+  const center = size / 2;
+  const radius = 9;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = x - center;
+      const dy = y - center;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const idx = (y * size + x) * 4;
+
+      if (dist <= radius) {
+        canvas[idx] = 0;
+        canvas[idx + 1] = 0;
+        canvas[idx + 2] = 0;
+        canvas[idx + 3] = 255;
+      }
+    }
+  }
+
+  return nativeImage.createFromBuffer(canvas, {
+    width: size,
+    height: size,
+    scaleFactor: 2.0,
+  });
 }
 
-// 动态生成状态小点图标
 function createDotIcon(color: DotColor): Electron.NativeImage {
   const size = 22;
-  const canvas = Buffer.alloc(size * size * 4); // RGBA
+  const canvas = Buffer.alloc(size * size * 4);
 
   const colors: Record<DotColor, [number, number, number, number]> = {
     gray:   [142, 142, 147, 200],
@@ -40,7 +61,7 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
         canvas[idx + 2] = b;
         canvas[idx + 3] = a;
       } else {
-        canvas[idx + 3] = 0; // transparent
+        canvas[idx + 3] = 0;
       }
     }
   }
@@ -52,7 +73,7 @@ export class ShrewTray {
   private tray: Tray;
   private dotIcons: Record<DotColor, Electron.NativeImage>;
   private baseIcon: Electron.NativeImage;
-  private summaryWindow: BrowserWindow | null = null;
+  private contextMenu: Menu;
 
   constructor() {
     this.baseIcon = createBaseIcon();
@@ -68,16 +89,23 @@ export class ShrewTray {
     this.tray.setToolTip('Shrew - 待命中');
     this.updateDot('gray');
 
-    const contextMenu = Menu.buildFromTemplate([
+    // Build context menu but do NOT use setContextMenu()
+    // On macOS, setContextMenu() overrides left-click behavior
+    this.contextMenu = Menu.buildFromTemplate([
       { label: 'Shrew', type: 'normal', enabled: false },
       { type: 'separator' },
       { label: '设置...', click: () => this.openSettings() },
       { type: 'separator' },
       { label: '退出 Shrew', role: 'quit' },
     ]);
-    this.tray.setContextMenu(contextMenu);
 
-    this.tray.on('click', () => this.toggleSummaryPopup());
+    // Left click: toggle summary popup
+    this.tray.on('click', () => this.onPopupRequested?.());
+
+    // Right click: show context menu
+    this.tray.on('right-click', () => {
+      this.contextMenu.popup();
+    });
   }
 
   updateDot(color: DotColor): void {
@@ -94,20 +122,14 @@ export class ShrewTray {
     this.tray.setToolTip(tooltips[color]);
   }
 
-  private toggleSummaryPopup(): void {
-    if (this.summaryWindow && !this.summaryWindow.isDestroyed()) {
-      this.summaryWindow.close();
-      this.summaryWindow = null;
-    } else {
-      this.onPopupRequested?.();
-    }
-  }
-
   private openSettings(): void {
     this.onSettingsRequested?.();
   }
 
-  // 回调，由 main.ts 注入
+  getBounds(): Electron.Rectangle {
+    return this.tray.getBounds();
+  }
+
   onPopupRequested?: () => void;
   onSettingsRequested?: () => void;
 

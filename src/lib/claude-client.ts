@@ -1,4 +1,5 @@
 import type { SdkSubState } from '../types';
+import { buildSdkEnv } from './provider-config';
 
 export interface ClaudeExecutionResult {
   summary: string;
@@ -19,6 +20,8 @@ export async function executeClaude(
   prompt: string,
   cwd: string,
   apiKey: string,
+  providerKey: string,
+  modelPreset: string,
   callbacks: ClaudeCallbacks,
   abortSignal?: AbortSignal
 ): Promise<ClaudeExecutionResult> {
@@ -38,7 +41,7 @@ export async function executeClaude(
     permissionMode: 'bypassPermissions' as const,
     allowDangerouslySkipPermissions: true,
     abortController,
-    env: { ANTHROPIC_API_KEY: apiKey },
+    env: buildSdkEnv(providerKey, apiKey, modelPreset),
   };
 
   let summary = '';

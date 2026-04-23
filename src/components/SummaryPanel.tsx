@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { StatusDot } from './StatusDot';
+import { getIpcRenderer } from '@/lib/electron-ipc';
 
 interface Execution {
   id: string;
@@ -22,7 +23,8 @@ export function SummaryPanel() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const { ipcRenderer } = require('electron');
+    const ipcRenderer = getIpcRenderer();
+    if (!ipcRenderer) return;
 
     const handler = (_: unknown, data: { execution: Execution | null; history: Execution[]; dotColor: DotColor }) => {
       setCurrent(data.execution);
@@ -53,7 +55,22 @@ export function SummaryPanel() {
 
       {/* 当前执行详情 */}
       {current && (
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #eee' }}>
+        <div
+          onClick={() => {
+            if (current.status !== 'running') {
+              getIpcRenderer()?.send('summary:open-detail', { id: current.id });
+            }
+          }}
+          style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid #eee',
+            cursor: current.status !== 'running' ? 'pointer' : 'default',
+            transition: 'background 0.15s ease',
+            borderRadius: 4,
+          }}
+          onMouseEnter={e => { if (current.status !== 'running') e.currentTarget.style.background = '#f5f5f5'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
           <div style={{ color: '#666', marginBottom: 6 }}>「{current.user_prompt}」</div>
           {current.summary && (
             <div style={{ lineHeight: 1.5 }}>{current.summary}</div>
@@ -72,10 +89,17 @@ export function SummaryPanel() {
         <div style={{ padding: '8px 16px' }}>
           <div style={{ color: '#999', fontSize: 12, marginBottom: 6 }}>最近</div>
           {history.slice(0, 5).map(exec => (
-            <div key={exec.id} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '4px 0', fontSize: 12, borderBottom: '1px solid #f5f5f5',
-            }}>
+            <div
+              key={exec.id}
+              onClick={() => getIpcRenderer()?.send('summary:open-detail', { id: exec.id })}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '6px 0', fontSize: 12, borderBottom: '1px solid #f5f5f5',
+                cursor: 'pointer', borderRadius: 4, transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#f5f5f5'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>
                 {exec.user_prompt}
               </span>

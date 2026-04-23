@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getIpcRenderer } from '@/lib/electron-ipc';
 
 type VoiceInputProps = {
   onSend: (text: string) => void;
@@ -9,14 +10,17 @@ type VoiceInputProps = {
 
 export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
   const [text, setText] = useState('');
-  const [status, setStatus] = useState<'recording' | 'transcribing' | 'editing'>('recording');
+  const [status, setStatus] = useState<'recording' | 'transcribing' | 'editing' | 'error'>('recording');
+  const [errorMessage, setErrorMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   useEffect(() => {
-    // 监听 IPC 事件
     if (typeof window === 'undefined') return;
 
-    const { ipcRenderer } = require('electron');
+    const ipcRenderer = getIpcRenderer();
+    if (!ipcRenderer) return;
 
     const handlers = {
       'voice:transcript': (_: unknown, data: { text: string; isAppending: boolean }) => {
@@ -27,8 +31,13 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
       'voice:transcribing': () => setStatus('transcribing'),
       'voice:start-recording': () => setStatus('recording'),
       'voice:error': (_: unknown, data: { message: string }) => {
-        setText(prev => prev + `\n[错误: ${data.message}]`);
-        setStatus('editing');
+        if (statusRef.current === 'recording' || statusRef.current === 'transcribing') {
+          setErrorMessage(data.message);
+          setStatus('error');
+          setTimeout(() => onCancel(), 2000);
+        } else {
+          setText(prev => prev + `\n[错误: ${data.message}]`);
+        }
       },
     };
 
@@ -41,7 +50,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
         ipcRenderer.removeListener(channel, handler);
       }
     };
-  }, []);
+  }, [onCancel]);
 
   const handleSend = useCallback(() => {
     const trimmed = text.trim();
@@ -71,8 +80,50 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
       color: '#fff',
       width: '100%',
       boxSizing: 'border-box',
+      position: 'relative',
     }}>
-      {/* 状态指示 */}
+      {/* Close button — visible in all states */}
+      <button
+        onClick={onCancel}
+        style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'rgba(255,255,255,0.1)',
+          color: 'rgba(255,255,255,0.5)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          lineHeight: 1,
+          padding: 0,
+          transition: 'background 0.15s ease, color 0.15s ease',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+          e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+          e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+        }}
+      >
+        ✕
+      </button>
+
+      {/* Error state */}
+      {status === 'error' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+          <span style={{ fontSize: 14, color: '#FF453A' }}>{errorMessage || '发生错误'}</span>
+        </div>
+      )}
+
+      {/* Recording state */}
       {status === 'recording' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
           <RecordingPulse />
@@ -91,9 +142,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
         <>
           <button
             onClick={() => {
-              // 通知 main process 追加录音
-              const { ipcRenderer } = require('electron');
-              ipcRenderer.send('voice:request-append');
+              getIpcRenderer()?.send('voice:request-append');
             }}
             style={{
               background: 'none',
