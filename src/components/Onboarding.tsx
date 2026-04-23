@@ -3,38 +3,43 @@
 import { useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 
-type Step = 'welcome' | 'accessibility' | 'model-download' | 'api-key' | 'cwd' | 'done';
+type Step = 'welcome' | 'accessibility' | 'volcengine' | 'api-key' | 'cwd' | 'done';
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('welcome');
   const [apiKey, setApiKey] = useState('');
+  const [volcAppId, setVolcAppId] = useState('');
+  const [volcToken, setVolcToken] = useState('');
   const [defaultCwd, setDefaultCwd] = useState('~/Documents');
-  const [downloadProgress, setDownloadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const ipcRenderer = getIpcRenderer();
 
   const checkAccessibility = async () => {
     const granted = await ipcRenderer?.invoke('onboarding:check-accessibility');
-    if (granted) setStep('model-download');
+    if (granted) setStep('volcengine');
   };
 
-  const startDownload = async () => {
+  const saveVolcengine = async () => {
+    if (!volcAppId.trim() || !volcToken.trim()) {
+      setError('请填写 App ID 和 Access Token');
+      return;
+    }
     setError('');
-    setDownloadProgress(0);
-    const progressHandler = (_: any, p: number) => setDownloadProgress(p);
-    ipcRenderer?.on('onboarding:download-progress', progressHandler);
+    setSaving(true);
     try {
-      await ipcRenderer?.invoke('onboarding:download-model');
-      ipcRenderer?.removeListener('onboarding:download-progress', progressHandler);
+      await ipcRenderer?.invoke('settings:save-volcengine-credentials', {
+        appId: volcAppId.trim(),
+        accessToken: volcToken.trim(),
+      });
       setStep('api-key');
     } catch (e: any) {
-      ipcRenderer?.removeAllListeners('onboarding:download-progress');
-      setError(e.message);
+      setError(e.message || '凭证验证失败');
+    } finally {
+      setSaving(false);
     }
   };
-
-  const skipDownload = () => setStep('api-key');
 
   const validateApiKey = async () => {
     setError('');
@@ -68,12 +73,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
-          // 轮询检查权限
           const interval = setInterval(async () => {
             const granted = await ipcRenderer?.invoke('onboarding:check-accessibility');
             if (granted) {
               clearInterval(interval);
-              setStep('model-download');
+              setStep('volcengine');
             }
           }, 1000);
         }}
@@ -81,21 +85,34 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         onSecondary={() => checkAccessibility()}
       />
     ),
-    'model-download': (
+    volcengine: (
       <div style={stepStyle}>
-        <h2 style={titleStyle}>语音模型</h2>
-        <p style={descStyle}>Shrew 使用本地语音识别，需要下载约 230MB 的模型文件。</p>
-        {downloadProgress > 0 && downloadProgress < 100 ? (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ background: '#eee', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-              <div style={{ background: '#007AFF', height: '100%', width: `${downloadProgress}%`, transition: 'width 0.3s' }} />
-            </div>
-            <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{downloadProgress}%</p>
-          </div>
-        ) : null}
+        <h2 style={titleStyle}>语音识别配置</h2>
+        <p style={descStyle}>
+          Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。
+        </p>
+        <input
+          type="text"
+          value={volcAppId}
+          onChange={e => setVolcAppId(e.target.value)}
+          placeholder="App ID"
+          style={{ ...inputStyle, marginBottom: 8 }}
+        />
+        <input
+          type="password"
+          value={volcToken}
+          onChange={e => setVolcToken(e.target.value)}
+          placeholder="Access Token"
+          style={{ ...inputStyle, marginBottom: 12 }}
+        />
         {error && <p style={{ color: '#FF453A', fontSize: 13, marginBottom: 8 }}>{error}</p>}
-        <button onClick={startDownload} style={buttonStyle}>下载模型</button>
-        <button onClick={skipDownload} style={{ ...linkStyle, marginTop: 8 }}>跳过，稍后下载</button>
+        <button onClick={saveVolcengine} disabled={saving || !volcAppId.trim() || !volcToken.trim()} style={{
+          ...buttonStyle,
+          opacity: (!saving && volcAppId.trim() && volcToken.trim()) ? 1 : 0.5,
+          cursor: (!saving && volcAppId.trim() && volcToken.trim()) ? 'pointer' : 'default',
+        }}>
+          {saving ? '验证中...' : '验证并保存'}
+        </button>
       </div>
     ),
     'api-key': (
