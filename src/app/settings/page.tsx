@@ -41,6 +41,10 @@ export default function SettingsPage() {
   const [provider, setProvider] = useState<ProviderKey>('glm-cn');
   const [modelPreset, setModelPreset] = useState<ModelPreset>('opus');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [volcAppId, setVolcAppId] = useState('');
+  const [volcToken, setVolcToken] = useState('');
+  const [hasVolcCreds, setHasVolcCreds] = useState(false);
+  const [volcStatus, setVolcStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   useEffect(() => {
     const ipcRenderer = getIpcRenderer();
@@ -50,6 +54,12 @@ export default function SettingsPage() {
       setHasKey(settings.hasApiKey || false);
       setProvider(settings.provider || 'glm-cn');
       setModelPreset(settings.modelPreset || 'opus');
+    });
+    ipcRenderer?.invoke('settings:load-volcengine-credentials').then((creds: any) => {
+      if (creds) {
+        setVolcAppId(creds.appId || '');
+        setHasVolcCreds(creds.hasCredentials || false);
+      }
     });
   }, []);
 
@@ -81,6 +91,24 @@ export default function SettingsPage() {
   };
 
   const currentProvider = PROVIDER_INFO[provider];
+
+  const handleSaveVolcengine = async () => {
+    if (!volcAppId.trim() || !volcToken.trim()) return;
+    setVolcStatus('saving');
+    try {
+      await getIpcRenderer()?.invoke('settings:save-volcengine-credentials', {
+        appId: volcAppId.trim(),
+        accessToken: volcToken.trim(),
+      });
+      setHasVolcCreds(true);
+      setVolcToken('');
+      setVolcStatus('saved');
+      setTimeout(() => setVolcStatus('idle'), 2000);
+    } catch {
+      setVolcStatus('error');
+      setTimeout(() => setVolcStatus('idle'), 2000);
+    }
+  };
 
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', padding: '0 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -157,6 +185,51 @@ export default function SettingsPage() {
         </div>
         {status === 'saved' && <p style={{ color: '#34C759', fontSize: 13, marginTop: 4 }}>已保存</p>}
         {status === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>API Key 验证失败，请检查是否正确</p>}
+      </section>
+
+      {/* 语音识别 */}
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>语音识别</h2>
+        <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+          豆包语音大模型（火山引擎在线识别）。凭证将安全存储。
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input
+            type="text"
+            value={volcAppId}
+            onChange={e => setVolcAppId(e.target.value)}
+            placeholder={hasVolcCreds ? '已存储（输入新 App ID 替换）' : 'App ID'}
+            style={{
+              padding: '8px 12px', borderRadius: 8,
+              border: '1px solid #ddd', fontSize: 14,
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="password"
+              value={volcToken}
+              onChange={e => setVolcToken(e.target.value)}
+              placeholder={hasVolcCreds ? '输入新 Access Token 替换' : 'Access Token'}
+              style={{
+                flex: 1, padding: '8px 12px', borderRadius: 8,
+                border: '1px solid #ddd', fontSize: 14,
+              }}
+            />
+            <button
+              onClick={handleSaveVolcengine}
+              disabled={!volcAppId.trim() || !volcToken.trim() || volcStatus === 'saving'}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: (volcAppId.trim() && volcToken.trim()) ? '#007AFF' : '#ccc',
+                color: '#fff', cursor: (volcAppId.trim() && volcToken.trim()) ? 'pointer' : 'default',
+              }}
+            >
+              {volcStatus === 'saving' ? '验证中...' : '保存'}
+            </button>
+          </div>
+        </div>
+        {volcStatus === 'saved' && <p style={{ color: '#34C759', fontSize: 13, marginTop: 4 }}>已保存</p>}
+        {volcStatus === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>凭证验证失败，请检查是否正确</p>}
       </section>
 
       {/* 工作目录 */}
