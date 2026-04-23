@@ -9,7 +9,7 @@ import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById } from '../src/lib/db';
-import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile } from '../src/lib/keychain';
+import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import type { ExecutionRecord, AppSettings, DotColor } from '../src/types';
@@ -134,7 +134,6 @@ function loadSettings(): AppSettings {
   } catch {}
   return {
     shortcut: 'right_cmd',
-    voiceModel: 'sensevoice',
     claudePermissionMode: 'bypassPermissions',
     defaultCwd: '~/Documents',
     vadTimeout: 2,
@@ -397,72 +396,6 @@ function registerIpcHandlers(): void {
     shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
   });
 
-  ipcMain.handle('onboarding:download-model', async (event) => {
-    const modelDir = path.join(userDataDir, 'models');
-    if (!fs.existsSync(modelDir)) fs.mkdirSync(modelDir, { recursive: true });
-    const modelPath = path.join(modelDir, 'sensevoice-small-int8.onnx');
-    const tokensPath = path.join(modelDir, 'tokens.txt');
-
-    if (fs.existsSync(modelPath) && fs.existsSync(tokensPath)) return;
-
-    const archiveName = 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2';
-    const extractedName = 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17';
-    const url = `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${archiveName}`;
-
-    const tmpDir = path.join(userDataDir, 'tmp-download');
-    const archivePath = path.join(tmpDir, archiveName);
-    const maxRetries = 3;
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
-        fs.mkdirSync(tmpDir, { recursive: true });
-
-        const response = await fetch(url, { redirect: 'follow' });
-        if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
-
-        const contentLength = Number(response.headers.get('content-length') || 0);
-        const fileStream = fs.createWriteStream(archivePath);
-        const reader = response.body!.getReader();
-        let downloaded = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          fileStream.write(value);
-          downloaded += value.length;
-          if (contentLength > 0) {
-            event.sender.send('onboarding:download-progress', Math.round(downloaded / contentLength * 100));
-          }
-        }
-        fileStream.end();
-
-        if (contentLength > 0 && downloaded !== contentLength) {
-          throw new Error(`Download incomplete: received ${downloaded} bytes, expected ${contentLength} bytes`);
-        }
-
-        const { execSync } = require('child_process');
-        execSync(`tar xjf "${archiveName}"`, { cwd: tmpDir });
-
-        const extractedDir = path.join(tmpDir, extractedName);
-        fs.renameSync(path.join(extractedDir, 'model.int8.onnx'), modelPath);
-        fs.renameSync(path.join(extractedDir, 'tokens.txt'), tokensPath);
-
-        fs.rmSync(tmpDir, { recursive: true });
-        return;
-      } catch (err: any) {
-        lastError = err;
-        if (attempt < maxRetries) {
-          event.sender.send('onboarding:download-progress', 0);
-        }
-      }
-    }
-
-    try { fs.rmSync(tmpDir, { recursive: true }); } catch {}
-    throw new Error(`${lastError?.message || 'Download failed'} (after ${maxRetries} attempts)`);
-  });
-
   ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey?: string }) => {
     const provider = getProvider(providerKey || 'glm-cn');
     const headers: Record<string, string> = {
@@ -498,6 +431,48 @@ function registerIpcHandlers(): void {
   ipcMain.on('onboarding:complete', () => {
     mainWindow?.close();
     createMainWindow();
+  });
+
+  // volcengine credentials
+  ipcMain.handle('settings:load-volcengine-credentials', () => {
+    const creds = loadVolcengineCredentials();
+    return { hasCredentials: !!creds, appId: creds?.appId || '' };
+  });
+
+  ipcMain.handle('settings:save-volcengine-credentials', async (_, { appId, accessToken }: { appId: string; accessToken: string }) => {
+    // Validate by attempting a connection
+    const { DoubaoASR } = await import('../src/lib/doubao-asr');
+    const asr = new DoubaoASR(appId, accessToken);
+    // Create a minimal valid WAV for testing (0.5s silence)
+    const silence = Buffer.alloc(44 + 16000, 0);
+    silence.write('RIFF', 0);
+    silence.writeUInt32LE(36 + 16000, 4);
+    silence.write('WAVE', 8);
+    silence.write('fmt ', 12);
+    silence.writeUInt32LE(16, 16);
+    silence.writeUInt16LE(1, 20);
+    silence.writeUInt16LE(1, 22);
+    silence.writeUInt32LE(16000, 24);
+    silence.writeUInt32LE(32000, 28);
+    silence.writeUInt16LE(2, 32);
+    silence.writeUInt16LE(16, 34);
+    silence.write('data', 36);
+    silence.writeUInt32LE(16000, 40);
+
+    const tmpPath = path.join(app.getPath('userData'), 'tmp', 'test-connection.wav');
+    if (!fs.existsSync(path.dirname(tmpPath))) fs.mkdirSync(path.dirname(tmpPath), { recursive: true });
+    fs.writeFileSync(tmpPath, silence);
+
+    try {
+      await asr.transcribe(tmpPath);
+      saveVolcengineCredentials(appId, accessToken);
+      // Update recorder with new credentials
+      const creds = loadVolcengineCredentials();
+      recorder = new AudioRecorder(creds);
+      recorder.setWindow(voiceBar.getWindow()!);
+    } finally {
+      try { fs.unlinkSync(tmpPath); } catch {}
+    }
   });
 
   // NOTE: globalThis IPC 不可用于 standalone 服务器（独立子进程）。
@@ -555,9 +530,22 @@ app.whenReady().then(async () => {
   }
 
   // 初始化录音器并预创建 voice-bar 窗口
-  recorder = new AudioRecorder();
+  const volcengineCreds = loadVolcengineCredentials();
+  recorder = new AudioRecorder(volcengineCreds);
   voiceBar.preCreate();
   recorder.setWindow(voiceBar.getWindow()!);
+
+  // voice-bar 失焦自动关闭
+  voiceBar.onBlur = () => {
+    if (store.appState === 'recording') {
+      recorder.stopRecording().catch(() => {});
+    }
+    if (store.appState !== 'transcribing' && store.appState !== 'executing') {
+      voiceBar.close();
+      store.transition('idle');
+      updateTrayDot();
+    }
+  };
 
   // 注册 IPC
   registerIpcHandlers();
