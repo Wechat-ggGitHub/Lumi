@@ -1,101 +1,65 @@
-import { systemPreferences } from 'electron';
+import { systemPreferences, ipcMain, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { spawn } from 'child_process';
 import { VoiceRecognizer } from '../src/lib/sherpa';
+import { createWavBuffer } from '../src/lib/wav-writer';
 
 export class AudioRecorder {
-  private recordingProcess: import('child_process').ChildProcess | null = null;
-  private outputPath: string;
+  private win: BrowserWindow | null = null;
+  private tmpDir: string;
   private recognizer: VoiceRecognizer;
 
   constructor() {
-    const tmpDir = path.join(app.getPath('userData'), 'tmp');
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    this.outputPath = path.join(tmpDir, `recording-${Date.now()}.wav`);
+    this.tmpDir = path.join(app.getPath('userData'), 'tmp');
+    if (!fs.existsSync(this.tmpDir)) fs.mkdirSync(this.tmpDir, { recursive: true });
     this.recognizer = new VoiceRecognizer();
+  }
+
+  setWindow(win: BrowserWindow): void {
+    this.win = win;
   }
 
   static async checkMicrophonePermission(): Promise<boolean> {
     return systemPreferences.askForMediaAccess('microphone');
   }
 
-  static checkRecordingAvailable(): boolean {
-    try {
-      const result = require('child_process').spawnSync('ffmpeg', ['-version'], { timeout: 3000 });
-      return result.status === 0;
-    } catch {
-      return false;
-    }
-  }
-
   async startRecording(): Promise<void> {
-    this.outputPath = path.join(
-      path.dirname(this.outputPath),
-      `recording-${Date.now()}.wav`
-    );
-
-    this.recordingProcess = spawn('ffmpeg', [
-      '-loglevel', 'error',
-      '-f', 'avfoundation',
-      '-i', ':0',
-      '-acodec', 'pcm_s16le',
-      '-ar', '16000',
-      '-ac', '1',
-      '-y',
-      this.outputPath,
-    ], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
     return new Promise((resolve, reject) => {
-      let settled = false;
+      if (!this.win || this.win.isDestroyed()) {
+        return reject(new Error('语音窗口不可用'));
+      }
 
-      const settle = (fn: () => void) => {
-        if (settled) return;
-        settled = true;
-        fn();
-      };
+      const timeout = setTimeout(() => {
+        reject(new Error('录音启动超时'));
+      }, 5000);
 
-      this.recordingProcess!.on('error', (err) => {
-        settle(() => reject(new Error(`录音启动失败，请确保已安装 ffmpeg: ${err.message}`)));
+      ipcMain.once('voice:capture-started', (_event, success: boolean) => {
+        clearTimeout(timeout);
+        if (success) resolve();
+        else reject(new Error('麦克风访问被拒绝，请在系统设置中允许麦克风权限'));
       });
 
-      this.recordingProcess!.on('exit', (code) => {
-        if (code !== 0 && code !== null) {
-          settle(() => reject(new Error(`录音进程异常退出 (code: ${code})`)));
-        }
-      });
-
-      // ffmpeg 启动需要一点时间初始化 avfoundation
-      setTimeout(() => {
-        settle(() => {
-          if (this.recordingProcess && !this.recordingProcess.killed) {
-            resolve();
-          } else {
-            reject(new Error('录音启动失败'));
-          }
-        });
-      }, 800);
+      this.win.webContents.send('voice:start-capture');
     });
   }
 
   stopRecording(): Promise<string> {
+    const outputPath = path.join(this.tmpDir, `recording-${Date.now()}.wav`);
+
     return new Promise((resolve) => {
-      if (!this.recordingProcess) {
-        resolve(this.outputPath);
+      if (!this.win || this.win.isDestroyed()) {
+        resolve(outputPath);
         return;
       }
 
-      try {
-        this.recordingProcess.stdin.write('q');
-      } catch {
-        this.recordingProcess.kill('SIGINT');
-      }
-      this.recordingProcess = null;
+      ipcMain.once('voice:audio-data', (_event, data: { samples: Float32Array; sampleRate: number }) => {
+        const buffer = createWavBuffer(data.samples, data.sampleRate);
+        fs.writeFileSync(outputPath, buffer);
+        resolve(outputPath);
+      });
 
-      setTimeout(() => resolve(this.outputPath), 500);
+      this.win.webContents.send('voice:stop-capture');
     });
   }
 
@@ -106,9 +70,9 @@ export class AudioRecorder {
       console.log('[recorder] Voice model loaded successfully');
     }
 
-    const filePath = audioPath || this.outputPath;
+    const filePath = audioPath || '';
 
-    if (!fs.existsSync(filePath)) {
+    if (!filePath || !fs.existsSync(filePath)) {
       console.error('[recorder] Audio file not found:', filePath);
       throw new Error('音频文件不存在');
     }
