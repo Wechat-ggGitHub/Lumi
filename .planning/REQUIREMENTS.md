@@ -71,31 +71,31 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PACK-01 | — | Pending |
-| PACK-02 | — | Pending |
-| PACK-03 | — | Pending |
-| PACK-04 | — | Pending |
-| PACK-05 | — | Pending |
-| RUNT-01 | — | Pending |
-| RUNT-02 | — | Pending |
-| RUNT-03 | — | Pending |
-| RUNT-04 | — | Pending |
-| E2E-01 | — | Pending |
-| E2E-02 | — | Pending |
-| E2E-03 | — | Pending |
-| E2E-04 | — | Pending |
-| ERR-01 | — | Pending |
-| ERR-02 | — | Pending |
-| ERR-03 | — | Pending |
-| ERR-04 | — | Pending |
-| ERR-05 | — | Pending |
-| ERR-06 | — | Pending |
+| PACK-01 | Phase 1 | Pending |
+| PACK-02 | Phase 1 | Pending |
+| PACK-03 | Phase 1 | Pending |
+| PACK-04 | Phase 1 | Pending |
+| PACK-05 | Phase 5 | Pending |
+| RUNT-01 | Phase 2 | Pending |
+| RUNT-02 | Phase 2 | Pending |
+| RUNT-03 | Phase 2 | Pending |
+| RUNT-04 | Phase 2 | Pending |
+| E2E-01 | Phase 3 | Pending |
+| E2E-02 | Phase 3 | Pending |
+| E2E-03 | Phase 3 | Pending |
+| E2E-04 | Phase 3 | Pending |
+| ERR-01 | Phase 4 | Pending |
+| ERR-02 | Phase 4 | Pending |
+| ERR-03 | Phase 4 | Pending |
+| ERR-04 | Phase 4 | Pending |
+| ERR-05 | Phase 4 | Pending |
+| ERR-06 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-22*
-*Last updated: 2026-04-22 after initial definition*
+*Last updated: 2026-04-22 after roadmap creation*
