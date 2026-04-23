@@ -3,6 +3,7 @@ import { BrowserWindow, screen } from 'electron';
 export class VoiceBarWindow {
   private win: BrowserWindow | null = null;
   private serverPort: number;
+  onBlur: (() => void) | null = null;
 
   constructor(serverPort: number) {
     this.serverPort = serverPort;
@@ -44,7 +45,12 @@ export class VoiceBarWindow {
     if (!this.win || this.win.isDestroyed()) {
       this.preCreate();
     }
-    this.win!.show();
+    const win = this.win!;
+    win.removeAllListeners('blur');
+    win.once('blur', () => {
+      if (this.onBlur) this.onBlur();
+    });
+    win.show();
   }
 
   hide(): void {

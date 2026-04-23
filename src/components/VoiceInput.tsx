@@ -52,11 +52,14 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
         }
       },
       'voice:start-capture': async () => {
+        console.log('[voice-bar] Received voice:start-capture, audioCaptureRef:', !!audioCaptureRef.current);
         setStatus('recording');
         try {
           await audioCaptureRef.current?.start();
+          console.log('[voice-bar] AudioCapture started successfully');
           ipcRenderer.send('voice:capture-started', true);
-        } catch {
+        } catch (err) {
+          console.error('[voice-bar] AudioCapture start failed:', err);
           ipcRenderer.send('voice:capture-started', false);
         }
       },
@@ -85,15 +88,21 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
     onSend(trimmed);
   }, [text, onSend]);
 
+  // Global Escape listener — works in all states, not just when textarea has focus
+  useEffect(() => {
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onGlobalKeyDown);
+    return () => window.removeEventListener('keydown', onGlobalKeyDown);
+  }, [onCancel]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-    if (e.key === 'Escape') {
-      onCancel();
-    }
-  }, [handleSend, onCancel]);
+  }, [handleSend]);
 
   return (
     <div style={{
@@ -114,30 +123,31 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
         onClick={onCancel}
         style={{
           position: 'absolute',
-          top: -8,
-          right: -8,
-          width: 22,
-          height: 22,
+          top: -10,
+          right: -10,
+          width: 26,
+          height: 26,
           borderRadius: '50%',
           border: 'none',
-          background: 'rgba(255,255,255,0.1)',
-          color: 'rgba(255,255,255,0.5)',
+          background: 'rgba(80, 80, 80, 0.95)',
+          color: 'rgba(255,255,255,0.8)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: 1,
           padding: 0,
+          pointerEvents: 'all',
           transition: 'background 0.15s ease, color 0.15s ease',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-          e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+          e.currentTarget.style.background = 'rgba(200, 60, 60, 0.95)';
+          e.currentTarget.style.color = '#fff';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-          e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+          e.currentTarget.style.background = 'rgba(80, 80, 80, 0.95)';
+          e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
         }}
       >
         ✕

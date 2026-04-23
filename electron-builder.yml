@@ -11,6 +11,14 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   minimumSystemVersion: "13.0.0"
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: "link"
+      path: "/Applications"
 asarUnpack:
   - "**/*.node"
   - "**/*.dylib"
@@ -26,6 +34,4 @@ files:
   - "dist-electron/**/*"
   - "node_modules/better-sqlite3/**/*"
   - "node_modules/uiohook-napi/**/*"
-  - "node_modules/sherpa-onnx-node/**/*"
-  - "node_modules/sherpa-onnx-darwin-arm64/**/*"
   - "node_modules/@anthropic-ai/**/*"

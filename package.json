@@ -17,7 +17,6 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sherpa-onnx-node": "^1.10.0",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.20.0"
   },
