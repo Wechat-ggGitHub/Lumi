@@ -8,11 +8,8 @@ export class VoiceBarWindow {
     this.serverPort = serverPort;
   }
 
-  show(): void {
-    if (this.win && !this.win.isDestroyed()) {
-      this.win.show();
-      return;
-    }
+  preCreate(): void {
+    if (this.win && !this.win.isDestroyed()) return;
 
     const cursorScreen = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const { width: screenWidth, height: screenHeight } = cursorScreen.workAreaSize;
@@ -41,7 +38,13 @@ export class VoiceBarWindow {
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/voice-bar`);
-    this.win.once('ready-to-show', () => this.win?.show());
+  }
+
+  show(): void {
+    if (!this.win || this.win.isDestroyed()) {
+      this.preCreate();
+    }
+    this.win!.show();
   }
 
   hide(): void {
@@ -50,7 +53,13 @@ export class VoiceBarWindow {
     }
   }
 
+  /** Keep for API compat — now just hides instead of destroying */
   close(): void {
+    this.hide();
+  }
+
+  /** Actually destroy the window — only called on app quit */
+  destroy(): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.close();
       this.win = null;
@@ -61,6 +70,10 @@ export class VoiceBarWindow {
     if (this.win && !this.win.isDestroyed()) {
       this.win.webContents.send(channel, data);
     }
+  }
+
+  getWindow(): BrowserWindow | null {
+    return this.win && !this.win.isDestroyed() ? this.win : null;
   }
 
   isVisible(): boolean {
