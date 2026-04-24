@@ -8,11 +8,12 @@ import { SummaryPopupWindow } from './summary-popup';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById, appendMessages } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
-import type { ExecutionRecord, AppSettings, DotColor } from '../src/types';
+import { log, initLogger } from '../src/lib/logger';
+import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
@@ -69,23 +70,23 @@ function startNextServer(): Promise<number> {
 
         nextServer.stdout?.on('data', (data: Buffer) => {
           const msg = data.toString();
-          console.log('[next-server]', msg.trim());
+          log.info('[next-server]', msg.trim());
           if (msg.includes('Ready') || msg.includes('started')) {
             resolve(port);
           }
         });
 
         nextServer.stderr?.on('data', (data: Buffer) => {
-          console.error('[next-server]', data.toString().trim());
+          log.error('[next-server]', data.toString().trim());
         });
 
         nextServer.on('error', (err) => {
-          console.error('Failed to start Next.js server:', err);
+          log.error('Next.js 服务器启动失败:', err);
           reject(err);
         });
 
         nextServer.on('exit', (code) => {
-          console.log(`Next.js server exited with code ${code}`);
+          log.info(`Next.js 服务器退出, code=${code}`);
           nextServer = null;
         });
 
@@ -153,11 +154,14 @@ function updateTrayDot(): void {
 
 function updateSummaryPopup(): void {
   const active = getActiveExecution(db);
-  const history = getRecentExecutions(db, 5);
+  const history = getRecentExecutions(db, 10);
   summaryPopup.send('summary:update', {
     execution: active,
     history,
     dotColor: store.dotColor,
+    appState: store.appState,
+    sdkSubState: store.sdkSubState,
+    currentToolName: store.currentToolName ?? undefined,
   });
 }
 
@@ -167,9 +171,10 @@ function handleRightCommand(): void {
 
   switch (action) {
     case 'start-recording':
+      log.info('开始录音');
       voiceBar.show();
       recorder.startRecording().catch(err => {
-        console.error('Recording start failed:', err);
+        log.error('录音启动失败:', err);
         if (store.appState === 'recording') {
           voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
           store.transition('idle');
@@ -181,6 +186,7 @@ function handleRightCommand(): void {
       break;
 
     case 'stop-recording':
+      log.info('停止录音');
       recorder.stopRecording().then(audioPath => {
         store.transition('transcribing');
         updateTrayDot();
@@ -188,17 +194,17 @@ function handleRightCommand(): void {
 
         return recorder.transcribe(audioPath);
       }).then(text => {
+        log.info('转写结果:', text || '(空)');
         if (text) {
           store.transition('editing');
           voiceBar.send('voice:transcript', { text, isAppending: false });
         } else {
-          // Empty transcription — show error and go back to idle
           voiceBar.send('voice:error', { message: '未能识别语音，请重试' });
           store.transition('idle');
         }
         updateTrayDot();
       }).catch(err => {
-        console.error('[main] Transcription error:', err);
+        log.error('转写失败:', err);
         voiceBar.send('voice:error', { message: err.message });
         store.transition('idle');
         updateTrayDot();
@@ -206,8 +212,9 @@ function handleRightCommand(): void {
       break;
 
     case 'append-recording':
+      log.info('追加录音');
       recorder.startRecording().catch(err => {
-        console.error('Append recording failed:', err);
+        log.error('追加录音失败:', err);
         if (store.appState === 'recording') {
           voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
           store.transition('idle');
@@ -232,20 +239,56 @@ function handleRightCommand(): void {
 
 // 执行 Claude 命令
 async function executePrompt(prompt: string): Promise<void> {
+  log.info('executePrompt 开始, prompt:', prompt.slice(0, 100));
   const settings = loadSettings();
   const apiKey = loadApiKey();
   if (!apiKey) {
+    log.error('API Key 未配置');
     tray.updateDot('red');
+    store.transition('idle');
+    updateTrayDot();
     return;
   }
 
   store.transition('sending');
   updateTrayDot();
 
+  const cwd = settings.defaultCwd.replace('~', app.getPath('home'));
+  const providerKey = settings.provider || 'glm-cn';
+  const modelPreset = settings.modelPreset || 'opus';
+
+  // 生产模式下定位 claude 原生二进制（绕过 ASAR）
+  let claudeExecutablePath: string | undefined;
+  if (!isDev) {
+    const unpackedRoot = app.getAppPath().replace(/\.asar$/, '.asar.unpacked');
+    const candidates = [
+      // SDK 的平台包可能作为嵌套依赖存在
+      'node_modules/@anthropic-ai/claude-agent-sdk/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
+      // 也可能在顶层（npm hoisted）
+      'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
+    ];
+    for (const rel of candidates) {
+      const full = path.join(unpackedRoot, rel);
+      if (fs.existsSync(full)) {
+        claudeExecutablePath = full;
+        log.info('Claude 二进制路径:', claudeExecutablePath);
+        break;
+      }
+    }
+    if (!claudeExecutablePath) {
+      log.error('Claude 二进制未找到，搜索目录:', unpackedRoot);
+    }
+  }
+
+  log.info('执行参数:', { cwd, provider: providerKey, model: modelPreset, claudeExecutablePath });
+
   const executionId = insertExecution(db, {
-    cwd: settings.defaultCwd.replace('~', app.getPath('home')),
+    cwd,
     user_prompt: prompt,
   });
+
+  const conversationMessages: ConversationMessage[] = [];
+  conversationMessages.push({ role: 'user', content: prompt });
 
   store.transition('executing');
   store.setSdkSubState('thinking');
@@ -256,39 +299,69 @@ async function executePrompt(prompt: string): Promise<void> {
 
   currentAbortController = new AbortController();
 
-  const result = await executeClaude(
-    prompt,
-    settings.defaultCwd.replace('~', app.getPath('home')),
-    apiKey,
-    settings.provider || 'glm-cn',
-    settings.modelPreset || 'opus',
-    {
-      onSubState: (substate, toolName) => {
-        store.setSdkSubState(substate);
-        updateTrayDot();
-        updateSummaryPopup();
+  try {
+    const result = await executeClaude(
+      prompt,
+      cwd,
+      apiKey,
+      providerKey,
+      modelPreset,
+      {
+        onSubState: (substate, toolName) => {
+          log.debug('SDK 子状态:', substate, toolName || '');
+          store.setSdkSubState(substate, toolName);
+          updateTrayDot();
+          updateSummaryPopup();
+        },
+        onError: (error) => {
+          log.error('Claude 执行错误:', error);
+        },
+        onMessage: (msg) => {
+          conversationMessages.push(msg);
+        },
+        onToolCall: (toolCall) => {
+          log.debug('工具调用:', toolCall.type, toolCall.target);
+        },
       },
-      onError: (error) => {
-        console.error('Claude execution error:', error);
-      },
-    },
-    currentAbortController.signal
-  );
+      currentAbortController.signal,
+      claudeExecutablePath
+    );
 
-  currentAbortController = null;
+    currentAbortController = null;
+    log.info('执行完成:', { status: result.status, duration: result.durationMs, cost: result.costUsd });
 
-  updateExecution(db, executionId, {
-    status: result.status,
-    summary: result.summary,
-    duration_ms: result.durationMs,
-    num_turns: result.numTurns,
-    cost_usd: result.costUsd,
-    completed_at: new Date().toISOString(),
-  });
+    updateExecution(db, executionId, {
+      status: result.status,
+      summary: result.summary,
+      duration_ms: result.durationMs,
+      num_turns: result.numTurns,
+      cost_usd: result.costUsd,
+      completed_at: new Date().toISOString(),
+      sdk_session_id: result.sdkSessionId,
+      title: result.summary ? result.summary.split('\n')[0] : prompt.slice(0, 50),
+    });
 
-  store.transition('idle');
-  store.setSdkSubState(result.status === 'completed' ? 'completed' :
-                       result.status === 'cancelled' ? 'cancelled' : 'failed');
+    if (conversationMessages.length > 0) {
+      appendMessages(db, executionId, conversationMessages);
+    }
+
+    store.transition('idle');
+    store.setSdkSubState(result.status === 'completed' ? 'completed' :
+                         result.status === 'cancelled' ? 'cancelled' : 'failed');
+  } catch (err) {
+    currentAbortController = null;
+    log.error('executePrompt 异常:', err);
+    updateExecution(db, executionId, {
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+    });
+    if (conversationMessages.length > 0) {
+      appendMessages(db, executionId, conversationMessages);
+    }
+    store.transition('idle');
+    store.setSdkSubState('failed');
+  }
+
   updateTrayDot();
   updateSummaryPopup();
 }
@@ -347,6 +420,106 @@ function registerIpcHandlers(): void {
   ipcMain.on('summary:fetch-detail', (event, { id }: { id: string }) => {
     const record = getExecutionById(db, id);
     event.sender.send('summary:detail-data', { record });
+  });
+
+  // detail window: 发送后续消息
+  ipcMain.on('detail:send-message', async (event, { id, text }: { id: string; text: string }) => {
+    const record = getExecutionById(db, id);
+    if (!record?.sdk_session_id) {
+      log.error('detail:send-message: 无 sdk_session_id');
+      event.sender.send('detail:execution-complete', {
+        record: { ...record, status: 'failed' },
+      });
+      return;
+    }
+
+    const apiKey = loadApiKey();
+    if (!apiKey) {
+      log.error('detail:send-message: API Key 未配置');
+      return;
+    }
+
+    const settings = loadSettings();
+    const cwd = record.cwd;
+    const providerKey = settings.provider || 'glm-cn';
+    const modelPreset = settings.modelPreset || 'opus';
+
+    let claudeExecutablePath: string | undefined;
+    if (!isDev) {
+      const unpackedRoot = app.getAppPath().replace(/\.asar$/, '.asar.unpacked');
+      const candidates = [
+        'node_modules/@anthropic-ai/claude-agent-sdk/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
+        'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
+      ];
+      for (const rel of candidates) {
+        const full = path.join(unpackedRoot, rel);
+        if (fs.existsSync(full)) {
+          claudeExecutablePath = full;
+          break;
+        }
+      }
+    }
+
+    log.info('detail:send-message: 恢复会话', record.sdk_session_id);
+
+    const continueAbortController = new AbortController();
+    const conversationMessages: ConversationMessage[] = [];
+    conversationMessages.push({ role: 'user', content: text });
+
+    try {
+      const result = await executeClaude(
+        text,
+        cwd,
+        apiKey,
+        providerKey,
+        modelPreset,
+        {
+          onSubState: (substate, toolName) => {
+            log.debug('detail SDK 子状态:', substate, toolName || '');
+          },
+          onError: (error) => {
+            log.error('detail Claude 执行错误:', error);
+            event.sender.send('detail:execution-complete', { record: getExecutionById(db, id) });
+          },
+          onMessage: (msg) => {
+            conversationMessages.push(msg);
+            event.sender.send('detail:stream-chunk', {
+              id,
+              content: msg.content,
+              done: false,
+            });
+          },
+          onToolCall: (toolCall) => {
+            event.sender.send('detail:tool-call', { id, toolCall });
+          },
+        },
+        continueAbortController.signal,
+        claudeExecutablePath
+      );
+
+      const existingMessages = JSON.parse(record.messages || '[]') as ConversationMessage[];
+      const allMessages = [...existingMessages, ...conversationMessages];
+      appendMessages(db, id, allMessages);
+
+      const updatedRecord = getExecutionById(db, id);
+      if (updatedRecord) {
+        const newDuration = (updatedRecord.duration_ms || 0) + (result.durationMs || 0);
+        const newCost = (updatedRecord.cost_usd || 0) + (result.costUsd || 0);
+        const newTurns = (updatedRecord.num_turns || 0) + (result.numTurns || 0);
+        updateExecution(db, id, {
+          duration_ms: newDuration,
+          cost_usd: newCost,
+          num_turns: newTurns,
+          summary: result.summary || updatedRecord.summary,
+        });
+
+        const finalRecord = getExecutionById(db, id);
+        event.sender.send('detail:execution-complete', { record: finalRecord });
+      }
+    } catch (err) {
+      log.error('detail:send-message 执行异常:', err);
+      event.sender.send('detail:execution-complete', { record: getExecutionById(db, id) });
+    }
   });
 
   // settings
@@ -440,38 +613,17 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('settings:save-volcengine-credentials', async (_, { appId, accessToken }: { appId: string; accessToken: string }) => {
-    // Validate by attempting a connection
     const { DoubaoASR } = await import('../src/lib/doubao-asr');
     const asr = new DoubaoASR(appId, accessToken);
-    // Create a minimal valid WAV for testing (0.5s silence)
-    const silence = Buffer.alloc(44 + 16000, 0);
-    silence.write('RIFF', 0);
-    silence.writeUInt32LE(36 + 16000, 4);
-    silence.write('WAVE', 8);
-    silence.write('fmt ', 12);
-    silence.writeUInt32LE(16, 16);
-    silence.writeUInt16LE(1, 20);
-    silence.writeUInt16LE(1, 22);
-    silence.writeUInt32LE(16000, 24);
-    silence.writeUInt32LE(32000, 28);
-    silence.writeUInt16LE(2, 32);
-    silence.writeUInt16LE(16, 34);
-    silence.write('data', 36);
-    silence.writeUInt32LE(16000, 40);
-
-    const tmpPath = path.join(app.getPath('userData'), 'tmp', 'test-connection.wav');
-    if (!fs.existsSync(path.dirname(tmpPath))) fs.mkdirSync(path.dirname(tmpPath), { recursive: true });
-    fs.writeFileSync(tmpPath, silence);
-
     try {
-      await asr.transcribe(tmpPath);
+      await asr.validateCredentials();
       saveVolcengineCredentials(appId, accessToken);
-      // Update recorder with new credentials
       const creds = loadVolcengineCredentials();
       recorder = new AudioRecorder(creds);
       recorder.setWindow(voiceBar.getWindow()!);
-    } finally {
-      try { fs.unlinkSync(tmpPath); } catch {}
+    } catch (err) {
+      console.error('[volcengine] 凭证验证失败:', err);
+      throw err;
     }
   });
 
@@ -481,14 +633,20 @@ function registerIpcHandlers(): void {
 
 // 启动应用
 app.whenReady().then(async () => {
+  initLogger(path.join(userDataDir, 'logs'));
+  log.info('=== Shrew 应用启动 ===');
+  log.info('日志文件:', log.logPath);
+  log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
+  log.info('userData:', userDataDir);
+
   // 生产模式：启动 Next.js standalone 服务器
   if (!isDev) {
     try {
       const port = await startNextServer();
       await waitForServer(port);
-      console.log(`Next.js server started on port ${port}`);
+      log.info(`Next.js 服务器就绪, port=${port}`);
     } catch (err) {
-      console.error('Failed to start Next.js server:', err);
+      log.error('Next.js 服务器启动失败:', err);
       dialog.showErrorBox('启动失败', `无法启动内置服务器: ${err}`);
       app.quit();
       return;
@@ -508,7 +666,11 @@ app.whenReady().then(async () => {
 
   // 创建菜单栏 Tray
   tray = new ShrewTray();
-  tray.onPopupRequested = () => summaryPopup.show(tray as any);
+  tray.onPopupRequested = () => {
+    store.clearCompletedState();
+    updateTrayDot();
+    summaryPopup.show(tray as any);
+  };
   tray.onSettingsRequested = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
@@ -531,9 +693,11 @@ app.whenReady().then(async () => {
 
   // 初始化录音器并预创建 voice-bar 窗口
   const volcengineCreds = loadVolcengineCredentials();
+  log.info('语音识别凭证:', volcengineCreds ? '已配置' : '未配置');
   recorder = new AudioRecorder(volcengineCreds);
   voiceBar.preCreate();
   recorder.setWindow(voiceBar.getWindow()!);
+  log.info('快捷键:', shortcutReady ? '已就绪' : '未授权');
 
   // voice-bar 失焦自动关闭
   voiceBar.onBlur = () => {
@@ -552,6 +716,7 @@ app.whenReady().then(async () => {
 
   // 检查是否需要引导
   const needsOnboarding = !hasApiKey();
+  log.info('启动完成, 需要引导:', needsOnboarding);
   if (needsOnboarding) {
     createOnboardingWindow();
   } else {
