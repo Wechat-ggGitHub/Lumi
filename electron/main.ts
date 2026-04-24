@@ -500,7 +500,8 @@ function registerIpcHandlers(): void {
           },
         },
         continueAbortController.signal,
-        claudeExecutablePath
+        claudeExecutablePath,
+        record.sdk_session_id
       );
 
       const existingMessages = JSON.parse(record.messages || '[]') as ConversationMessage[];
