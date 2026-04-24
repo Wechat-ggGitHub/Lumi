@@ -8,7 +8,7 @@ import { SummaryPopupWindow } from './summary-popup';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById, appendMessages } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById, appendMessages, markViewed, getTodayExecutions, getHistoryCount } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -154,10 +154,12 @@ function updateTrayDot(): void {
 
 function updateSummaryPopup(): void {
   const active = getActiveExecution(db);
-  const history = getRecentExecutions(db, 10);
+  const todayExecutions = getTodayExecutions(db, 10);
+  const historyCount = getHistoryCount(db);
   summaryPopup.send('summary:update', {
     execution: active,
-    history,
+    history: todayExecutions,
+    historyCount,
     dotColor: store.dotColor,
     appState: store.appState,
     sdkSubState: store.sdkSubState,
@@ -420,6 +422,10 @@ function registerIpcHandlers(): void {
   ipcMain.on('summary:fetch-detail', (event, { id }: { id: string }) => {
     const record = getExecutionById(db, id);
     event.sender.send('summary:detail-data', { record });
+  });
+
+  ipcMain.on('summary:mark-viewed', (_, { id }: { id: string }) => {
+    markViewed(db, id);
   });
 
   // detail window: 发送后续消息

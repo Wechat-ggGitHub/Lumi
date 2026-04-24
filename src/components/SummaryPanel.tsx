@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { StatusDot } from './StatusDot';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import type { ExecutionRecord, AppState, SdkSubState, DotColor } from '@/types';
@@ -16,45 +16,27 @@ function formatDuration(ms: number): string {
 function timeAgo(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffSeconds = Math.floor((now - then) / 1000);
   if (diffSeconds < 60) return '刚刚';
   const diffMinutes = Math.floor(diffSeconds / 60);
   if (diffMinutes < 60) return `${diffMinutes}分钟前`;
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}小时前`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return '昨天';
-  return `${diffDays}天前`;
+  return `${diffHours}小时前`;
 }
 
-interface OverflowDetectorProps {
-  children: React.ReactNode;
-  onOverflow: (overflowing: boolean) => void;
-}
-
-function OverflowDetector({ children, onOverflow }: OverflowDetectorProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const overflowing = el.scrollHeight > el.clientHeight;
-    onOverflow(overflowing);
-  }, [children, onOverflow]);
-
-  return <div ref={contentRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>{children}</div>;
+function getTitle(exec: ExecutionRecord): string {
+  return exec.title || exec.summary?.split('\n')[0] || exec.user_prompt;
 }
 
 export function SummaryPanel() {
   const [current, setCurrent] = useState<ExecutionRecord | null>(null);
   const [history, setHistory] = useState<ExecutionRecord[]>([]);
+  const [historyCount, setHistoryCount] = useState(0);
   const [dotColor, setDotColor] = useState<DotColor>('gray');
   const [appState, setAppState] = useState<AppState>('idle');
   const [sdkSubState, setSdkSubState] = useState<SdkSubState>(null);
   const [currentToolName, setCurrentToolName] = useState<string | undefined>(undefined);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [contentOverflowing, setContentOverflowing] = useState(false);
 
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
@@ -64,6 +46,7 @@ export function SummaryPanel() {
     const handler = (_: unknown, data: {
       execution: ExecutionRecord | null;
       history: ExecutionRecord[];
+      historyCount: number;
       dotColor: DotColor;
       appState: AppState;
       sdkSubState: SdkSubState;
@@ -71,6 +54,7 @@ export function SummaryPanel() {
     }) => {
       setCurrent(data.execution);
       setHistory(data.history);
+      setHistoryCount(data.historyCount);
       setDotColor(data.dotColor);
       setAppState(data.appState);
       setSdkSubState(data.sdkSubState);
@@ -84,6 +68,7 @@ export function SummaryPanel() {
   }, [ipcRenderer]);
 
   const openDetail = useCallback((id: string) => {
+    ipcRenderer?.send('summary:mark-viewed', { id });
     ipcRenderer?.send('summary:open-detail', { id });
   }, [ipcRenderer]);
 
@@ -109,7 +94,9 @@ export function SummaryPanel() {
           <StatusDot color={statusInfo.dotColor} />
           <span style={{ fontWeight: 600, fontSize: 12 }}>{statusInfo.label}</span>
         </div>
-        <span style={{ fontSize: 11, color: '#888' }}>{statusInfo.meta}</span>
+        <span style={{ fontSize: 11, color: '#888' }}>
+          {statusInfo.meta || '⌘ 开始语音'}
+        </span>
       </div>
 
       {/* 内容区 */}
@@ -119,42 +106,21 @@ export function SummaryPanel() {
         <EditingState current={current} />
       ) : appState === 'executing' ? (
         <ExecutingState current={current} sdkSubState={sdkSubState} currentToolName={currentToolName} />
-      ) : current ? (
-        <CompletedState
+      ) : (
+        <TaskList
           current={current}
+          history={history}
           appState={appState}
           sdkSubState={sdkSubState}
           openDetail={openDetail}
-          onOverflowChange={setContentOverflowing}
         />
-      ) : (
-        <EmptyState />
       )}
 
-      {/* 查看完整结果（仅溢出时） */}
-      {contentOverflowing && current && appState === 'idle' && (
-        <div
-          onClick={() => openDetail(current.id)}
-          style={{
-            padding: '6px 16px',
-            color: '#AF52DE',
-            fontSize: 12,
-            cursor: 'pointer',
-            textAlign: 'center',
-            flexShrink: 0,
-          }}
-        >
-          查看完整结果 →
-        </div>
-      )}
-
-      {/* 历史记录 */}
-      {history.length > 0 && (
+      {/* 历史折叠 */}
+      {historyCount > 0 && (
         <div style={{
           borderTop: '1px solid rgba(255,255,255,0.08)',
           flexShrink: 0,
-          maxHeight: historyExpanded ? 160 : 'auto',
-          overflow: 'hidden',
         }}>
           <div
             onClick={() => setHistoryExpanded(!historyExpanded)}
@@ -165,38 +131,8 @@ export function SummaryPanel() {
               display: 'flex', justifyContent: 'space-between',
             }}
           >
-            <span>{historyExpanded ? '▼' : '▶'} 历史记录</span>
-            <span>({history.length})</span>
+            <span>{historyExpanded ? '▼' : '▶'} 历史 ({historyCount})</span>
           </div>
-          {historyExpanded && (
-            <div style={{ overflowY: 'auto', maxHeight: 120 }}>
-              {history.map(exec => (
-                <div
-                  key={exec.id}
-                  onClick={() => openDetail(exec.id)}
-                  style={{
-                    padding: '6px 16px',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s ease',
-                    fontSize: 12,
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                    <span style={{ color: exec.status === 'failed' ? '#FF453A' : '#ccc' }}>
-                      {exec.title || exec.summary?.split('\n')[0] || exec.user_prompt}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, color: '#666', flexShrink: 0, fontSize: 11 }}>
-                    {exec.duration_ms != null && <span>{formatDuration(exec.duration_ms)}</span>}
-                    <span>{timeAgo(exec.created_at)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -233,8 +169,7 @@ function getStatusInfo(
       if (sdkSubState === 'completed' || current?.status === 'completed') {
         const elapsed = current?.duration_ms != null ? formatDuration(current.duration_ms) : '';
         const turns = current?.num_turns != null ? ` · ${current.num_turns} 轮` : '';
-        const cost = current?.cost_usd != null ? ` · $${current.cost_usd.toFixed(4)}` : '';
-        return { label: '已完成', dotColor: 'green', meta: `${elapsed}${turns}${cost}`, bgColor: defaultBg };
+        return { label: '已完成', dotColor: 'green', meta: `${elapsed}${turns}`, bgColor: defaultBg };
       }
       return { label: '待命', dotColor: 'gray', meta: '', bgColor: defaultBg };
     }
@@ -333,76 +268,132 @@ function ExecutingState({
   );
 }
 
-function CompletedState({
+function TaskList({
   current,
+  history,
+  appState,
   sdkSubState,
   openDetail,
-  onOverflowChange,
 }: {
-  current: ExecutionRecord;
+  current: ExecutionRecord | null;
+  history: ExecutionRecord[];
   appState: AppState;
   sdkSubState: SdkSubState;
   openDetail: (id: string) => void;
-  onOverflowChange: (overflowing: boolean) => void;
 }) {
-  const isFailed = current.status === 'failed' || sdkSubState === 'failed';
-  const title = current.title || current.summary?.split('\n')[0] || current.user_prompt;
+  if (!current && history.length === 0) {
+    return <EmptyState />;
+  }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 16px 0', flexShrink: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.4, marginBottom: 4 }}>
-          {title}
+    <div style={{ flex: 1, overflow: 'auto' }}>
+      {current && (
+        <TaskCard
+          exec={current}
+          expanded={current.viewed === 0}
+          appState={appState}
+          sdkSubState={sdkSubState}
+          openDetail={openDetail}
+        />
+      )}
+
+      {history
+        .filter(exec => exec.id !== current?.id)
+        .map(exec => (
+          <TaskCard
+            key={exec.id}
+            exec={exec}
+            expanded={exec.viewed === 0}
+            appState="idle"
+            sdkSubState={null}
+            openDetail={openDetail}
+          />
+        ))}
+    </div>
+  );
+}
+
+function TaskCard({
+  exec,
+  expanded,
+  appState,
+  sdkSubState,
+  openDetail,
+}: {
+  exec: ExecutionRecord;
+  expanded: boolean;
+  appState: AppState;
+  sdkSubState: SdkSubState;
+  openDetail: (id: string) => void;
+}) {
+  const title = getTitle(exec);
+  const isFailed = exec.status === 'failed' || (appState === 'idle' && sdkSubState === 'failed');
+
+  if (!expanded) {
+    return (
+      <div
+        onClick={() => openDetail(exec.id)}
+        style={{
+          padding: '10px 16px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          cursor: 'pointer',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          transition: 'background 0.15s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+      >
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          <span style={{ color: isFailed ? '#FF453A' : '#e0e0e0', fontSize: 13, fontWeight: 500 }}>
+            {title}
+          </span>
         </div>
-        {current.summary && (
-          <div style={{ fontSize: 11, color: '#666', fontStyle: 'italic' }}>
-            「{current.user_prompt}」
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8, color: '#666', flexShrink: 0, fontSize: 11, marginLeft: 12 }}>
+          {exec.duration_ms != null && <span>{formatDuration(exec.duration_ms)}</span>}
+          <span>{timeAgo(exec.created_at)}</span>
+        </div>
       </div>
+    );
+  }
 
-      <OverflowDetector onOverflow={onOverflowChange}>
-        <div
-          onClick={() => openDetail(current.id)}
-          style={{
-            padding: '12px 16px',
-            cursor: 'pointer',
-            lineHeight: 1.6,
-            fontSize: 13,
-            transition: 'background 0.15s ease',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-        >
-          {isFailed ? (
-            <div style={{
-              padding: '8px 12px',
-              background: 'rgba(255,69,58,0.1)',
-              border: '1px solid rgba(255,69,58,0.2)',
-              borderRadius: 6,
-              color: '#FF6B6B',
-              fontSize: 12,
-            }}>
-              执行过程中出现错误
-            </div>
-          ) : current.summary ? (
-            <div style={{ whiteSpace: 'pre-wrap' }}>
-              {current.summary}
-            </div>
-          ) : (
-            <div style={{ color: '#666' }}>无输出</div>
-          )}
+  return (
+    <div
+      onClick={() => openDetail(exec.id)}
+      style={{
+        padding: '12px 16px',
+        cursor: 'pointer',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        transition: 'background 0.15s ease',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, marginBottom: 4 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 11, color: '#666', fontStyle: 'italic', marginBottom: 8 }}>
+        「{exec.user_prompt}」
+      </div>
+      {isFailed ? (
+        <div style={{
+          padding: '6px 10px',
+          background: 'rgba(255,69,58,0.1)',
+          border: '1px solid rgba(255,69,58,0.2)',
+          borderRadius: 6,
+          color: '#FF6B6B',
+          fontSize: 12,
+        }}>
+          执行失败
         </div>
-      </OverflowDetector>
-
-      <div style={{
-        height: 24,
-        background: 'linear-gradient(transparent, #1a1a1e)',
-        flexShrink: 0,
-        marginTop: -24,
-        pointerEvents: 'none',
-        position: 'relative',
-      }} />
+      ) : exec.summary ? (
+        <div style={{ fontSize: 12, lineHeight: 1.6, color: '#ccc', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'hidden' }}>
+          {exec.summary}
+        </div>
+      ) : null}
+      <div style={{ display: 'flex', gap: 8, color: '#666', fontSize: 11, marginTop: 8 }}>
+        {exec.duration_ms != null && <span>{formatDuration(exec.duration_ms)}</span>}
+        <span>{timeAgo(exec.created_at)}</span>
+      </div>
     </div>
   );
 }
@@ -413,20 +404,9 @@ function EmptyState() {
       flex: 1,
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      gap: 12,
+      gap: 8,
     }}>
-      <div style={{
-        width: 56, height: 56,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24,
-        color: '#666',
-      }}>
-        ⌘
-      </div>
-      <div style={{ fontSize: 14, fontWeight: 500 }}>按右 Command 开始语音输入</div>
-      <div style={{ fontSize: 11, color: '#555' }}>说出你的指令，Shrew 会帮你执行</div>
+      <div style={{ fontSize: 13, color: '#888' }}>按右 ⌘ 开始语音输入</div>
     </div>
   );
 }

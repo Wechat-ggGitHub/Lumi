@@ -95,6 +95,7 @@ export interface IpcMessages {
   'summary:update': {
     execution: ExecutionRecord | null;
     history: ExecutionRecord[];
+    historyCount: number;
     dotColor: DotColor;
     appState: AppState;
     sdkSubState: SdkSubState;
@@ -105,6 +106,7 @@ export interface IpcMessages {
   'summary:ready': void;
   'summary:open-detail': { id: string };
   'summary:fetch-detail': { id: string };
+  'summary:mark-viewed': { id: string };
 
   // main -> summary renderer
   'summary:detail-data': { record: ExecutionRecord | null };
