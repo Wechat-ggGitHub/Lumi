@@ -151,14 +151,33 @@ export default function SummaryDetailPage() {
     ipcRenderer.on('summary:detail-data', handler);
     ipcRenderer.send('summary:fetch-detail', { id });
 
-    const streamHandler = (_: unknown, data: { content: string; done: boolean }) => {
+    const streamHandler = (_: unknown, data: { id: string; content: string; done: boolean }) => {
+      if (data.id !== id) return;
       if (data.done) {
         setIsSending(false);
+        return;
       }
+      setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
     };
     ipcRenderer.on('detail:stream-chunk', streamHandler);
 
-    const completeHandler = (_: unknown, data: { record: ExecutionRecord }) => {
+    const toolCallHandler = (_: unknown, data: { id: string; toolCall: ToolCallRecord }) => {
+      if (data.id !== id) return;
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && last.toolCalls && last.toolCalls.length > 0) {
+          const updated = [...prev];
+          const updatedLast = { ...updated[updated.length - 1] };
+          updatedLast.toolCalls = [...updatedLast.toolCalls!, data.toolCall];
+          updated[updated.length - 1] = updatedLast;
+          return updated;
+        }
+        return [...prev, { role: 'assistant' as const, content: '', toolCalls: [data.toolCall] }];
+      });
+    };
+    ipcRenderer.on('detail:tool-call', toolCallHandler);
+
+    const completeHandler = (_: unknown, data: { id: string; record: ExecutionRecord }) => {
       setRecord(data.record);
       setIsSending(false);
     };
@@ -167,6 +186,7 @@ export default function SummaryDetailPage() {
     return () => {
       ipcRenderer.removeListener('summary:detail-data', handler);
       ipcRenderer.removeListener('detail:stream-chunk', streamHandler);
+      ipcRenderer.removeListener('detail:tool-call', toolCallHandler);
       ipcRenderer.removeListener('detail:execution-complete', completeHandler);
     };
   }, [ipcRenderer]);
