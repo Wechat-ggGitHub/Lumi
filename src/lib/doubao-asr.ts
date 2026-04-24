@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import fs from 'fs';
 import zlib from 'zlib';
+import { log } from './logger';
 
 const WS_URL = 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream';
 const RESOURCE_ID = 'volc.seedasr.sauc.duration';
@@ -49,10 +50,42 @@ export class DoubaoASR {
     this.accessToken = accessToken;
   }
 
+  async validateCredentials(): Promise<void> {
+    log.info('豆包ASR: 验证凭证开始');
+    return new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(WS_URL, {
+        headers: {
+          'X-Api-App-Key': this.appId,
+          'X-Api-Access-Key': this.accessToken,
+          'X-Api-Resource-Id': RESOURCE_ID,
+          'X-Api-Connect-Id': crypto.randomUUID(),
+        },
+      });
+
+      const timer = setTimeout(() => {
+        ws.close();
+        reject(new Error('语音识别服务连接超时'));
+      }, CONNECT_TIMEOUT);
+
+      ws.on('open', () => {
+        clearTimeout(timer);
+        ws.close();
+        log.info('豆包ASR: 凭证验证成功');
+        resolve();
+      });
+
+      ws.on('error', (err) => {
+        clearTimeout(timer);
+        log.error('豆包ASR: 凭证验证失败:', err.message);
+        reject(new Error('凭证无效或语音识别服务不可用'));
+      });
+    });
+  }
+
   async transcribe(wavFilePath: string): Promise<string> {
     const wavBuffer = fs.readFileSync(wavFilePath);
-    // Skip WAV header (44 bytes), get raw PCM data
     const pcmData = wavBuffer.subarray(44);
+    log.info('豆包ASR: 开始转写, WAV大小:', wavBuffer.length, 'PCM大小:', pcmData.length);
 
     return new Promise<string>((resolve, reject) => {
       const totalTimer = setTimeout(() => {
@@ -78,12 +111,14 @@ export class DoubaoASR {
         else resolve(result || '');
       };
 
-      ws.on('error', () => {
+      ws.on('error', (err) => {
+        log.error('豆包ASR: WebSocket 连接错误:', err.message);
         done(new Error('语音识别服务连接失败，请检查网络'));
       });
 
       ws.on('close', (code, reason) => {
         if (!settled) {
+          log.warn('豆包ASR: WebSocket 意外关闭, code:', code);
           done(new Error(`连接关闭: ${code} ${reason}`));
         }
       });
@@ -95,12 +130,13 @@ export class DoubaoASR {
 
       ws.on('open', () => {
         clearTimeout(connectTimer);
+        log.info('豆包ASR: WebSocket 已连接, 开始发送音频数据');
 
         // 1. Send full client request (JSON config, gzip compressed)
         const config = JSON.stringify({
           user: { uid: 'shrew-app' },
           audio: {
-            format: 'wav',
+            format: 'pcm',
             rate: SAMPLE_RATE,
             bits: BYTES_PER_SAMPLE * 8,
             channel: CHANNELS,
@@ -153,13 +189,14 @@ export class DoubaoASR {
         const messageType = (buf[1] >> 4) & 0xf;
 
         if (messageType === MSG_ERROR) {
-          // Error frame: 4-byte header + 4-byte error code + 4-byte msg size + msg
           if (buf.length >= 12) {
             const errorCode = buf.readUInt32BE(4);
             const errorMsgSize = buf.readUInt32BE(8);
             const errorMsg = buf.subarray(12, 12 + errorMsgSize).toString('utf-8');
+            log.error('豆包ASR: 服务端错误, code:', errorCode, 'msg:', errorMsg);
             done(new Error(mapErrorCode(errorCode, errorMsg)));
           } else {
+            log.error('豆包ASR: 服务端错误 (帧过短)');
             done(new Error('语音识别服务返回错误'));
           }
           ws.close();
@@ -186,14 +223,15 @@ export class DoubaoASR {
 
           // Check for error in response payload
           if (payload.code && payload.code !== 0) {
+            log.error('豆包ASR: 响应错误, code:', payload.code, 'msg:', payload.message);
             done(new Error(mapErrorCode(payload.code, payload.message || '')));
             ws.close();
             return;
           }
 
-          // Check if this is the final response (flags=3 means last packet)
           if (flags === 0x3) {
             const text = payload?.result?.text?.trim() || '';
+            log.info('豆包ASR: 最终转写结果, 长度:', text.length);
             done(null, text);
             ws.close();
           }

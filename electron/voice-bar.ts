@@ -1,4 +1,5 @@
 import { BrowserWindow, screen } from 'electron';
+import { log } from '../src/lib/logger';
 
 export class VoiceBarWindow {
   private win: BrowserWindow | null = null;
@@ -39,6 +40,7 @@ export class VoiceBarWindow {
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/voice-bar`);
+    log.info('语音条窗口: 预创建完成, 位置:', { x, y });
   }
 
   show(): void {
@@ -48,33 +50,36 @@ export class VoiceBarWindow {
     const win = this.win!;
     win.removeAllListeners('blur');
     win.once('blur', () => {
+      log.info('语音条窗口: 失焦');
       if (this.onBlur) this.onBlur();
     });
     win.show();
+    log.info('语音条窗口: 已显示');
   }
 
   hide(): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.hide();
+      log.info('语音条窗口: 已隐藏');
     }
   }
 
-  /** Keep for API compat — now just hides instead of destroying */
   close(): void {
     this.hide();
   }
 
-  /** Actually destroy the window — only called on app quit */
   destroy(): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.close();
       this.win = null;
+      log.info('语音条窗口: 已销毁');
     }
   }
 
   send(channel: string, data?: unknown): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.webContents.send(channel, data);
+      log.info('语音条窗口: 发送消息:', channel);
     }
   }
 

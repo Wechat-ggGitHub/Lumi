@@ -23,6 +23,7 @@ asarUnpack:
   - "**/*.node"
   - "**/*.dylib"
   - "**/*.so"
+  - "**/claude-agent-sdk-darwin-arm64/claude"
 extraResources:
   - from: ".next/standalone"
     to: ".next/standalone"

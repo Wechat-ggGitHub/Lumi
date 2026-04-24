@@ -25,11 +25,12 @@ export class ShrewStore {
   private _appState: AppState = 'idle';
   private _sdkSubState: SdkSubState = null;
   private _previousSdkSubState: SdkSubState = null;
-  private _greenTimer: ReturnType<typeof setTimeout> | null = null;
+  private _currentToolName: string | null = null;
   private _listeners: StateChangeCallback[] = [];
 
   get appState(): AppState { return this._appState; }
   get sdkSubState(): SdkSubState { return this._sdkSubState; }
+  get currentToolName(): string | null { return this._currentToolName; }
 
   transition(newState: AppState): void {
     const allowed = VALID_TRANSITIONS[this._appState];
@@ -38,24 +39,28 @@ export class ShrewStore {
     this._appState = newState;
     this.notify();
 
-    if (newState === 'idle' && this._sdkSubState === 'completed') {
-      this.scheduleGreenToGray();
-    }
-
     if (newState !== 'executing') {
       // Keep completed/failed for dot color display on idle
       if (newState === 'idle' && (this._sdkSubState === 'completed' || this._sdkSubState === 'failed')) {
-        // preserve substate for dot color
+        // preserve substate for dot color until user views
       } else if (newState !== 'idle') {
         this._sdkSubState = null;
       }
     }
   }
 
-  setSdkSubState(substate: SdkSubState): void {
+  setSdkSubState(substate: SdkSubState, toolName?: string): void {
     this._previousSdkSubState = this._sdkSubState;
     this._sdkSubState = substate;
+    this._currentToolName = toolName ?? null;
     this.notify();
+  }
+
+  clearCompletedState(): void {
+    if (this._sdkSubState === 'completed' || this._sdkSubState === 'failed') {
+      this._sdkSubState = null;
+      this.notify();
+    }
   }
 
   get dotColor(): DotColor {
@@ -93,16 +98,5 @@ export class ShrewStore {
     for (const cb of this._listeners) {
       cb({ appState: this._appState, sdkSubState: this._sdkSubState });
     }
-  }
-
-  private scheduleGreenToGray(): void {
-    if (this._greenTimer) clearTimeout(this._greenTimer);
-    this._greenTimer = setTimeout(() => {
-      if (this._appState === 'idle' && this._sdkSubState === 'completed') {
-        this._sdkSubState = null;
-        this.notify();
-      }
-      this._greenTimer = null;
-    }, 3000);
   }
 }

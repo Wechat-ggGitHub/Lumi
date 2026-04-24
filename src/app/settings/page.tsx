@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const [volcToken, setVolcToken] = useState('');
   const [hasVolcCreds, setHasVolcCreds] = useState(false);
   const [volcStatus, setVolcStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [volcError, setVolcError] = useState('');
 
   useEffect(() => {
     const ipcRenderer = getIpcRenderer();
@@ -95,6 +96,7 @@ export default function SettingsPage() {
   const handleSaveVolcengine = async () => {
     if (!volcAppId.trim() || !volcToken.trim()) return;
     setVolcStatus('saving');
+    setVolcError('');
     try {
       await getIpcRenderer()?.invoke('settings:save-volcengine-credentials', {
         appId: volcAppId.trim(),
@@ -104,9 +106,10 @@ export default function SettingsPage() {
       setVolcToken('');
       setVolcStatus('saved');
       setTimeout(() => setVolcStatus('idle'), 2000);
-    } catch {
+    } catch (e: any) {
+      setVolcError(e?.message || '未知错误');
       setVolcStatus('error');
-      setTimeout(() => setVolcStatus('idle'), 2000);
+      setTimeout(() => { setVolcStatus('idle'); setVolcError(''); }, 5000);
     }
   };
 
@@ -229,7 +232,7 @@ export default function SettingsPage() {
           </div>
         </div>
         {volcStatus === 'saved' && <p style={{ color: '#34C759', fontSize: 13, marginTop: 4 }}>已保存</p>}
-        {volcStatus === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>凭证验证失败，请检查是否正确</p>}
+        {volcStatus === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>凭证验证失败：{volcError}</p>}
       </section>
 
       {/* 工作目录 */}
