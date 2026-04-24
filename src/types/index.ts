@@ -21,7 +21,7 @@ export type SdkSubState =
   | null;
 
 // 状态小点颜色
-export type DotColor = 'gray' | 'blue' | 'green' | 'red' | 'yellow';
+export type DotColor = 'gray' | 'blue' | 'green' | 'red' | 'yellow' | 'purple';
 
 // 执行记录
 export interface ExecutionRecord {
@@ -36,6 +36,24 @@ export interface ExecutionRecord {
   status: 'running' | 'completed' | 'failed' | 'cancelled';
   created_at: string;
   completed_at: string | null;
+  messages: string | null; // JSON string of ConversationMessage[]
+  title: string | null;
+  viewed: number;
+}
+
+// 对话消息
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  toolCalls?: ToolCallRecord[];
+}
+
+// 工具调用记录
+export interface ToolCallRecord {
+  type: 'read_file' | 'edit_file' | 'write_file' | 'run_command' | 'other';
+  target: string;
+  status: 'completed' | 'failed';
+  detail?: string;
 }
 
 // 设置
@@ -74,7 +92,30 @@ export interface IpcMessages {
   'voice:audio-data': { samples: Float32Array; sampleRate: number };
 
   // main -> summary-popup
-  'summary:update': { execution: ExecutionRecord | null; history: ExecutionRecord[] };
+  'summary:update': {
+    execution: ExecutionRecord | null;
+    history: ExecutionRecord[];
+    dotColor: DotColor;
+    appState: AppState;
+    sdkSubState: SdkSubState;
+    currentToolName?: string;
+  };
+
+  // summary renderer -> main
+  'summary:ready': void;
+  'summary:open-detail': { id: string };
+  'summary:fetch-detail': { id: string };
+
+  // main -> summary renderer
+  'summary:detail-data': { record: ExecutionRecord | null };
+
+  // detail window IPC (Phase 2-3)
+  'detail:send-message': { id: string; text: string };
+  'detail:start-voice': { id: string };
+  'detail:voice-result': { text: string };
+  'detail:stream-chunk': { id: string; content: string; done: boolean };
+  'detail:tool-call': { id: string; toolCall: ToolCallRecord };
+  'detail:execution-complete': { id: string; record: ExecutionRecord };
 
   // main -> renderer (状态更新)
   'state:app-state': { state: AppState };
