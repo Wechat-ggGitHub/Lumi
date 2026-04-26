@@ -678,13 +678,14 @@ app.whenReady().then(async () => {
 
   // 初始化状态管理
   store = new ShrewStore();
-  store.onChange(() => updateTrayDot());
+  store.onChange(() => {
+    updateTrayDot();
+    updateSummaryPopup();
+  });
 
   // 创建菜单栏 Tray
   tray = new ShrewTray();
   tray.onPopupRequested = () => {
-    store.clearCompletedState();
-    updateTrayDot();
     summaryPopup.show(tray as any);
   };
   tray.onSettingsRequested = () => {
@@ -699,6 +700,15 @@ app.whenReady().then(async () => {
   // 创建窗口管理器
   voiceBar = new VoiceBarWindow(serverPort);
   summaryPopup = new SummaryPopupWindow(serverPort);
+  summaryPopup.onClose = () => {
+    const hadUnread = markAllUnviewedAsViewed(db);
+    if (hadUnread &&
+        store.appState === 'idle' &&
+        (store.sdkSubState === 'completed' || store.sdkSubState === 'failed')) {
+      store.clearCompletedState();
+    }
+    updateTrayDot();
+  };
 
   // 初始化快捷键
   shortcutManager = new ShortcutManager();
