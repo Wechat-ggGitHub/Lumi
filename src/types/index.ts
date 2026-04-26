@@ -126,8 +126,8 @@ export interface IpcMessages {
   // main -> renderer (Tray 点击)
   'tray:click': void;
 
-  // history window IPC
-  'history:open-window': void;
-  'history:fetch-all': void;
-  'history:all-data': { records: ExecutionRecord[] };
+  // history renderer <-> main
+  'history:open-window': void;                          // history-renderer or main panel -> main
+  'history:fetch-all': void;                            // history renderer -> main
+  'history:records': { records: ExecutionRecord[] };    // main -> history renderer
 }
