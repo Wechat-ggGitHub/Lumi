@@ -1,32 +1,7 @@
 'use client';
 
 import type { ExecutionRecord } from '@/types';
-
-function formatDuration(ms: number): string {
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m${remainingSeconds}s`;
-}
-
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffSeconds = Math.floor((now - then) / 1000);
-  if (diffSeconds < 60) return '刚刚';
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}小时前`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}天前`;
-}
-
-function getTitle(exec: ExecutionRecord): string {
-  // 折叠态显示用户原始 prompt（截断）
-  return exec.user_prompt;
-}
+import { formatDuration, timeAgo } from '@/lib/format-utils';
 
 export function TaskRowCollapsed({
   exec,
@@ -73,7 +48,7 @@ export function TaskRowCollapsed({
         whiteSpace: 'nowrap',
       }}>
         <span style={{ color: titleColor, fontSize: 13, fontWeight }}>
-          {getTitle(exec)}
+          {exec.user_prompt}
         </span>
       </div>
       <div style={{
