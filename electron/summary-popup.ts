@@ -27,10 +27,10 @@ export class SummaryPopupWindow {
       return;
     }
 
-    // 防御：极端情况下窗口仍存在（理论不会发生，因为 blur 会立刻关）
+    // 防御：blur 在某些场景下可能延迟触发或被抑制（如系统模态窗短暂抢焦点）
     if (this.isOpen()) {
       log.warn('摘要弹窗: show() 被调用但窗口已存在，先关闭旧窗口');
-      this.win?.close();
+      this.win!.close();
       this.win = null;
     }
 
@@ -66,13 +66,15 @@ export class SummaryPopupWindow {
     this.win.on('blur', () => {
       log.info('摘要弹窗: 失焦关闭');
       this.lastClosedAt = Date.now();
+      // 先关窗 + 置 null，让 isOpen() 在 onClose 期间返回 false
+      // 否则 onClose 中触发的 updateSummaryPopup 会向即将销毁的窗口发 IPC
+      this.win?.close();
+      this.win = null;
       try {
         this.onClose?.();
       } catch (err) {
         log.error('摘要弹窗 onClose 回调异常:', err);
       }
-      this.win?.close();
-      this.win = null;
     });
   }
 
@@ -88,6 +90,11 @@ export class SummaryPopupWindow {
       this.win!.close();
       this.win = null;
       log.info('摘要弹窗: 已关闭');
+      try {
+        this.onClose?.();
+      } catch (err) {
+        log.error('摘要弹窗 onClose 回调异常:', err);
+      }
     }
   }
 }
