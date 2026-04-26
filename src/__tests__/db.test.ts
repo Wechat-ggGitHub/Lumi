@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById } from '../lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById, markAllUnviewedAsViewed } from '../lib/db';
 
 // 使用临时数据库
 const tmpDir = path.join(process.cwd(), '.tmp-test');
@@ -103,4 +103,35 @@ test('getExecutionById returns correct record', () => {
 test('getExecutionById returns null for non-existent id', () => {
   const record = getExecutionById(db, 'non-existent-uuid');
   expect(record).toBeNull();
+});
+
+test('markAllUnviewedAsViewed updates only completed/failed/cancelled and returns true when any rows updated', () => {
+  const idRunning = insertExecution(db, { cwd: '/x', user_prompt: 'A' });
+  // running 保持 viewed=0
+
+  const idDone = insertExecution(db, { cwd: '/x', user_prompt: 'B' });
+  updateExecution(db, idDone, { status: 'completed', summary: 's' });
+  // viewed 默认 0
+
+  const idFail = insertExecution(db, { cwd: '/x', user_prompt: 'C' });
+  updateExecution(db, idFail, { status: 'failed' });
+
+  const idAlreadyViewed = insertExecution(db, { cwd: '/x', user_prompt: 'D' });
+  updateExecution(db, idAlreadyViewed, { status: 'completed', viewed: 1 });
+
+  const result = markAllUnviewedAsViewed(db);
+  expect(result).toBe(true);
+
+  expect(getExecutionById(db, idRunning)!.viewed).toBe(0);     // running 不动
+  expect(getExecutionById(db, idDone)!.viewed).toBe(1);        // 已被标
+  expect(getExecutionById(db, idFail)!.viewed).toBe(1);        // 已被标
+  expect(getExecutionById(db, idAlreadyViewed)!.viewed).toBe(1); // 原本就是 1
+});
+
+test('markAllUnviewedAsViewed returns false when nothing to mark', () => {
+  const idRunning = insertExecution(db, { cwd: '/x', user_prompt: 'X' });
+  // 数据库里只有 running 任务，没有未读已完成
+
+  const result = markAllUnviewedAsViewed(db);
+  expect(result).toBe(false);
 });

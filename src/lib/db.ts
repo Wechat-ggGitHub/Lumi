@@ -120,3 +120,13 @@ export function getHistoryCount(db: Database.Database): number {
 export function markViewed(db: Database.Database, id: string): void {
   db.prepare('UPDATE execution_history SET viewed = 1 WHERE id = ?').run(id);
 }
+
+export function markAllUnviewedAsViewed(db: Database.Database): boolean {
+  const result = db.prepare(
+    `UPDATE execution_history
+     SET viewed = 1
+     WHERE viewed = 0
+       AND status IN ('completed', 'failed', 'cancelled')`
+  ).run();
+  return result.changes > 0;
+}
