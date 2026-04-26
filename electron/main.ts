@@ -8,7 +8,7 @@ import { SummaryPopupWindow } from './summary-popup';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution, getExecutionById, appendMessages, markViewed, getTodayExecutions, getHistoryCount } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, markViewed, markAllUnviewedAsViewed } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -152,19 +152,28 @@ function updateTrayDot(): void {
   tray.updateDot(store.dotColor);
 }
 
+const RECENT_LIMIT = 10;
+
 function updateSummaryPopup(): void {
-  const active = getActiveExecution(db);
-  const todayExecutions = getTodayExecutions(db, 10);
-  const historyCount = getHistoryCount(db);
+  // 防御：面板未打开时不查数据库
+  if (!summaryPopup?.isOpen()) return;
+
+  const recent = getRecentExecutions(db, RECENT_LIMIT);
+  const totalCount = getTotalExecutionCount(db);
   summaryPopup.send('summary:update', {
-    execution: active,
-    history: todayExecutions,
-    historyCount,
+    recent,
+    totalCount,
+    hasMore: totalCount > recent.length,
     dotColor: store.dotColor,
     appState: store.appState,
     sdkSubState: store.sdkSubState,
     currentToolName: store.currentToolName ?? undefined,
   });
+}
+
+function getTotalExecutionCount(db: Database.Database): number {
+  const row = db.prepare(`SELECT COUNT(*) as count FROM execution_history`).get() as { count: number };
+  return row.count;
 }
 
 // 右 Command 按键处理
