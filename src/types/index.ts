@@ -93,9 +93,9 @@ export interface IpcMessages {
 
   // main -> summary-popup
   'summary:update': {
-    execution: ExecutionRecord | null;
-    history: ExecutionRecord[];
-    historyCount: number;
+    recent: ExecutionRecord[];      // 最近 10 条（按 created_at DESC，含进行中）
+    totalCount: number;             // 数据库总记录数
+    hasMore: boolean;               // = totalCount > recent.length
     dotColor: DotColor;
     appState: AppState;
     sdkSubState: SdkSubState;
@@ -125,4 +125,9 @@ export interface IpcMessages {
 
   // main -> renderer (Tray 点击)
   'tray:click': void;
+
+  // history window IPC
+  'history:open-window': void;
+  'history:fetch-all': void;
+  'history:all-data': { records: ExecutionRecord[] };
 }
