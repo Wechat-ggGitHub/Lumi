@@ -91,33 +91,24 @@ export interface IpcMessages {
   'voice:capture-started': boolean;
   'voice:audio-data': { samples: Float32Array; sampleRate: number };
 
-  // main -> summary-popup
-  'summary:update': {
-    recent: ExecutionRecord[];      // 最近 10 条（按 created_at DESC，含进行中）
-    totalCount: number;             // 数据库总记录数
-    hasMore: boolean;               // = totalCount > recent.length
-    dotColor: DotColor;
+  // detail window: main -> renderer
+  'detail:show': void;
+  'detail:history-list': {
+    records: ExecutionRecord[];
     appState: AppState;
     sdkSubState: SdkSubState;
     currentToolName?: string;
   };
-
-  // summary renderer -> main
-  'summary:ready': void;
-  'summary:open-detail': { id: string };
-  'summary:fetch-detail': { id: string };
-  'summary:mark-viewed': { id: string };
-
-  // main -> summary renderer
-  'summary:detail-data': { record: ExecutionRecord | null };
-
-  // detail window IPC (Phase 2-3)
-  'detail:send-message': { id: string; text: string };
-  'detail:start-voice': { id: string };
-  'detail:voice-result': { text: string };
+  'detail:conversation-data': { record: ExecutionRecord | null };
   'detail:stream-chunk': { id: string; content: string; done: boolean };
   'detail:tool-call': { id: string; toolCall: ToolCallRecord };
-  'detail:execution-complete': { id: string; record: ExecutionRecord };
+  'detail:execution-complete': { record: ExecutionRecord };
+
+  // detail window: renderer -> main
+  'detail:ready': void;
+  'detail:select': { id: string };
+  'detail:mark-viewed': { id: string };
+  'detail:send-message': { id: string; text: string };
 
   // main -> renderer (状态更新)
   'state:app-state': { state: AppState };
@@ -125,9 +116,4 @@ export interface IpcMessages {
 
   // main -> renderer (Tray 点击)
   'tray:click': void;
-
-  // history renderer <-> main
-  'history:open-window': void;                          // history-renderer or main panel -> main
-  'history:fetch-all': void;                            // history renderer -> main
-  'history:records': { records: ExecutionRecord[] };    // main -> history renderer
 }
