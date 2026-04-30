@@ -4,11 +4,11 @@ import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { ShrewTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
-import { SummaryPopupWindow } from './summary-popup';
+import { DetailWindow } from './detail-window';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, markViewed, markAllUnviewedAsViewed } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, markViewed, getActiveExecution } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -27,14 +27,13 @@ let db: Database.Database;
 let store: ShrewStore;
 let tray: ShrewTray;
 let voiceBar: VoiceBarWindow;
-let summaryPopup: SummaryPopupWindow;
+let detailWindow: DetailWindow;
 let shortcutManager: ShortcutManager;
 let recorder: AudioRecorder;
 let mainWindow: BrowserWindow | null = null;
 let serverPort = 3000;
 let nextServer: ChildProcess | null = null;
 let currentAbortController: AbortController | null = null;
-let detailWindow: BrowserWindow | null = null;
 
 // 启动 Next.js standalone 服务器（生产模式）
 function startNextServer(): Promise<number> {
@@ -154,26 +153,15 @@ function updateTrayDot(): void {
 
 const RECENT_LIMIT = 10;
 
-function updateSummaryPopup(): void {
-  // 防御：面板未打开时不查数据库
-  if (!summaryPopup?.isOpen()) return;
-
+function updateDetailWindow(): void {
+  if (!detailWindow?.isVisible()) return;
   const recent = getRecentExecutions(db, RECENT_LIMIT);
-  const totalCount = getTotalExecutionCount(db);
-  summaryPopup.send('summary:update', {
-    recent,
-    totalCount,
-    hasMore: totalCount > recent.length,
-    dotColor: store.dotColor,
+  detailWindow.send('detail:history-list', {
+    records: recent,
     appState: store.appState,
     sdkSubState: store.sdkSubState,
     currentToolName: store.currentToolName ?? undefined,
   });
-}
-
-function getTotalExecutionCount(db: Database.Database): number {
-  const row = db.prepare(`SELECT COUNT(*) as count FROM execution_history`).get() as { count: number };
-  return row.count;
 }
 
 // 右 Command 按键处理
@@ -304,7 +292,7 @@ async function executePrompt(prompt: string): Promise<void> {
   store.transition('executing');
   store.setSdkSubState('thinking');
   updateTrayDot();
-  updateSummaryPopup();
+  updateDetailWindow();
 
   voiceBar.close();
 
@@ -322,7 +310,7 @@ async function executePrompt(prompt: string): Promise<void> {
           log.debug('SDK 子状态:', substate, toolName || '');
           store.setSdkSubState(substate, toolName);
           updateTrayDot();
-          updateSummaryPopup();
+          updateDetailWindow();
         },
         onError: (error) => {
           log.error('Claude 执行错误:', error);
@@ -374,7 +362,7 @@ async function executePrompt(prompt: string): Promise<void> {
   }
 
   updateTrayDot();
-  updateSummaryPopup();
+  updateDetailWindow();
 }
 
 // IPC Handlers
@@ -406,45 +394,29 @@ function registerIpcHandlers(): void {
     updateTrayDot();
   });
 
-  // summary
-  ipcMain.on('summary:ready', () => updateSummaryPopup());
-
-  ipcMain.on('summary:open-detail', (_, { id }: { id: string }) => {
-    if (detailWindow && !detailWindow.isDestroyed()) {
-      detailWindow.close();
+  // detail window IPC
+  ipcMain.on('detail:ready', () => {
+    updateDetailWindow();
+    const activeExec = getActiveExecution(db);
+    if (activeExec) {
+      detailWindow.send('detail:conversation-data', { record: activeExec });
     }
-
-    detailWindow = new BrowserWindow({
-      width: 500,
-      height: 600,
-      title: '执行详情',
-      webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
-      },
-    });
-
-    detailWindow.loadURL(`http://127.0.0.1:${serverPort}/summary/detail?id=${id}`);
-    detailWindow.on('closed', () => { detailWindow = null; });
   });
 
-  ipcMain.on('summary:fetch-detail', (event, { id }: { id: string }) => {
-    const record = getExecutionById(db, id);
-    event.sender.send('summary:detail-data', { record });
+  ipcMain.on('detail:select', (event, { id }: { id: string }) => {
+    const rec = getExecutionById(db, id);
+    detailWindow.send('detail:conversation-data', { record: rec });
   });
 
-  ipcMain.on('summary:mark-viewed', (_, { id }: { id: string }) => {
+  ipcMain.on('detail:mark-viewed', (_, { id }: { id: string }) => {
     markViewed(db, id);
   });
 
-  // detail window: 发送后续消息
   ipcMain.on('detail:send-message', async (event, { id, text }: { id: string; text: string }) => {
-    const record = getExecutionById(db, id);
-    if (!record?.sdk_session_id) {
+    const rec = getExecutionById(db, id);
+    if (!rec?.sdk_session_id) {
       log.error('detail:send-message: 无 sdk_session_id');
-      event.sender.send('detail:execution-complete', {
-        record: { ...record, status: 'failed' },
-      });
+      event.sender.send('detail:execution-complete', { record: { ...rec, status: 'failed' } });
       return;
     }
 
@@ -455,7 +427,7 @@ function registerIpcHandlers(): void {
     }
 
     const settings = loadSettings();
-    const cwd = record.cwd;
+    const cwd = rec.cwd;
     const providerKey = settings.provider || 'glm-cn';
     const modelPreset = settings.modelPreset || 'opus';
 
@@ -475,7 +447,7 @@ function registerIpcHandlers(): void {
       }
     }
 
-    log.info('detail:send-message: 恢复会话', record.sdk_session_id);
+    log.info('detail:send-message: 恢复会话', rec.sdk_session_id);
 
     const continueAbortController = new AbortController();
     const conversationMessages: ConversationMessage[] = [];
@@ -510,10 +482,10 @@ function registerIpcHandlers(): void {
         },
         continueAbortController.signal,
         claudeExecutablePath,
-        record.sdk_session_id
+        rec.sdk_session_id
       );
 
-      const existingMessages = JSON.parse(record.messages || '[]') as ConversationMessage[];
+      const existingMessages = JSON.parse(rec.messages || '[]') as ConversationMessage[];
       const allMessages = [...existingMessages, ...conversationMessages];
       appendMessages(db, id, allMessages);
 
@@ -680,13 +652,13 @@ app.whenReady().then(async () => {
   store = new ShrewStore();
   store.onChange(() => {
     updateTrayDot();
-    updateSummaryPopup();
+    updateDetailWindow();
   });
 
   // 创建菜单栏 Tray
   tray = new ShrewTray();
   tray.onPopupRequested = () => {
-    summaryPopup.show(tray as any);
+    detailWindow.toggle();
   };
   tray.onSettingsRequested = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -699,16 +671,7 @@ app.whenReady().then(async () => {
 
   // 创建窗口管理器
   voiceBar = new VoiceBarWindow(serverPort);
-  summaryPopup = new SummaryPopupWindow(serverPort);
-  summaryPopup.onClose = () => {
-    const hadUnread = markAllUnviewedAsViewed(db);
-    if (hadUnread &&
-        store.appState === 'idle' &&
-        (store.sdkSubState === 'completed' || store.sdkSubState === 'failed')) {
-      store.clearCompletedState();
-    }
-    updateTrayDot();
-  };
+  detailWindow = new DetailWindow(serverPort);
 
   // 初始化快捷键
   shortcutManager = new ShortcutManager();
@@ -792,6 +755,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   shortcutManager?.stop();
   voiceBar?.destroy();
+  detailWindow?.destroy();
   db?.close();
   if (nextServer) {
     nextServer.kill();
