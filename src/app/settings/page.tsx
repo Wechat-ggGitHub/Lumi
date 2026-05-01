@@ -130,6 +130,7 @@ export default function SettingsPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
         {[
           { path: '/persona', label: '分身设定' },
+          { path: '/memory', label: '记忆管理' },
           { path: '/skills', label: '技能管理' },
           { path: '/services', label: '服务连接' },
         ].map(item => (

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment, Persona } from '@/types';
+import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment, Persona, MemoryItem } from '@/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS execution_history (
@@ -51,6 +51,20 @@ CREATE TABLE IF NOT EXISTS persona (
   system_prompt TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS memory_item (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source TEXT DEFAULT '自动提炼',
+  status TEXT DEFAULT '生效中',
+  pinned INTEGER DEFAULT 0,
+  execution_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_memory_item_type ON memory_item(type);
+CREATE INDEX IF NOT EXISTS idx_memory_item_status ON memory_item(status);
 `;
 
 export function initDb(db: Database.Database): void {
@@ -276,4 +290,51 @@ export function updatePersona(
     db.prepare(`UPDATE persona SET ${fields.join(', ')} WHERE id = ?`).run(...values);
   }
   return getPersona(db);
+}
+
+// --- Memory Item ---
+
+export function listMemories(db: Database.Database): MemoryItem[] {
+  return db.prepare(
+    `SELECT * FROM memory_item ORDER BY pinned DESC, updated_at DESC`
+  ).all() as MemoryItem[];
+}
+
+export function addMemory(
+  db: Database.Database,
+  params: { type: string; content: string; source?: string; executionId?: string }
+): MemoryItem {
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO memory_item (id, type, content, source, execution_id) VALUES (?, ?, ?, ?, ?)`
+  ).run(id, params.type, params.content, params.source ?? '自动提炼', params.executionId ?? null);
+  return db.prepare(`SELECT * FROM memory_item WHERE id = ?`).get(id) as MemoryItem;
+}
+
+export function updateMemory(db: Database.Database, id: string, content: string): void {
+  db.prepare(
+    `UPDATE memory_item SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(content, id);
+}
+
+export function deleteMemory(db: Database.Database, id: string): void {
+  db.prepare(`DELETE FROM memory_item WHERE id = ?`).run(id);
+}
+
+export function toggleMemoryStatus(db: Database.Database, id: string): void {
+  db.prepare(
+    `UPDATE memory_item SET status = CASE WHEN status = '生效中' THEN '已失效' ELSE '生效中' END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(id);
+}
+
+export function toggleMemoryPin(db: Database.Database, id: string): void {
+  db.prepare(
+    `UPDATE memory_item SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(id);
+}
+
+export function getMemoriesByStatus(db: Database.Database, status: string): MemoryItem[] {
+  return db.prepare(
+    `SELECT * FROM memory_item WHERE status = ? ORDER BY pinned DESC, updated_at DESC`
+  ).all(status) as MemoryItem[];
 }

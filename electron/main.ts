@@ -7,14 +7,15 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, getPersona, updatePersona } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, getPersona, updatePersona, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadSkills, toggleSkill, configureSkill, loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { buildShrewContext, getActiveMemories, writeShrewClaudeMd } from '../src/lib/shrew-context';
+import { extractMemories } from '../src/lib/memory-extractor';
 import { log, initLogger } from '../src/lib/logger';
-import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, Persona } from '../src/types';
+import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
@@ -399,6 +400,19 @@ async function executePrompt(prompt: string): Promise<void> {
 
     sendToMainWindow('chat:execution-complete', { executionId });
 
+    // 异步触发 Memory 提炼（不阻塞主流程）
+    if (result.status === 'completed') {
+      const segment = getActiveSegment(db);
+      const settings = loadSettings();
+      const ak = loadApiKey();
+      if (ak) {
+        extractMemories(
+          db, prompt, result.summary || assistantContent,
+          ak, settings.provider || 'glm-cn', executionId
+        ).catch(err => log.error('Memory 提炼异常:', err));
+      }
+    }
+
     store.transition('completed');
     store.setSdkSubState(result.status === 'completed' ? 'completed' :
                          result.status === 'cancelled' ? 'cancelled' : 'failed');
@@ -640,6 +654,35 @@ function registerIpcHandlers(): void {
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
+  });
+
+  // memory
+  ipcMain.handle('memory:list', () => {
+    return listMemories(db);
+  });
+
+  ipcMain.handle('memory:add', (_, { type, content, source }) => {
+    return addMemory(db, { type, content, source });
+  });
+
+  ipcMain.handle('memory:update', (_, { id, content }) => {
+    updateMemory(db, id, content);
+    return listMemories(db);
+  });
+
+  ipcMain.handle('memory:delete', (_, { id }) => {
+    deleteMemory(db, id);
+    return listMemories(db);
+  });
+
+  ipcMain.handle('memory:toggle-status', (_, { id }) => {
+    toggleMemoryStatus(db, id);
+    return listMemories(db);
+  });
+
+  ipcMain.handle('memory:toggle-pin', (_, { id }) => {
+    toggleMemoryPin(db, id);
+    return listMemories(db);
   });
 
   // navigation
