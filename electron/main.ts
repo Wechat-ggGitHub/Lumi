@@ -772,6 +772,64 @@ app.whenReady().then(async () => {
   log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
   log.info('shrewDir:', shrewDir);
 
+  // 迁移旧数据到 ~/.shrew/
+  const oldDir = app.getPath('userData');
+  const markerFile = path.join(shrewDir, '.migrated');
+  if (fs.existsSync(oldDir) && !fs.existsSync(markerFile)) {
+    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', shrewDir);
+    try {
+      // 迁移数据库
+      const oldDb = path.join(oldDir, 'shrew.db');
+      if (fs.existsSync(oldDb)) {
+        fs.copyFileSync(oldDb, dbPath);
+        for (const ext of ['-wal', '-shm']) {
+          const src = oldDb + ext;
+          if (fs.existsSync(src)) fs.copyFileSync(src, dbPath + ext);
+        }
+        log.info('迁移: 数据库');
+      }
+
+      // 迁移 settings（并添加 disabledSkills 字段）
+      const oldSettings = path.join(oldDir, 'settings.json');
+      if (fs.existsSync(oldSettings)) {
+        const raw = JSON.parse(fs.readFileSync(oldSettings, 'utf-8'));
+        if (!raw.disabledSkills) raw.disabledSkills = [];
+        fs.writeFileSync(settingsPath, JSON.stringify(raw, null, 2));
+        log.info('迁移: 设置');
+      }
+
+      // 迁移 MCP 配置
+      const oldMcp = path.join(oldDir, 'config', 'mcp-servers.json');
+      if (fs.existsSync(oldMcp)) {
+        fs.mkdirSync(path.join(shrewDir, 'mcp'), { recursive: true });
+        fs.copyFileSync(oldMcp, path.join(shrewDir, 'mcp', 'servers.json'));
+        log.info('迁移: MCP 配置');
+      }
+
+      // 迁移加密凭据
+      const oldSecure = path.join(oldDir, 'secure');
+      if (fs.existsSync(oldSecure)) {
+        fs.cpSync(oldSecure, path.join(shrewDir, 'secure'), { recursive: true });
+        log.info('迁移: 凭据');
+      }
+
+      // 迁移日志
+      const oldLogs = path.join(oldDir, 'logs');
+      if (fs.existsSync(oldLogs)) {
+        fs.cpSync(oldLogs, path.join(shrewDir, 'logs'), { recursive: true });
+        log.info('迁移: 日志');
+      }
+
+      // 不迁移 config/skills.json（旧的 voice-input/auto-memory 不再需要）
+      // 不迁移 config/claude.md（persona+memory 改为通过 SDK 注入）
+
+      fs.writeFileSync(markerFile, new Date().toISOString());
+      log.info('迁移完成');
+    } catch (err) {
+      log.error('迁移失败:', err);
+    }
+  }
+
   // 生产模式：启动 Next.js standalone 服务器
   if (!isDev) {
     try {
