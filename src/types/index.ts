@@ -71,6 +71,7 @@ export interface AppSettings {
   theme: string;
   provider?: ProviderKey;
   modelPreset?: ModelPreset;
+  disabledSkills?: string[];
 }
 
 // 上下文段

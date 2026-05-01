@@ -141,6 +141,7 @@ function loadSettings(): AppSettings {
     theme: 'system',
     provider: 'glm-cn',
     modelPreset: 'opus',
+    disabledSkills: [],
   };
 }
 
@@ -293,6 +294,7 @@ async function executePrompt(prompt: string): Promise<void> {
   const executionId = insertExecution(db, {
     cwd,
     user_prompt: prompt,
+    segment_id: segment.id,
   });
 
   const conversationMessages: ConversationMessage[] = [];
@@ -310,9 +312,15 @@ async function executePrompt(prompt: string): Promise<void> {
   // 流式 assistant 消息的 ID（首次创建后持续追加）
   let assistantMessageId: string | null = null;
 
+  // 构建 persona + memory 上下文
+  const persona = getPersona(db);
+  const memoryLines = getActiveMemories(db);
+  const shrewContext = buildShrewContext(persona, memoryLines);
+  const fullPrompt = shrewContext + '\n\n' + prompt;
+
   try {
     const result = await executeClaude(
-      prompt,
+      fullPrompt,
       cwd,
       apiKey,
       providerKey,
@@ -406,6 +414,8 @@ async function executePrompt(prompt: string): Promise<void> {
       const settings = loadSettings();
       const ak = loadApiKey();
       if (ak) {
+        const assistantContent = conversationMessages
+          .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
         extractMemories(
           db, prompt, result.summary || assistantContent,
           ak, settings.provider || 'glm-cn', executionId
@@ -756,6 +766,8 @@ app.whenReady().then(async () => {
   // 创建菜单栏 Tray
   tray = new ShrewTray();
   tray.onPopupRequested = () => {
+    store.clearCompletedState();
+    updateTrayDot();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
       mainWindow.focus();
