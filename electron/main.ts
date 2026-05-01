@@ -12,7 +12,7 @@ import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCreden
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
-import { scanSkills, importSkill, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
+import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
 import { buildShrewContext, getActiveMemories } from '../src/lib/shrew-context';
 import { extractMemories } from '../src/lib/memory-extractor';
 import { log, initLogger } from '../src/lib/logger';
@@ -624,14 +624,30 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('skills:import', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
-      title: '选择技能文件夹（包含 SKILL.md）',
+      properties: ['openFile', 'openDirectory'],
+      title: '导入技能',
+      filters: [{ name: '技能文件', extensions: ['md', 'zip'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const imported = importSkill(result.filePaths[0], path.join(shrewDir, 'skills'));
-    if (!imported) return { error: '导入失败：目录中没有有效的 SKILL.md，或已存在同名技能' };
+
+    const selected = result.filePaths[0];
+    const stat = fs.statSync(selected);
+    const skillsDir = path.join(shrewDir, 'skills');
+
+    let imported: boolean;
+    if (stat.isDirectory()) {
+      imported = importSkill(selected, skillsDir);
+    } else if (selected.endsWith('.md')) {
+      imported = importSkillFromMd(selected, skillsDir);
+    } else if (selected.endsWith('.zip')) {
+      imported = importSkillFromZip(selected, skillsDir);
+    } else {
+      return { error: '不支持的文件类型' };
+    }
+
+    if (!imported) return { error: '导入失败：文件缺少有效的 SKILL.md，或已存在同名技能' };
     const settings = loadSettings();
-    return scanSkills(path.join(shrewDir, 'skills'), settings.disabledSkills || []);
+    return scanSkills(skillsDir, settings.disabledSkills || []);
   });
 
   ipcMain.handle('skills:toggle', (_, { name, enabled }) => {
