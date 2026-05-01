@@ -7,12 +7,14 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, getPersona, updatePersona } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
+import { loadSkills, toggleSkill, configureSkill, loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
+import { buildShrewContext, getActiveMemories, writeShrewClaudeMd } from '../src/lib/shrew-context';
 import { log, initLogger } from '../src/lib/logger';
-import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage } from '../src/types';
+import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, Persona } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
@@ -569,6 +571,82 @@ function registerIpcHandlers(): void {
   ipcMain.on('onboarding:complete', () => {
     mainWindow?.close();
     createMainWindow();
+  });
+
+  // persona
+  ipcMain.handle('persona:load', () => {
+    return getPersona(db);
+  });
+
+  ipcMain.handle('persona:save', (_, updates) => {
+    const persona = updatePersona(db, updates);
+    // 更新 claude.md 备份
+    const memories = getActiveMemories(db);
+    const context = buildShrewContext(persona, memories);
+    writeShrewClaudeMd(userDataDir, context);
+    return persona;
+  });
+
+  // skills
+  ipcMain.handle('skills:list', () => {
+    return loadSkills(userDataDir);
+  });
+
+  ipcMain.handle('skills:toggle', (_, { id, enabled }) => {
+    return toggleSkill(userDataDir, id, enabled);
+  });
+
+  ipcMain.handle('skills:configure', (_, { id, params }) => {
+    return configureSkill(userDataDir, id, params);
+  });
+
+  // services
+  ipcMain.handle('services:list', () => {
+    return loadMcpServers(userDataDir);
+  });
+
+  ipcMain.handle('services:add', (_, config) => {
+    return addMcpServer(userDataDir, config);
+  });
+
+  ipcMain.handle('services:update', (_, { id, ...updates }) => {
+    return updateMcpServer(userDataDir, id, updates);
+  });
+
+  ipcMain.handle('services:remove', (_, { id }) => {
+    return removeMcpServer(userDataDir, id);
+  });
+
+  ipcMain.handle('services:test', async (_, { id }) => {
+    const servers = loadMcpServers(userDataDir);
+    const server = servers.find(s => s.id === id);
+    if (!server) throw new Error('服务未找到');
+    // 基本可用性检查：命令是否能找到
+    try {
+      const { spawn } = require('child_process');
+      const proc = spawn(server.command, server.args || [], {
+        env: { ...process.env, ...server.env },
+        timeout: 5000,
+      });
+      return new Promise((resolve) => {
+        proc.on('error', (err: Error) => {
+          resolve({ success: false, error: err.message });
+        });
+        setTimeout(() => {
+          proc.kill();
+          resolve({ success: true });
+        }, 2000);
+      });
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // navigation
+  ipcMain.on('navigate:route', (_, { path: routePath }: { path: string }) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.loadURL(`http://127.0.0.1:${serverPort}${routePath}`);
+    }
   });
 
   // volcengine credentials

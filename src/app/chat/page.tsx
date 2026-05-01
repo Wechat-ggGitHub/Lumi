@@ -88,7 +88,7 @@ export default function ChatPage() {
   }, [ipcRenderer]);
 
   const handleSettingsClick = useCallback(() => {
-    ipcRenderer?.send('navigate:settings');
+    ipcRenderer?.send('navigate:route', { path: '/settings' });
   }, [ipcRenderer]);
 
   const isStreaming = appState === 'thinking' || appState === 'executing';

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment } from '@/types';
+import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment, Persona } from '@/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS execution_history (
@@ -37,6 +37,20 @@ CREATE TABLE IF NOT EXISTS chat_message (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_chat_message_segment ON chat_message(segment_id, created_at);
+
+CREATE TABLE IF NOT EXISTS persona (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  name TEXT NOT NULL DEFAULT 'Shrew',
+  avatar TEXT,
+  bio TEXT,
+  personality TEXT DEFAULT '专业',
+  tone TEXT DEFAULT '自然',
+  detail_level TEXT DEFAULT '平衡',
+  clarify_pref TEXT DEFAULT '视情况平衡',
+  work_style TEXT DEFAULT '先执行再总结',
+  system_prompt TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 export function initDb(db: Database.Database): void {
@@ -65,6 +79,12 @@ export function initDb(db: Database.Database): void {
   ).get() as { id: string } | undefined;
   if (!activeSegment) {
     db.prepare(`INSERT INTO context_segment (id) VALUES (?)`).run(randomUUID());
+  }
+
+  // 确保存在默认 persona
+  const persona = db.prepare(`SELECT id FROM persona WHERE id = 1`).get();
+  if (!persona) {
+    db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
   }
 }
 
@@ -227,4 +247,33 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
     `SELECT * FROM chat_message WHERE segment_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
   ).get(segmentId) as ChatMessage | undefined;
   return row ?? null;
+}
+
+// --- Persona ---
+
+export function getPersona(db: Database.Database): Persona {
+  const row = db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Persona | undefined;
+  if (!row) {
+    db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
+    return db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Persona;
+  }
+  return row;
+}
+
+export function updatePersona(
+  db: Database.Database,
+  updates: Partial<Omit<Persona, 'id' | 'updated_at'>>
+): Persona {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, value] of Object.entries(updates)) {
+    fields.push(`${key} = ?`);
+    values.push(value);
+  }
+  if (fields.length > 0) {
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(1);
+    db.prepare(`UPDATE persona SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  }
+  return getPersona(db);
 }

@@ -92,6 +92,40 @@ export interface ChatMessage {
   created_at: string;
 }
 
+// 分身设定
+export interface Persona {
+  id: number;
+  name: string;
+  avatar: string | null;
+  bio: string | null;
+  personality: string;
+  tone: string;
+  detail_level: string;
+  clarify_pref: string;
+  work_style: string;
+  system_prompt: string | null;
+  updated_at: string;
+}
+
+// 技能配置
+export interface SkillConfig {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  params?: Record<string, string>;
+}
+
+// MCP 服务配置
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+}
+
 // IPC 消息类型
 export interface IpcMessages {
   // voice-bar -> main
@@ -148,4 +182,20 @@ export interface IpcMessages {
 
   // main -> renderer (Tray 点击)
   'tray:click': void;
+
+  // persona: invoke (request-response)
+  'persona:load': void;
+  'persona:save': Partial<Omit<Persona, 'id' | 'updated_at'>>;
+
+  // skills: invoke
+  'skills:list': void;
+  'skills:toggle': { id: string; enabled: boolean };
+  'skills:configure': { id: string; params: Record<string, string> };
+
+  // services: invoke
+  'services:list': void;
+  'services:add': Omit<McpServerConfig, 'id'>;
+  'services:update': { id: string } & Partial<Omit<McpServerConfig, 'id'>>;
+  'services:remove': { id: string };
+  'services:test': { id: string };
 }
