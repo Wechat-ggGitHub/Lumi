@@ -152,7 +152,7 @@ export default function SkillsPage() {
       </div>
 
       <div style={styles.importArea} onClick={handleImport}>
-        点击选择包含 SKILL.md 的文件夹来导入技能
+        点击导入技能（支持 .md 文件、.zip 压缩包、文件夹）
       </div>
 
       {importError && <div style={styles.error}>{importError}</div>}
@@ -161,7 +161,7 @@ export default function SkillsPage() {
 
       {skills.length === 0 && (
         <div style={styles.emptyState}>
-          暂无技能。导入一个包含 SKILL.md 的文件夹来添加技能。
+          暂无技能。点击上方区域导入 .md 文件、.zip 压缩包或包含 SKILL.md 的文件夹。
         </div>
       )}
 
