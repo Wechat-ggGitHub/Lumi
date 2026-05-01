@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
-import type { SkillConfig } from '@/types';
+import type { SkillInfo } from '@/lib/skill-manager';
 
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<SkillConfig[]>([]);
+  const [skills, setSkills] = useState<SkillInfo[]>([]);
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   useEffect(() => {
-    ipcRenderer?.invoke('skills:list').then((data: SkillConfig[]) => {
+    ipcRenderer?.invoke('skills:list').then((data: SkillInfo[]) => {
       setSkills(data);
     });
   }, [ipcRenderer]);
 
-  const handleToggle = useCallback((id: string, enabled: boolean) => {
-    ipcRenderer?.invoke('skills:toggle', { id, enabled }).then((updated: SkillConfig[]) => {
+  const handleToggle = useCallback((name: string, enabled: boolean) => {
+    ipcRenderer?.invoke('skills:toggle', { name, enabled }).then((updated: SkillInfo[]) => {
       setSkills(updated);
     });
   }, [ipcRenderer]);
@@ -45,7 +45,7 @@ export default function SkillsPage() {
       )}
 
       {skills.map(skill => (
-        <div key={skill.id} style={{
+        <div key={skill.name} style={{
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: 10,
@@ -60,7 +60,7 @@ export default function SkillsPage() {
             <div style={{ fontSize: 12, color: '#666' }}>{skill.description}</div>
           </div>
           <button
-            onClick={() => handleToggle(skill.id, !skill.enabled)}
+            onClick={() => handleToggle(skill.name, !skill.enabled)}
             style={{
               width: 44, height: 24,
               borderRadius: 12,

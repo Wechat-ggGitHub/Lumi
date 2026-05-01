@@ -11,7 +11,8 @@ import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecu
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
-import { loadSkills, toggleSkill, configureSkill, loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
+import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
+import { scanSkills, importSkill, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
 import { buildShrewContext, getActiveMemories, writeShrewClaudeMd } from '../src/lib/shrew-context';
 import { extractMemories } from '../src/lib/memory-extractor';
 import { log, initLogger } from '../src/lib/logger';
@@ -613,15 +614,44 @@ function registerIpcHandlers(): void {
 
   // skills
   ipcMain.handle('skills:list', () => {
-    return loadSkills(shrewDir);
+    const settings = loadSettings();
+    return scanSkills(path.join(shrewDir, 'skills'), settings.disabledSkills || []);
   });
 
-  ipcMain.handle('skills:toggle', (_, { id, enabled }) => {
-    return toggleSkill(shrewDir, id, enabled);
+  ipcMain.handle('skills:import', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: '选择技能文件夹（包含 SKILL.md）',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const imported = importSkill(result.filePaths[0], path.join(shrewDir, 'skills'));
+    if (!imported) return { error: '导入失败：目录中没有有效的 SKILL.md，或已存在同名技能' };
+    const settings = loadSettings();
+    return scanSkills(path.join(shrewDir, 'skills'), settings.disabledSkills || []);
   });
 
-  ipcMain.handle('skills:configure', (_, { id, params }) => {
-    return configureSkill(shrewDir, id, params);
+  ipcMain.handle('skills:toggle', (_, { name, enabled }) => {
+    const settings = loadSettings();
+    let disabled = settings.disabledSkills || [];
+    if (enabled) {
+      disabled = disabled.filter((s: string) => s !== name);
+    } else {
+      if (!disabled.includes(name)) disabled.push(name);
+    }
+    saveSettings({ ...settings, disabledSkills: disabled });
+    return scanSkills(path.join(shrewDir, 'skills'), disabled);
+  });
+
+  ipcMain.handle('skills:delete', (_, { name }) => {
+    deleteSkill(name, path.join(shrewDir, 'skills'));
+    const settings = loadSettings();
+    const disabled = (settings.disabledSkills || []).filter((s: string) => s !== name);
+    saveSettings({ ...settings, disabledSkills: disabled });
+    return scanSkills(path.join(shrewDir, 'skills'), disabled);
+  });
+
+  ipcMain.handle('skills:read', (_, { name }) => {
+    return readSkillContent(name, path.join(shrewDir, 'skills'));
   });
 
   // services

@@ -108,15 +108,6 @@ export interface Persona {
   updated_at: string;
 }
 
-// 技能配置
-export interface SkillConfig {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-  params?: Record<string, string>;
-}
-
 // MCP 服务配置
 export interface McpServerConfig {
   id: string;
@@ -203,8 +194,10 @@ export interface IpcMessages {
 
   // skills: invoke
   'skills:list': void;
-  'skills:toggle': { id: string; enabled: boolean };
-  'skills:configure': { id: string; params: Record<string, string> };
+  'skills:import': void;
+  'skills:toggle': { name: string; enabled: boolean };
+  'skills:delete': { name: string };
+  'skills:read': { name: string };
 
   // services: invoke
   'services:list': void;
