@@ -1,8 +1,6 @@
 import Database from 'better-sqlite3';
 import { getProvider, resolveModel } from './provider-config';
 import { addMemory, listMemories } from './db';
-import { getActiveMemories, writeShrewClaudeMd, buildShrewContext } from './shrew-context';
-import { getPersona } from './db';
 import { log } from './logger';
 
 const EXTRACTION_PROMPT = `你是一个记忆提取助手。根据用户和助手的对话，提取值得长期记住的信息。
@@ -101,15 +99,6 @@ export async function extractMemories(
     }
 
     log.info(`Memory 提炼完成: 新增 ${newMemories.length} 条记忆`);
-
-    // 更新 claude.md 备份
-    const persona = getPersona(db);
-    const allMemories = getActiveMemories(db);
-    const context = buildShrewContext(persona, allMemories);
-    const userDataDir = (db.prepare('PRAGMA database_list').get() as any)?.file?.replace('/shrew.db', '') || '';
-    if (userDataDir) {
-      writeShrewClaudeMd(userDataDir, context);
-    }
   } catch (err) {
     log.error('Memory 提炼异常:', err);
   }

@@ -28,7 +28,8 @@ export async function executeClaude(
   callbacks: ClaudeCallbacks,
   abortSignal?: AbortSignal,
   claudeExecutablePath?: string,
-  resumeSessionId?: string
+  resumeSessionId?: string,
+  skillCatalog?: string,
 ): Promise<ClaudeExecutionResult> {
   log.info('Claude SDK: 开始执行, cwd:', cwd, 'provider:', providerKey, 'model:', modelPreset);
   if (claudeExecutablePath) {
@@ -55,6 +56,14 @@ export async function executeClaude(
     env: buildSdkEnv(providerKey, apiKey, modelPreset),
     ...(resumeSessionId ? { resume: resumeSessionId } : {}),
   };
+
+  if (skillCatalog) {
+    options.systemPrompt = {
+      type: 'preset',
+      preset: 'claude_code',
+      append: skillCatalog,
+    };
+  }
 
   if (claudeExecutablePath) {
     options.pathToClaudeCodeExecutable = claudeExecutablePath;

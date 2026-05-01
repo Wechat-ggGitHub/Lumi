@@ -13,7 +13,7 @@ import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provid
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
-import { buildShrewContext, getActiveMemories, writeShrewClaudeMd } from '../src/lib/shrew-context';
+import { buildShrewContext, getActiveMemories } from '../src/lib/shrew-context';
 import { extractMemories } from '../src/lib/memory-extractor';
 import { log, initLogger } from '../src/lib/logger';
 import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage } from '../src/types';
@@ -317,6 +317,13 @@ async function executePrompt(prompt: string): Promise<void> {
   const persona = getPersona(db);
   const memoryLines = getActiveMemories(db);
   const shrewContext = buildShrewContext(persona, memoryLines);
+
+  // 构建 skill catalog
+  const skillCatalog = buildSkillCatalog(
+    path.join(shrewDir, 'skills'),
+    loadSettings().disabledSkills || []
+  );
+
   const fullPrompt = shrewContext + '\n\n' + prompt;
 
   try {
@@ -372,7 +379,8 @@ async function executePrompt(prompt: string): Promise<void> {
       },
       currentAbortController.signal,
       claudeExecutablePath,
-      segment.sdk_session_id ?? undefined
+      segment.sdk_session_id ?? undefined,
+      skillCatalog,
     );
 
     currentAbortController = null;
@@ -605,10 +613,6 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('persona:save', (_, updates) => {
     const persona = updatePersona(db, updates);
-    // 更新 claude.md 备份
-    const memories = getActiveMemories(db);
-    const context = buildShrewContext(persona, memories);
-    writeShrewClaudeMd(shrewDir, context);
     return persona;
   });
 
