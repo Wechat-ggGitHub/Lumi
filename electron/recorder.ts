@@ -18,7 +18,7 @@ export class AudioRecorder {
   private hasCredentials: boolean;
 
   constructor(credentials?: VolcengineCredentials | null) {
-    this.tmpDir = path.join(app.getPath('userData'), 'tmp');
+    this.tmpDir = path.join(app.getPath('home'), '.shrew', 'tmp');
     if (!fs.existsSync(this.tmpDir)) fs.mkdirSync(this.tmpDir, { recursive: true });
 
     if (credentials?.appId && credentials?.accessToken) {

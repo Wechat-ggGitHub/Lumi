@@ -21,9 +21,9 @@ import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatM
 import Database from 'better-sqlite3';
 
 const isDev = !app.isPackaged;
-const userDataDir = app.getPath('userData');
-const settingsPath = path.join(userDataDir, 'settings.json');
-const dbPath = path.join(userDataDir, 'shrew.db');
+const shrewDir = path.join(app.getPath('home'), '.shrew');
+const settingsPath = path.join(shrewDir, 'settings.json');
+const dbPath = path.join(shrewDir, 'shrew.db');
 
 let db: Database.Database;
 let store: ShrewStore;
@@ -607,42 +607,42 @@ function registerIpcHandlers(): void {
     // 更新 claude.md 备份
     const memories = getActiveMemories(db);
     const context = buildShrewContext(persona, memories);
-    writeShrewClaudeMd(userDataDir, context);
+    writeShrewClaudeMd(shrewDir, context);
     return persona;
   });
 
   // skills
   ipcMain.handle('skills:list', () => {
-    return loadSkills(userDataDir);
+    return loadSkills(shrewDir);
   });
 
   ipcMain.handle('skills:toggle', (_, { id, enabled }) => {
-    return toggleSkill(userDataDir, id, enabled);
+    return toggleSkill(shrewDir, id, enabled);
   });
 
   ipcMain.handle('skills:configure', (_, { id, params }) => {
-    return configureSkill(userDataDir, id, params);
+    return configureSkill(shrewDir, id, params);
   });
 
   // services
   ipcMain.handle('services:list', () => {
-    return loadMcpServers(userDataDir);
+    return loadMcpServers(shrewDir);
   });
 
   ipcMain.handle('services:add', (_, config) => {
-    return addMcpServer(userDataDir, config);
+    return addMcpServer(shrewDir, config);
   });
 
   ipcMain.handle('services:update', (_, { id, ...updates }) => {
-    return updateMcpServer(userDataDir, id, updates);
+    return updateMcpServer(shrewDir, id, updates);
   });
 
   ipcMain.handle('services:remove', (_, { id }) => {
-    return removeMcpServer(userDataDir, id);
+    return removeMcpServer(shrewDir, id);
   });
 
   ipcMain.handle('services:test', async (_, { id }) => {
-    const servers = loadMcpServers(userDataDir);
+    const servers = loadMcpServers(shrewDir);
     const server = servers.find(s => s.id === id);
     if (!server) throw new Error('服务未找到');
     // 基本可用性检查：命令是否能找到
@@ -729,11 +729,14 @@ function registerIpcHandlers(): void {
 
 // 启动应用
 app.whenReady().then(async () => {
-  initLogger(path.join(userDataDir, 'logs'));
+  initLogger(path.join(shrewDir, 'logs'));
+  fs.mkdirSync(shrewDir, { recursive: true });
+  fs.mkdirSync(path.join(shrewDir, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(shrewDir, 'mcp'), { recursive: true });
   log.info('=== Shrew 应用启动 ===');
   log.info('日志文件:', log.logPath);
   log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
-  log.info('userData:', userDataDir);
+  log.info('shrewDir:', shrewDir);
 
   // 生产模式：启动 Next.js standalone 服务器
   if (!isDev) {
