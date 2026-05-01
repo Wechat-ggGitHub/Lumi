@@ -3,12 +3,13 @@ import type { AppState, SdkSubState, DotColor } from '@/types';
 type ValidTransitions = Record<AppState, AppState[]>;
 
 const VALID_TRANSITIONS: ValidTransitions = {
-  idle: ['recording'],
+  idle: ['recording', 'thinking'],
   recording: ['transcribing', 'idle'],
   transcribing: ['editing', 'idle'],
-  editing: ['sending', 'recording', 'idle'],
-  sending: ['executing', 'idle'],
-  executing: ['idle', 'error'],
+  editing: ['thinking', 'recording', 'idle'],
+  thinking: ['executing', 'error', 'idle'],
+  executing: ['completed', 'error', 'idle'],
+  completed: ['idle'],
   error: ['idle'],
 };
 
@@ -26,6 +27,7 @@ export class ShrewStore {
   private _sdkSubState: SdkSubState = null;
   private _previousSdkSubState: SdkSubState = null;
   private _currentToolName: string | null = null;
+  private _completedTimer: ReturnType<typeof setTimeout> | null = null;
   private _listeners: StateChangeCallback[] = [];
 
   get appState(): AppState { return this._appState; }
@@ -39,11 +41,22 @@ export class ShrewStore {
     this._appState = newState;
     this.notify();
 
-    if (newState !== 'executing') {
-      // Keep completed/failed for dot color display on idle
+    // completed 是瞬态（2-3s），自动转回 idle
+    if (newState === 'completed') {
+      this._completedTimer = setTimeout(() => {
+        if (this._appState === 'completed') {
+          this.transition('idle');
+        }
+      }, 2500);
+    } else if (this._completedTimer) {
+      clearTimeout(this._completedTimer);
+      this._completedTimer = null;
+    }
+
+    if (newState !== 'thinking' && newState !== 'executing') {
       if (newState === 'idle' && (this._sdkSubState === 'completed' || this._sdkSubState === 'failed')) {
         // preserve substate for dot color until user views
-      } else if (newState !== 'idle') {
+      } else if (newState !== 'idle' && newState !== 'completed') {
         this._sdkSubState = null;
       }
     }
@@ -64,15 +77,17 @@ export class ShrewStore {
   }
 
   get dotColor(): DotColor {
-    if (this._appState === 'sending') return 'blue';
+    if (this._appState === 'thinking') return 'blue';
     if (this._appState === 'executing') {
       if (this._sdkSubState === 'rate_limited' || this._sdkSubState === 'authenticating') return 'yellow';
       return 'blue';
     }
+    if (this._appState === 'completed') return 'green';
     if (this._appState === 'idle') {
       if (this._sdkSubState === 'completed') return 'green';
       if (this._sdkSubState === 'failed') return 'red';
     }
+    if (this._appState === 'error') return 'red';
     return 'gray';
   }
 
@@ -82,6 +97,7 @@ export class ShrewStore {
       case 'recording': return 'stop-recording';
       case 'transcribing': return 'none';
       case 'editing': return 'append-recording';
+      case 'thinking':
       case 'executing': return 'cancel-execution';
       default: return 'none';
     }

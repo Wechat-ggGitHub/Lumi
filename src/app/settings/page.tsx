@@ -115,7 +115,35 @@ export default function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', padding: '0 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 32 }}>Shrew 设置</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Shrew 设置</h1>
+        <button onClick={() => getIpcRenderer()?.send('navigate:route', { path: '/chat' })} style={{
+          padding: '6px 16px', borderRadius: 8,
+          background: '#f0f0f0', border: '1px solid #ddd',
+          color: '#333', fontSize: 13, cursor: 'pointer',
+        }}>
+          ← 返回聊天
+        </button>
+      </div>
+
+      {/* 导航卡片 */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
+        {[
+          { path: '/persona', label: '分身设定' },
+          { path: '/memory', label: '记忆管理' },
+          { path: '/skills', label: '技能管理' },
+          { path: '/services', label: '服务连接' },
+        ].map(item => (
+          <button key={item.path} onClick={() => getIpcRenderer()?.send('navigate:route', { path: item.path })} style={{
+            flex: 1, padding: '10px 8px', borderRadius: 8,
+            background: '#f8f8f8', border: '1px solid #eee',
+            color: '#333', fontSize: 13, cursor: 'pointer',
+            textAlign: 'center',
+          }}>
+            {item.label}
+          </button>
+        ))}
+      </div>
 
       {/* Provider */}
       <section style={{ marginBottom: 32 }}>

@@ -4,8 +4,9 @@ export type AppState =
   | 'recording'
   | 'transcribing'
   | 'editing'
-  | 'sending'
+  | 'thinking'
   | 'executing'
+  | 'completed'
   | 'error';
 
 // SDK 执行子状态
@@ -27,6 +28,7 @@ export type DotColor = 'gray' | 'blue' | 'green' | 'red' | 'yellow' | 'purple';
 export interface ExecutionRecord {
   id: string;
   sdk_session_id: string | null;
+  segment_id: string | null;
   cwd: string;
   user_prompt: string;
   summary: string | null;
@@ -71,6 +73,72 @@ export interface AppSettings {
   modelPreset?: ModelPreset;
 }
 
+// 上下文段
+export interface ContextSegment {
+  id: string;
+  sdk_session_id: string | null;
+  created_at: string;
+  ended_at: string | null;
+}
+
+// 聊天消息
+export interface ChatMessage {
+  id: string;
+  segment_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  metadata: string | null;
+  execution_id: string | null;
+  created_at: string;
+}
+
+// 分身设定
+export interface Persona {
+  id: number;
+  name: string;
+  avatar: string | null;
+  bio: string | null;
+  personality: string;
+  tone: string;
+  detail_level: string;
+  clarify_pref: string;
+  work_style: string;
+  system_prompt: string | null;
+  updated_at: string;
+}
+
+// 技能配置
+export interface SkillConfig {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  params?: Record<string, string>;
+}
+
+// MCP 服务配置
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+}
+
+// 记忆条目
+export interface MemoryItem {
+  id: string;
+  type: string;
+  content: string;
+  source: string;
+  status: string;
+  pinned: number;
+  execution_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // IPC 消息类型
 export interface IpcMessages {
   // voice-bar -> main
@@ -91,7 +159,18 @@ export interface IpcMessages {
   'voice:capture-started': boolean;
   'voice:audio-data': { samples: Float32Array; sampleRate: number };
 
-  // detail window: main -> renderer
+  // chat window: renderer -> main
+  'chat:ready': void;
+  'chat:send-message': { text: string };
+  'chat:clear': void;
+
+  // chat window: main -> renderer
+  'chat:history': { messages: ChatMessage[]; segmentId: string };
+  'chat:stream-chunk': { messageId: string; content: string; done: boolean };
+  'chat:execution-complete': { executionId: string };
+  'chat:state-update': { appState: AppState; sdkSubState: SdkSubState; currentToolName?: string };
+
+  // detail window: main -> renderer (deprecated, keeping for reference)
   'detail:show': void;
   'detail:history-list': {
     records: ExecutionRecord[];
@@ -104,7 +183,7 @@ export interface IpcMessages {
   'detail:tool-call': { id: string; toolCall: ToolCallRecord };
   'detail:execution-complete': { record: ExecutionRecord };
 
-  // detail window: renderer -> main
+  // detail window: renderer -> main (deprecated)
   'detail:ready': void;
   'detail:select': { id: string };
   'detail:mark-viewed': { id: string };
@@ -116,4 +195,28 @@ export interface IpcMessages {
 
   // main -> renderer (Tray 点击)
   'tray:click': void;
+
+  // persona: invoke (request-response)
+  'persona:load': void;
+  'persona:save': Partial<Omit<Persona, 'id' | 'updated_at'>>;
+
+  // skills: invoke
+  'skills:list': void;
+  'skills:toggle': { id: string; enabled: boolean };
+  'skills:configure': { id: string; params: Record<string, string> };
+
+  // services: invoke
+  'services:list': void;
+  'services:add': Omit<McpServerConfig, 'id'>;
+  'services:update': { id: string } & Partial<Omit<McpServerConfig, 'id'>>;
+  'services:remove': { id: string };
+  'services:test': { id: string };
+
+  // memory: invoke
+  'memory:list': void;
+  'memory:add': { type: string; content: string; source?: string };
+  'memory:update': { id: string; content: string };
+  'memory:delete': { id: string };
+  'memory:toggle-status': { id: string };
+  'memory:toggle-pin': { id: string };
 }
