@@ -108,8 +108,11 @@ function findSkillRootInZip(extractDir: string): string | null {
 
   const entries = fs.readdirSync(extractDir, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.isDirectory() && fs.existsSync(path.join(extractDir, entry.name, 'SKILL.md'))) {
-      return path.join(extractDir, entry.name);
+    if (!entry.isDirectory()) continue;
+    const resolved = path.resolve(extractDir, entry.name);
+    if (!resolved.startsWith(extractDir + path.sep)) continue;
+    if (fs.existsSync(path.join(resolved, 'SKILL.md'))) {
+      return resolved;
     }
   }
   return null;
@@ -120,6 +123,13 @@ export function importSkillFromZip(filePath: string, skillsDir: string): boolean
   try {
     extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-skill-'));
     const zip = new AdmZip(filePath);
+    const zipEntries = zip.getEntries();
+    for (const entry of zipEntries) {
+      const resolved = path.resolve(extractDir, entry.entryName);
+      if (!resolved.startsWith(extractDir + path.sep)) {
+        return false;
+      }
+    }
     zip.extractAllTo(extractDir, true);
 
     const skillRoot = findSkillRootInZip(extractDir);
