@@ -104,12 +104,12 @@ export function initDb(db: Database.Database): void {
 
 export function insertExecution(
   db: Database.Database,
-  params: { cwd: string; user_prompt: string; sdk_session_id?: string }
+  params: { cwd: string; user_prompt: string; sdk_session_id?: string; segment_id?: string }
 ): string {
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO execution_history (id, cwd, user_prompt, sdk_session_id) VALUES (?, ?, ?, ?)`
-  ).run(id, params.cwd, params.user_prompt, params.sdk_session_id ?? null);
+    `INSERT INTO execution_history (id, cwd, user_prompt, sdk_session_id, segment_id) VALUES (?, ?, ?, ?, ?)`
+  ).run(id, params.cwd, params.user_prompt, params.sdk_session_id ?? null, params.segment_id ?? null);
   return id;
 }
 

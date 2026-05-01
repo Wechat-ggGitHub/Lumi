@@ -7,9 +7,9 @@ const VALID_TRANSITIONS: ValidTransitions = {
   recording: ['transcribing', 'idle'],
   transcribing: ['editing', 'idle'],
   editing: ['thinking', 'recording', 'idle'],
-  thinking: ['executing', 'error', 'idle'],
+  thinking: ['executing', 'completed', 'error', 'idle'],
   executing: ['completed', 'error', 'idle'],
-  completed: ['idle'],
+  completed: ['idle', 'thinking', 'recording'],
   error: ['idle'],
 };
 
@@ -93,7 +93,8 @@ export class ShrewStore {
 
   getRightCommandAction(): RightCommandAction {
     switch (this._appState) {
-      case 'idle': return 'start-recording';
+      case 'idle':
+      case 'completed': return 'start-recording';
       case 'recording': return 'stop-recording';
       case 'transcribing': return 'none';
       case 'editing': return 'append-recording';

@@ -92,3 +92,69 @@ Next.js 客户端 bundle 禁用了 Node.js 内置模块（`fs`, `path`, `os`, `c
 - **录音使用 Web Audio API**：通过 voice-bar 渲染进程的 getUserMedia + AudioContext 采集麦克风音频，IPC 传回主进程写 WAV 文件，无需外部依赖
 - **语音识别使用豆包流式语音识别模型 2.0**（火山引擎在线 API），通过 WebSocket 二进制协议通信
 - **日志存放在 `~/Library/Application Support/Shrew/logs/`**，按日期分文件（`shrew-YYYY-MM-DD.log`），覆盖启动、录音、转写、执行全流程
+
+## Coding Guidelines (Karpathy Principles)
+
+来源: [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills)
+
+**权衡:** 这些原则偏向谨慎而非速度。对于简单任务，根据判断灵活处理。
+
+### 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

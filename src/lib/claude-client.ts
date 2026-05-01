@@ -54,16 +54,14 @@ export async function executeClaude(
     allowDangerouslySkipPermissions: true,
     abortController,
     env: buildSdkEnv(providerKey, apiKey, modelPreset),
-    ...(resumeSessionId ? { resume: resumeSessionId } : {}),
-  };
-
-  if (skillCatalog) {
-    options.systemPrompt = {
+    skills: [],
+    systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
-      append: skillCatalog,
-    };
-  }
+      ...(skillCatalog ? { append: skillCatalog } : {}),
+    },
+    ...(resumeSessionId ? { resume: resumeSessionId } : {}),
+  };
 
   if (claudeExecutablePath) {
     options.pathToClaudeCodeExecutable = claudeExecutablePath;
