@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { scanSkills, importSkill, deleteSkill, buildSkillCatalog, parseSkillFrontmatter } from '../lib/skill-manager';
+import { scanSkills, importSkill, importSkillFromMd, deleteSkill, buildSkillCatalog, parseSkillFrontmatter } from '../lib/skill-manager';
 
 describe('skill-manager', () => {
   let skillsDir: string;
@@ -137,6 +137,43 @@ describe('skill-manager', () => {
 
     it('无异常当技能不存在', () => {
       expect(() => deleteSkill('nonexist', skillsDir)).not.toThrow();
+    });
+  });
+
+  describe('importSkillFromMd', () => {
+    it('将 .md 文件导入为技能目录', () => {
+      const srcFile = path.join(skillsDir, '..', 'test-skill.md');
+      fs.writeFileSync(srcFile, '---\nname: my-md-skill\ndescription: from md\n---\n# 指令正文');
+      const result = importSkillFromMd(srcFile, skillsDir);
+      expect(result).toBe(true);
+      expect(fs.existsSync(path.join(skillsDir, 'my-md-skill', 'SKILL.md'))).toBe(true);
+      const content = fs.readFileSync(path.join(skillsDir, 'my-md-skill', 'SKILL.md'), 'utf-8');
+      expect(content).toContain('指令正文');
+    });
+
+    it('导入失败当 .md 没有 frontmatter name', () => {
+      const srcFile = path.join(skillsDir, '..', 'no-name.md');
+      fs.writeFileSync(srcFile, '# 没有frontmatter的文件');
+      const result = importSkillFromMd(srcFile, skillsDir);
+      expect(result).toBe(false);
+    });
+
+    it('导入失败当 name 无效（含特殊字符）', () => {
+      const srcFile = path.join(skillsDir, '..', 'bad-name.md');
+      fs.writeFileSync(srcFile, '---\nname: ../evil\ndescription: hack\n---\n# 指令');
+      const result = importSkillFromMd(srcFile, skillsDir);
+      expect(result).toBe(false);
+    });
+
+    it('导入失败当同名技能已存在', () => {
+      const existing = path.join(skillsDir, 'existing-skill');
+      fs.mkdirSync(existing);
+      fs.writeFileSync(path.join(existing, 'SKILL.md'), '---\nname: existing-skill\ndescription: old\n---\n');
+
+      const srcFile = path.join(skillsDir, '..', 'dup.md');
+      fs.writeFileSync(srcFile, '---\nname: existing-skill\ndescription: new\n---\n# 指令');
+      const result = importSkillFromMd(srcFile, skillsDir);
+      expect(result).toBe(false);
     });
   });
 });

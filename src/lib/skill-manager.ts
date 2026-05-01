@@ -88,6 +88,19 @@ export function importSkill(sourceDir: string, skillsDir: string): boolean {
   return true;
 }
 
+export function importSkillFromMd(filePath: string, skillsDir: string): boolean {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { name } = parseSkillFrontmatter(content);
+  if (!name || !isValidSkillName(name)) return false;
+
+  const targetDir = path.join(skillsDir, name);
+  if (fs.existsSync(targetDir)) return false;
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content);
+  return true;
+}
+
 export function deleteSkill(name: string, skillsDir: string): void {
   if (!isValidSkillName(name)) return;
   const targetDir = path.join(skillsDir, name);
