@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import AdmZip from 'adm-zip';
 
 function isValidSkillName(name: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(name) && name.length > 0 && name.length < 128;
@@ -99,6 +101,44 @@ export function importSkillFromMd(filePath: string, skillsDir: string): boolean 
   fs.mkdirSync(targetDir, { recursive: true });
   fs.writeFileSync(path.join(targetDir, 'SKILL.md'), content);
   return true;
+}
+
+function findSkillRootInZip(extractDir: string): string | null {
+  if (fs.existsSync(path.join(extractDir, 'SKILL.md'))) return extractDir;
+
+  const entries = fs.readdirSync(extractDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory() && fs.existsSync(path.join(extractDir, entry.name, 'SKILL.md'))) {
+      return path.join(extractDir, entry.name);
+    }
+  }
+  return null;
+}
+
+export function importSkillFromZip(filePath: string, skillsDir: string): boolean {
+  let extractDir = '';
+  try {
+    extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-skill-'));
+    const zip = new AdmZip(filePath);
+    zip.extractAllTo(extractDir, true);
+
+    const skillRoot = findSkillRootInZip(extractDir);
+    if (!skillRoot) return false;
+
+    const content = fs.readFileSync(path.join(skillRoot, 'SKILL.md'), 'utf-8');
+    const { name } = parseSkillFrontmatter(content);
+    if (!name || !isValidSkillName(name)) return false;
+
+    const targetDir = path.join(skillsDir, name);
+    if (fs.existsSync(targetDir)) return false;
+
+    fs.cpSync(skillRoot, targetDir, { recursive: true });
+    return true;
+  } finally {
+    if (extractDir && fs.existsSync(extractDir)) {
+      fs.rmSync(extractDir, { recursive: true, force: true });
+    }
+  }
 }
 
 export function deleteSkill(name: string, skillsDir: string): void {

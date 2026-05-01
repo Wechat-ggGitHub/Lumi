@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { scanSkills, importSkill, importSkillFromMd, deleteSkill, buildSkillCatalog, parseSkillFrontmatter } from '../lib/skill-manager';
+import AdmZip from 'adm-zip';
+import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, parseSkillFrontmatter } from '../lib/skill-manager';
 
 describe('skill-manager', () => {
   let skillsDir: string;
@@ -173,6 +174,75 @@ describe('skill-manager', () => {
       const srcFile = path.join(skillsDir, '..', 'dup.md');
       fs.writeFileSync(srcFile, '---\nname: existing-skill\ndescription: new\n---\n# 指令');
       const result = importSkillFromMd(srcFile, skillsDir);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('importSkillFromZip', () => {
+    const makeZip = (entries: { path: string; content: string }[]): string => {
+      const zip = new AdmZip();
+      for (const entry of entries) {
+        zip.addFile(entry.path, Buffer.from(entry.content, 'utf-8'));
+      }
+      const zipPath = path.join(skillsDir, '..', `test-${Date.now()}.zip`);
+      zip.writeZip(zipPath);
+      return zipPath;
+    };
+
+    it('导入扁平 zip（根目录含 SKILL.md）', () => {
+      const zipPath = makeZip([
+        { path: 'SKILL.md', content: '---\nname: zip-flat\ndescription: flat zip\n---\n# 指令' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
+      expect(result).toBe(true);
+      expect(fs.existsSync(path.join(skillsDir, 'zip-flat', 'SKILL.md'))).toBe(true);
+      expect(fs.readFileSync(path.join(skillsDir, 'zip-flat', 'SKILL.md'), 'utf-8')).toContain('指令');
+    });
+
+    it('导入嵌套 zip（子文件夹含 SKILL.md）', () => {
+      const zipPath = makeZip([
+        { path: 'my-skill/SKILL.md', content: '---\nname: nested-skill\ndescription: nested\n---\n# 指令' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
+      expect(result).toBe(true);
+      expect(fs.existsSync(path.join(skillsDir, 'nested-skill', 'SKILL.md'))).toBe(true);
+    });
+
+    it('导入包含 references 文件夹的 zip', () => {
+      const zipPath = makeZip([
+        { path: 'SKILL.md', content: '---\nname: with-refs\ndescription: has refs\n---\n# 指令' },
+        { path: 'references/guide.md', content: '# 参考文档' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
+      expect(result).toBe(true);
+      expect(fs.existsSync(path.join(skillsDir, 'with-refs', 'references', 'guide.md'))).toBe(true);
+    });
+
+    it('导入失败当 zip 没有 SKILL.md', () => {
+      const zipPath = makeZip([
+        { path: 'README.md', content: '# 没有SKILL.md' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
+      expect(result).toBe(false);
+    });
+
+    it('导入失败当 SKILL.md 的 name 无效', () => {
+      const zipPath = makeZip([
+        { path: 'SKILL.md', content: '---\nname: ../evil\ndescription: hack\n---\n# 指令' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
+      expect(result).toBe(false);
+    });
+
+    it('导入失败当同名技能已存在', () => {
+      const existing = path.join(skillsDir, 'dup-skill');
+      fs.mkdirSync(existing);
+      fs.writeFileSync(path.join(existing, 'SKILL.md'), '---\nname: dup-skill\ndescription: old\n---\n');
+
+      const zipPath = makeZip([
+        { path: 'SKILL.md', content: '---\nname: dup-skill\ndescription: new\n---\n# 指令' },
+      ]);
+      const result = importSkillFromZip(zipPath, skillsDir);
       expect(result).toBe(false);
     });
   });
