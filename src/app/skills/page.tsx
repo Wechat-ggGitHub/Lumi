@@ -176,7 +176,7 @@ export default function SkillsPage() {
             <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{skill.name}</div>
             <div style={{ fontSize: 12, color: '#666' }}>{skill.description}</div>
           </div>
-          <button style={styles.toggle(skill.enabled)} onClick={(e) => { e.stopPropagation(); }}>
+          <button style={styles.toggle(skill.enabled)} onClick={(e) => { e.stopPropagation(); handleToggle(skill.name, !skill.enabled); }}>
             <div style={styles.toggleKnob(skill.enabled)} />
           </button>
         </div>

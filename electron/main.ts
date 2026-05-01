@@ -321,10 +321,10 @@ async function executePrompt(prompt: string): Promise<void> {
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
     path.join(shrewDir, 'skills'),
-    loadSettings().disabledSkills || []
+    settings.disabledSkills || []
   );
 
-  const fullPrompt = shrewContext + '\n\n' + prompt;
+  const fullPrompt = shrewContext ? shrewContext + '\n\n' + prompt : prompt;
 
   try {
     const result = await executeClaude(

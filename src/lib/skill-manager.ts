@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
+function isValidSkillName(name: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(name) && name.length > 0 && name.length < 128;
+}
+
 export interface SkillInfo {
   name: string;
   description: string;
@@ -35,7 +39,7 @@ export function scanSkills(skillsDir: string, disabledSkills: string[]): SkillIn
 
     const content = fs.readFileSync(skillMdPath, 'utf-8');
     const { name, description } = parseSkillFrontmatter(content);
-    if (!name) continue;
+    if (!name || !isValidSkillName(name)) continue;
 
     skills.push({
       name,
@@ -75,7 +79,7 @@ export function importSkill(sourceDir: string, skillsDir: string): boolean {
 
   const content = fs.readFileSync(skillMdPath, 'utf-8');
   const { name } = parseSkillFrontmatter(content);
-  if (!name) return false;
+  if (!name || !isValidSkillName(name)) return false;
 
   const targetDir = path.join(skillsDir, name);
   if (fs.existsSync(targetDir)) return false;
@@ -85,6 +89,7 @@ export function importSkill(sourceDir: string, skillsDir: string): boolean {
 }
 
 export function deleteSkill(name: string, skillsDir: string): void {
+  if (!isValidSkillName(name)) return;
   const targetDir = path.join(skillsDir, name);
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true });
@@ -92,6 +97,7 @@ export function deleteSkill(name: string, skillsDir: string): void {
 }
 
 export function readSkillContent(name: string, skillsDir: string): string | null {
+  if (!isValidSkillName(name)) return null;
   const skillMdPath = path.join(skillsDir, name, 'SKILL.md');
   if (!fs.existsSync(skillMdPath)) return null;
   return fs.readFileSync(skillMdPath, 'utf-8');

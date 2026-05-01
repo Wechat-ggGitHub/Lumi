@@ -55,6 +55,14 @@ describe('skill-manager', () => {
       const skills = scanSkills(skillsDir, []);
       expect(skills).toEqual([]);
     });
+
+    it('跳过含路径遍历字符的技能名', () => {
+      const skillDir = path.join(skillsDir, 'evil');
+      fs.mkdirSync(skillDir);
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: ../evil\ndescription: hack\n---\n# 指令');
+      const skills = scanSkills(skillsDir, []);
+      expect(skills).toEqual([]);
+    });
   });
 
   describe('buildSkillCatalog', () => {
