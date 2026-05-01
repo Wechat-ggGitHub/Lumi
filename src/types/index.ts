@@ -4,8 +4,9 @@ export type AppState =
   | 'recording'
   | 'transcribing'
   | 'editing'
-  | 'sending'
+  | 'thinking'
   | 'executing'
+  | 'completed'
   | 'error';
 
 // SDK 执行子状态
@@ -27,6 +28,7 @@ export type DotColor = 'gray' | 'blue' | 'green' | 'red' | 'yellow' | 'purple';
 export interface ExecutionRecord {
   id: string;
   sdk_session_id: string | null;
+  segment_id: string | null;
   cwd: string;
   user_prompt: string;
   summary: string | null;
@@ -71,6 +73,25 @@ export interface AppSettings {
   modelPreset?: ModelPreset;
 }
 
+// 上下文段
+export interface ContextSegment {
+  id: string;
+  sdk_session_id: string | null;
+  created_at: string;
+  ended_at: string | null;
+}
+
+// 聊天消息
+export interface ChatMessage {
+  id: string;
+  segment_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  metadata: string | null;
+  execution_id: string | null;
+  created_at: string;
+}
+
 // IPC 消息类型
 export interface IpcMessages {
   // voice-bar -> main
@@ -91,7 +112,18 @@ export interface IpcMessages {
   'voice:capture-started': boolean;
   'voice:audio-data': { samples: Float32Array; sampleRate: number };
 
-  // detail window: main -> renderer
+  // chat window: renderer -> main
+  'chat:ready': void;
+  'chat:send-message': { text: string };
+  'chat:clear': void;
+
+  // chat window: main -> renderer
+  'chat:history': { messages: ChatMessage[]; segmentId: string };
+  'chat:stream-chunk': { messageId: string; content: string; done: boolean };
+  'chat:execution-complete': { executionId: string };
+  'chat:state-update': { appState: AppState; sdkSubState: SdkSubState; currentToolName?: string };
+
+  // detail window: main -> renderer (deprecated, keeping for reference)
   'detail:show': void;
   'detail:history-list': {
     records: ExecutionRecord[];
@@ -104,7 +136,7 @@ export interface IpcMessages {
   'detail:tool-call': { id: string; toolCall: ToolCallRecord };
   'detail:execution-complete': { record: ExecutionRecord };
 
-  // detail window: renderer -> main
+  // detail window: renderer -> main (deprecated)
   'detail:ready': void;
   'detail:select': { id: string };
   'detail:mark-viewed': { id: string };

@@ -1,11 +1,12 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import type { ExecutionRecord, ConversationMessage } from '@/types';
+import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment } from '@/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS execution_history (
   id TEXT PRIMARY KEY,
   sdk_session_id TEXT,
+  segment_id TEXT,
   cwd TEXT NOT NULL,
   user_prompt TEXT NOT NULL,
   summary TEXT,
@@ -18,6 +19,24 @@ CREATE TABLE IF NOT EXISTS execution_history (
   messages TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_execution_history_created ON execution_history(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS context_segment (
+  id TEXT PRIMARY KEY,
+  sdk_session_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  ended_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS chat_message (
+  id TEXT PRIMARY KEY,
+  segment_id TEXT NOT NULL REFERENCES context_segment(id),
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  metadata TEXT,
+  execution_id TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_chat_message_segment ON chat_message(segment_id, created_at);
 `;
 
 export function initDb(db: Database.Database): void {
@@ -35,6 +54,17 @@ export function initDb(db: Database.Database): void {
   }
   if (!columns.some(col => col.name === 'viewed')) {
     db.exec('ALTER TABLE execution_history ADD COLUMN viewed INTEGER DEFAULT 0');
+  }
+  if (!columns.some(col => col.name === 'segment_id')) {
+    db.exec('ALTER TABLE execution_history ADD COLUMN segment_id TEXT');
+  }
+
+  // 确保存在活跃 context_segment
+  const activeSegment = db.prepare(
+    `SELECT id FROM context_segment WHERE ended_at IS NULL ORDER BY created_at DESC LIMIT 1`
+  ).get() as { id: string } | undefined;
+  if (!activeSegment) {
+    db.prepare(`INSERT INTO context_segment (id) VALUES (?)`).run(randomUUID());
   }
 }
 
@@ -129,4 +159,72 @@ export function markAllUnviewedAsViewed(db: Database.Database): boolean {
        AND status IN ('completed', 'failed', 'cancelled')`
   ).run();
   return result.changes > 0;
+}
+
+// --- Context Segment ---
+
+export function getActiveSegment(db: Database.Database): ContextSegment {
+  const row = db.prepare(
+    `SELECT * FROM context_segment WHERE ended_at IS NULL ORDER BY created_at DESC LIMIT 1`
+  ).get() as ContextSegment | undefined;
+  if (!row) {
+    const id = randomUUID();
+    db.prepare(`INSERT INTO context_segment (id) VALUES (?)`).run(id);
+    return { id, sdk_session_id: null, created_at: new Date().toISOString(), ended_at: null };
+  }
+  return row;
+}
+
+export function endSegment(db: Database.Database, segmentId: string): void {
+  db.prepare(`UPDATE context_segment SET ended_at = CURRENT_TIMESTAMP WHERE id = ?`).run(segmentId);
+}
+
+export function createSegment(db: Database.Database): string {
+  const id = randomUUID();
+  db.prepare(`INSERT INTO context_segment (id) VALUES (?)`).run(id);
+  return id;
+}
+
+export function updateSegmentSessionId(db: Database.Database, segmentId: string, sessionId: string): void {
+  db.prepare(`UPDATE context_segment SET sdk_session_id = ? WHERE id = ?`).run(sessionId, segmentId);
+}
+
+// --- Chat Message ---
+
+export function insertChatMessage(
+  db: Database.Database,
+  params: { segmentId: string; role: ChatMessage['role']; content: string; metadata?: string; executionId?: string }
+): string {
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO chat_message (id, segment_id, role, content, metadata, execution_id) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(id, params.segmentId, params.role, params.content, params.metadata ?? null, params.executionId ?? null);
+  return id;
+}
+
+export function appendChatMessageContent(db: Database.Database, id: string, content: string): void {
+  db.prepare(`UPDATE chat_message SET content = content || ? WHERE id = ?`).run(content, id);
+}
+
+export function updateChatMessageContent(db: Database.Database, id: string, content: string): void {
+  db.prepare(`UPDATE chat_message SET content = ? WHERE id = ?`).run(content, id);
+}
+
+export function getChatMessages(db: Database.Database, segmentId: string): ChatMessage[] {
+  return db.prepare(
+    `SELECT * FROM chat_message WHERE segment_id = ? ORDER BY created_at ASC`
+  ).all(segmentId) as ChatMessage[];
+}
+
+export function getAllChatMessages(db: Database.Database): ChatMessage[] {
+  return db.prepare(
+    `SELECT * FROM chat_message ORDER BY created_at ASC`
+  ).all() as ChatMessage[];
+}
+
+export function getLatestAssistantMessage(db: Database.Database, segmentId: string): ChatMessage | null {
+  const row = db.prepare(
+    `SELECT * FROM chat_message WHERE segment_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
+  ).get(segmentId) as ChatMessage | undefined;
+  return row ?? null;
 }

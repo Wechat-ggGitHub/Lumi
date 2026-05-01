@@ -4,16 +4,15 @@ import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { ShrewTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
-import { DetailWindow } from './detail-window';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, markViewed, getActiveExecution } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { log, initLogger } from '../src/lib/logger';
-import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage } from '../src/types';
+import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
@@ -27,7 +26,6 @@ let db: Database.Database;
 let store: ShrewStore;
 let tray: ShrewTray;
 let voiceBar: VoiceBarWindow;
-let detailWindow: DetailWindow;
 let shortcutManager: ShortcutManager;
 let recorder: AudioRecorder;
 let mainWindow: BrowserWindow | null = null;
@@ -153,11 +151,14 @@ function updateTrayDot(): void {
 
 const RECENT_LIMIT = 10;
 
-function updateDetailWindow(): void {
-  if (!detailWindow?.isVisible()) return;
-  const recent = getRecentExecutions(db, RECENT_LIMIT);
-  detailWindow.send('detail:history-list', {
-    records: recent,
+function sendToMainWindow(channel: string, data?: unknown): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+function broadcastChatState(): void {
+  sendToMainWindow('chat:state-update', {
     appState: store.appState,
     sdkSubState: store.sdkSubState,
     currentToolName: store.currentToolName ?? undefined,
@@ -249,21 +250,26 @@ async function executePrompt(prompt: string): Promise<void> {
     return;
   }
 
-  store.transition('sending');
-  updateTrayDot();
-
   const cwd = settings.defaultCwd.replace('~', app.getPath('home'));
   const providerKey = settings.provider || 'glm-cn';
   const modelPreset = settings.modelPreset || 'opus';
+
+  // 获取当前 context segment
+  const segment = getActiveSegment(db);
+
+  // 写入用户消息到 chat_message
+  insertChatMessage(db, {
+    segmentId: segment.id,
+    role: 'user',
+    content: prompt,
+  });
 
   // 生产模式下定位 claude 原生二进制（绕过 ASAR）
   let claudeExecutablePath: string | undefined;
   if (!isDev) {
     const unpackedRoot = app.getAppPath().replace(/\.asar$/, '.asar.unpacked');
     const candidates = [
-      // SDK 的平台包可能作为嵌套依赖存在
       'node_modules/@anthropic-ai/claude-agent-sdk/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
-      // 也可能在顶层（npm hoisted）
       'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
     ];
     for (const rel of candidates) {
@@ -289,14 +295,17 @@ async function executePrompt(prompt: string): Promise<void> {
   const conversationMessages: ConversationMessage[] = [];
   conversationMessages.push({ role: 'user', content: prompt });
 
-  store.transition('executing');
+  store.transition('thinking');
   store.setSdkSubState('thinking');
   updateTrayDot();
-  updateDetailWindow();
+  broadcastChatState();
 
   voiceBar.close();
 
   currentAbortController = new AbortController();
+
+  // 流式 assistant 消息的 ID（首次创建后持续追加）
+  let assistantMessageId: string | null = null;
 
   try {
     const result = await executeClaude(
@@ -310,20 +319,48 @@ async function executePrompt(prompt: string): Promise<void> {
           log.debug('SDK 子状态:', substate, toolName || '');
           store.setSdkSubState(substate, toolName);
           updateTrayDot();
-          updateDetailWindow();
+          broadcastChatState();
+
+          // thinking → executing_tool 切换时更新 appState
+          if (substate === 'executing_tool' && store.appState === 'thinking') {
+            store.transition('executing');
+            updateTrayDot();
+            broadcastChatState();
+          }
         },
         onError: (error) => {
           log.error('Claude 执行错误:', error);
         },
         onMessage: (msg) => {
           conversationMessages.push(msg);
+
+          if (msg.role === 'assistant' && msg.content) {
+            if (!assistantMessageId) {
+              // 首次收到 assistant 内容，创建消息记录
+              assistantMessageId = insertChatMessage(db, {
+                segmentId: segment.id,
+                role: 'assistant',
+                content: msg.content,
+                executionId,
+              });
+            } else {
+              // 追加内容
+              appendChatMessageContent(db, assistantMessageId, msg.content);
+            }
+            sendToMainWindow('chat:stream-chunk', {
+              messageId: assistantMessageId,
+              content: msg.content,
+              done: false,
+            });
+          }
         },
         onToolCall: (toolCall) => {
           log.debug('工具调用:', toolCall.type, toolCall.target);
         },
       },
       currentAbortController.signal,
-      claudeExecutablePath
+      claudeExecutablePath,
+      segment.sdk_session_id ?? undefined
     );
 
     currentAbortController = null;
@@ -344,7 +381,23 @@ async function executePrompt(prompt: string): Promise<void> {
       appendMessages(db, executionId, conversationMessages);
     }
 
-    store.transition('idle');
+    // 更新 segment 的 SDK session ID
+    if (result.sdkSessionId) {
+      updateSegmentSessionId(db, segment.id, result.sdkSessionId);
+    }
+
+    // 发送流式完成信号
+    if (assistantMessageId) {
+      sendToMainWindow('chat:stream-chunk', {
+        messageId: assistantMessageId,
+        content: '',
+        done: true,
+      });
+    }
+
+    sendToMainWindow('chat:execution-complete', { executionId });
+
+    store.transition('completed');
     store.setSdkSubState(result.status === 'completed' ? 'completed' :
                          result.status === 'cancelled' ? 'cancelled' : 'failed');
   } catch (err) {
@@ -357,12 +410,23 @@ async function executePrompt(prompt: string): Promise<void> {
     if (conversationMessages.length > 0) {
       appendMessages(db, executionId, conversationMessages);
     }
-    store.transition('idle');
+
+    if (assistantMessageId) {
+      sendToMainWindow('chat:stream-chunk', {
+        messageId: assistantMessageId,
+        content: '',
+        done: true,
+      });
+    }
+
+    sendToMainWindow('chat:execution-complete', { executionId });
+
+    store.transition('error');
     store.setSdkSubState('failed');
   }
 
   updateTrayDot();
-  updateDetailWindow();
+  broadcastChatState();
 }
 
 // IPC Handlers
@@ -394,120 +458,33 @@ function registerIpcHandlers(): void {
     updateTrayDot();
   });
 
-  // detail window IPC
-  ipcMain.on('detail:ready', () => {
-    updateDetailWindow();
-    const activeExec = getActiveExecution(db);
-    if (activeExec) {
-      detailWindow.send('detail:conversation-data', { record: activeExec });
-    }
+  // chat window IPC
+  ipcMain.on('chat:ready', () => {
+    const segment = getActiveSegment(db);
+    const messages = getChatMessages(db, segment.id);
+    sendToMainWindow('chat:history', { messages, segmentId: segment.id });
+    broadcastChatState();
   });
 
-  ipcMain.on('detail:select', (event, { id }: { id: string }) => {
-    const rec = getExecutionById(db, id);
-    detailWindow.send('detail:conversation-data', { record: rec });
+  ipcMain.on('chat:send-message', (_, data: { text: string }) => {
+    executePrompt(data.text);
   });
 
-  ipcMain.on('detail:mark-viewed', (_, { id }: { id: string }) => {
-    markViewed(db, id);
-  });
-
-  ipcMain.on('detail:send-message', async (event, { id, text }: { id: string; text: string }) => {
-    const rec = getExecutionById(db, id);
-    if (!rec?.sdk_session_id) {
-      log.error('detail:send-message: 无 sdk_session_id');
-      event.sender.send('detail:execution-complete', { record: { ...rec, status: 'failed' } });
-      return;
-    }
-
-    const apiKey = loadApiKey();
-    if (!apiKey) {
-      log.error('detail:send-message: API Key 未配置');
-      return;
-    }
-
-    const settings = loadSettings();
-    const cwd = rec.cwd;
-    const providerKey = settings.provider || 'glm-cn';
-    const modelPreset = settings.modelPreset || 'opus';
-
-    let claudeExecutablePath: string | undefined;
-    if (!isDev) {
-      const unpackedRoot = app.getAppPath().replace(/\.asar$/, '.asar.unpacked');
-      const candidates = [
-        'node_modules/@anthropic-ai/claude-agent-sdk/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
-        'node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude',
-      ];
-      for (const rel of candidates) {
-        const full = path.join(unpackedRoot, rel);
-        if (fs.existsSync(full)) {
-          claudeExecutablePath = full;
-          break;
-        }
-      }
-    }
-
-    log.info('detail:send-message: 恢复会话', rec.sdk_session_id);
-
-    const continueAbortController = new AbortController();
-    const conversationMessages: ConversationMessage[] = [];
-    conversationMessages.push({ role: 'user', content: text });
-
-    try {
-      const result = await executeClaude(
-        text,
-        cwd,
-        apiKey,
-        providerKey,
-        modelPreset,
-        {
-          onSubState: (substate, toolName) => {
-            log.debug('detail SDK 子状态:', substate, toolName || '');
-          },
-          onError: (error) => {
-            log.error('detail Claude 执行错误:', error);
-            event.sender.send('detail:execution-complete', { record: getExecutionById(db, id) });
-          },
-          onMessage: (msg) => {
-            conversationMessages.push(msg);
-            event.sender.send('detail:stream-chunk', {
-              id,
-              content: msg.content,
-              done: false,
-            });
-          },
-          onToolCall: (toolCall) => {
-            event.sender.send('detail:tool-call', { id, toolCall });
-          },
-        },
-        continueAbortController.signal,
-        claudeExecutablePath,
-        rec.sdk_session_id
-      );
-
-      const existingMessages = JSON.parse(rec.messages || '[]') as ConversationMessage[];
-      const allMessages = [...existingMessages, ...conversationMessages];
-      appendMessages(db, id, allMessages);
-
-      const updatedRecord = getExecutionById(db, id);
-      if (updatedRecord) {
-        const newDuration = (updatedRecord.duration_ms || 0) + (result.durationMs || 0);
-        const newCost = (updatedRecord.cost_usd || 0) + (result.costUsd || 0);
-        const newTurns = (updatedRecord.num_turns || 0) + (result.numTurns || 0);
-        updateExecution(db, id, {
-          duration_ms: newDuration,
-          cost_usd: newCost,
-          num_turns: newTurns,
-          summary: result.summary || updatedRecord.summary,
-        });
-
-        const finalRecord = getExecutionById(db, id);
-        event.sender.send('detail:execution-complete', { record: finalRecord });
-      }
-    } catch (err) {
-      log.error('detail:send-message 执行异常:', err);
-      event.sender.send('detail:execution-complete', { record: getExecutionById(db, id) });
-    }
+  ipcMain.on('chat:clear', () => {
+    const segment = getActiveSegment(db);
+    // 写入系统消息
+    insertChatMessage(db, {
+      segmentId: segment.id,
+      role: 'system',
+      content: '对话已清空',
+    });
+    // 结束当前段并创建新段
+    endSegment(db, segment.id);
+    const newSegmentId = createSegment(db);
+    log.info('chat:clear 旧段:', segment.id, '新段:', newSegmentId);
+    // 发送空历史
+    sendToMainWindow('chat:history', { messages: [], segmentId: newSegmentId });
+    broadcastChatState();
   });
 
   // settings
@@ -652,13 +629,18 @@ app.whenReady().then(async () => {
   store = new ShrewStore();
   store.onChange(() => {
     updateTrayDot();
-    updateDetailWindow();
+    broadcastChatState();
   });
 
   // 创建菜单栏 Tray
   tray = new ShrewTray();
   tray.onPopupRequested = () => {
-    detailWindow.toggle();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createMainWindow();
+    }
   };
   tray.onSettingsRequested = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -671,7 +653,6 @@ app.whenReady().then(async () => {
 
   // 创建窗口管理器
   voiceBar = new VoiceBarWindow(serverPort);
-  detailWindow = new DetailWindow(serverPort);
 
   // 初始化快捷键
   shortcutManager = new ShortcutManager();
@@ -693,7 +674,7 @@ app.whenReady().then(async () => {
     if (store.appState === 'recording') {
       recorder.stopRecording().catch(() => {});
     }
-    if (store.appState !== 'transcribing' && store.appState !== 'executing') {
+    if (store.appState !== 'transcribing' && store.appState !== 'thinking' && store.appState !== 'executing') {
       voiceBar.close();
       store.transition('idle');
       updateTrayDot();
@@ -729,7 +710,7 @@ function createMainWindow(): void {
       contextIsolation: false,
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/settings`);
+  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/chat`);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 }
 
@@ -755,7 +736,6 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   shortcutManager?.stop();
   voiceBar?.destroy();
-  detailWindow?.destroy();
   db?.close();
   if (nextServer) {
     nextServer.kill();
