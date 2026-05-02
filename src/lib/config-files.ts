@@ -26,7 +26,7 @@ export function loadMcpServers(shrewDir: string): McpServerConfig[] {
   return [];
 }
 
-export function saveMcpServers(shrewDir: string, servers: McpServerConfig[]): void {
+function saveMcpServers(shrewDir: string, servers: McpServerConfig[]): void {
   ensureMcpDir(shrewDir);
   const filePath = path.join(getMcpDir(shrewDir), 'servers.json');
   fs.writeFileSync(filePath, JSON.stringify(servers, null, 2));

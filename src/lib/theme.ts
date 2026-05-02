@@ -12,7 +12,7 @@ export function setThemePreference(preference: ThemePreference) {
   applyTheme(preference);
 }
 
-export function applyTheme(preference: ThemePreference) {
+function applyTheme(preference: ThemePreference) {
   const root = document.documentElement;
   root.classList.remove('light', 'dark');
 

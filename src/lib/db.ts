@@ -155,7 +155,7 @@ export function appendMessages(
   db.prepare('UPDATE execution_history SET messages = ? WHERE id = ?').run(json, id);
 }
 
-export function getMessages(
+function getMessages(
   db: Database.Database,
   id: string
 ): ConversationMessage[] {
@@ -168,13 +168,13 @@ export function getMessages(
   }
 }
 
-export function getTodayExecutions(db: Database.Database, limit: number): ExecutionRecord[] {
+function getTodayExecutions(db: Database.Database, limit: number): ExecutionRecord[] {
   return db.prepare(
     `SELECT * FROM execution_history WHERE created_at >= date('now', 'start of day') ORDER BY created_at DESC LIMIT ?`
   ).all(limit) as ExecutionRecord[];
 }
 
-export function getHistoryCount(db: Database.Database): number {
+function getHistoryCount(db: Database.Database): number {
   const row = db.prepare(
     `SELECT COUNT(*) as count FROM execution_history WHERE created_at < date('now', 'start of day')`
   ).get() as { count: number };
@@ -250,7 +250,7 @@ export function getChatMessages(db: Database.Database, segmentId: string): ChatM
   ).all(segmentId) as ChatMessage[];
 }
 
-export function getAllChatMessages(db: Database.Database): ChatMessage[] {
+function getAllChatMessages(db: Database.Database): ChatMessage[] {
   return db.prepare(
     `SELECT * FROM chat_message ORDER BY created_at ASC`
   ).all() as ChatMessage[];
