@@ -56,11 +56,19 @@ export default function SettingsPage() {
     anthropic: 'Anthropic',
   };
 
+  const modelLabels: Record<ProviderKey, Record<string, string>> = {
+    'glm-cn': { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
+    'glm-global': { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
+    anthropic: { opus: 'Claude Opus 4.6', sonnet: 'Claude Sonnet 4.6', haiku: 'Claude Haiku 4.5' },
+  };
+
+  const modelLabel = modelLabels[summary.provider]?.[summary.modelPreset] ?? summary.modelPreset;
+
   const settingsGroups = [
     {
       title: '模型与凭证',
       summary: summary.hasApiKey
-        ? `${providerNames[summary.provider]} / ${summary.modelPreset}`
+        ? `${providerNames[summary.provider]} / ${modelLabel}`
         : '尚未配置 API Key',
       status: summary.hasApiKey ? 'configured' as const : 'unconfigured' as const,
       path: '/settings/provider',
@@ -82,6 +90,12 @@ export default function SettingsPage() {
       summary: '发送方式、清空确认等',
       status: 'default' as const,
       path: '/settings/preferences',
+    },
+    {
+      title: '外观',
+      summary: '选择浅色或深色模式',
+      status: 'default' as const,
+      path: '/settings/appearance',
     },
     {
       title: '数据与隐私',
