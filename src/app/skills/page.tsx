@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Button } from '@/components/ui/Button';
+import { ListCard } from '@/components/ui/ListCard';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface SkillInfo {
   name: string;
@@ -14,33 +20,19 @@ export default function SkillsPage() {
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [detailSkill, setDetailSkill] = useState<{ name: string; content: string } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ name: string; x: number; y: number } | null>(null);
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   const loadSkills = useCallback(() => {
-    ipcRenderer?.invoke('skills:list').then((data: SkillInfo[]) => {
-      setSkills(data);
-    });
+    ipcRenderer?.invoke('skills:list').then((data: SkillInfo[]) => { setSkills(data); });
   }, [ipcRenderer]);
 
-  useEffect(() => {
-    loadSkills();
-  }, [loadSkills]);
-
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, []);
+  useEffect(() => { loadSkills(); }, [loadSkills]);
 
   const handleImport = async () => {
     setImportError(null);
     const result = await ipcRenderer?.invoke('skills:import');
-    if (result?.error) {
-      setImportError(result.error);
-    } else if (result) {
-      setSkills(result);
-    }
+    if (result?.error) { setImportError(result.error); }
+    else if (result) { setSkills(result); }
   };
 
   const handleToggle = async (name: string, enabled: boolean) => {
@@ -57,153 +49,89 @@ export default function SkillsPage() {
 
   const handleViewDetail = async (name: string) => {
     const content = await ipcRenderer?.invoke('skills:read', { name });
-    if (content) {
-      setDetailSkill({ name, content });
-    }
+    if (content) setDetailSkill({ name, content });
   };
 
-  const handleContextMenu = (e: React.MouseEvent, name: string) => {
-    e.preventDefault();
-    setContextMenu({ name, x: e.clientX, y: e.clientY });
-  };
-
-  const styles = {
-    container: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-      fontSize: 14, color: '#e0e0e0',
-      background: '#1a1a1e', minHeight: '100vh',
-      padding: 24, maxWidth: 600, margin: '0 auto',
-    },
-    header: {
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      marginBottom: 24,
-    },
-    title: { fontSize: 18, fontWeight: 600, margin: 0 },
-    backBtn: {
-      padding: '6px 16px', borderRadius: 8,
-      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-      color: '#888', fontSize: 13, cursor: 'pointer',
-    },
-    importArea: {
-      border: '2px dashed rgba(255,255,255,0.1)',
-      borderRadius: 12, padding: '24px 16px',
-      textAlign: 'center' as const, marginBottom: 24,
-      cursor: 'pointer', color: '#666',
-      transition: 'border-color 0.2s',
-    },
-    sectionTitle: {
-      fontSize: 13, color: '#888', marginBottom: 12,
-      textTransform: 'uppercase' as const, letterSpacing: '0.5px',
-    },
-    card: {
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: 10, padding: '14px 16px', marginBottom: 10,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      cursor: 'pointer',
-    },
-    cardDisabled: { opacity: 0.5 },
-    toggle: (on: boolean) => ({
-      width: 44, height: 24, borderRadius: 12,
-      border: 'none', background: on ? '#AF52DE' : 'rgba(255,255,255,0.1)',
-      cursor: 'pointer', position: 'relative' as const,
-      transition: 'background 0.2s', flexShrink: 0,
-    }),
-    toggleKnob: (on: boolean) => ({
-      width: 18, height: 18, borderRadius: '50%',
-      background: '#fff', position: 'absolute' as const,
-      top: 3, left: on ? 23 : 3, transition: 'left 0.2s',
-    }),
-    emptyState: { color: '#666', textAlign: 'center' as const, padding: 40 },
-    overlay: {
-      position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.7)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 100,
-    },
-    modal: {
-      background: '#2a2a2e', borderRadius: 12, padding: 24,
-      maxWidth: 560, width: '90%', maxHeight: '80vh',
-      display: 'flex', flexDirection: 'column' as const,
-    },
-    pre: {
-      background: '#1a1a1e', borderRadius: 8, padding: 16,
-      overflow: 'auto', flex: 1, fontSize: 12, lineHeight: 1.6,
-      whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const,
-    },
-    contextMenu: {
-      position: 'fixed' as const, background: '#2a2a2e',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: 8, padding: '4px 0', zIndex: 200,
-      minWidth: 160,
-    },
-    contextItem: {
-      padding: '8px 16px', cursor: 'pointer', fontSize: 13,
-      color: '#e0e0e0', display: 'block', width: '100%',
-      border: 'none', background: 'none', textAlign: 'left' as const,
-    },
-    error: { color: '#ff6b6b', fontSize: 12, marginTop: 8 },
-  };
+  const enabledSkills = skills.filter(s => s.enabled);
+  const disabledSkills = skills.filter(s => !s.enabled);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>技能管理</h1>
-        <button onClick={() => window.history.back()} style={styles.backBtn}>返回</button>
-      </div>
-
-      <div style={styles.importArea} onClick={handleImport}>
-        点击导入技能（支持 .md 文件、.zip 压缩包、文件夹）
-      </div>
-
-      {importError && <div style={styles.error}>{importError}</div>}
-
-      <div style={styles.sectionTitle}>已安装 ({skills.length})</div>
-
-      {skills.length === 0 && (
-        <div style={styles.emptyState}>
-          暂无技能。点击上方区域导入 .md 文件、.zip 压缩包或包含 SKILL.md 的文件夹。
-        </div>
-      )}
-
-      {skills.map(skill => (
-        <div
-          key={skill.name}
-          style={{ ...styles.card, ...(!skill.enabled ? styles.cardDisabled : {}) }}
-          onClick={() => handleToggle(skill.name, !skill.enabled)}
-          onContextMenu={(e) => handleContextMenu(e, skill.name)}
-        >
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{skill.name}</div>
-            <div style={{ fontSize: 12, color: '#666' }}>{skill.description}</div>
-          </div>
-          <button style={styles.toggle(skill.enabled)} onClick={(e) => { e.stopPropagation(); handleToggle(skill.name, !skill.enabled); }}>
-            <div style={styles.toggleKnob(skill.enabled)} />
-          </button>
-        </div>
-      ))}
-
-      {contextMenu && (
-        <div style={{ ...styles.contextMenu, top: contextMenu.y, left: contextMenu.x }}>
-          <button style={styles.contextItem} onClick={() => { handleViewDetail(contextMenu.name); setContextMenu(null); }}>
-            查看详情
-          </button>
-          <button style={{ ...styles.contextItem, color: '#ff6b6b' }} onClick={() => { handleDelete(contextMenu.name); setContextMenu(null); }}>
-            删除
-          </button>
-        </div>
-      )}
-
-      {detailSkill && (
-        <div style={styles.overlay} onClick={() => setDetailSkill(null)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{detailSkill.name}</h2>
-              <button
-                style={{ ...styles.backBtn, fontSize: 12 }}
-                onClick={() => setDetailSkill(null)}
-              >关闭</button>
+    <div className="min-h-screen bg-bg-window flex flex-col">
+      <PageHeader title="技能管理" subtitle="Shrew 当前具备的技能"
+        onBack={() => window.history.back()} />
+      <div className="flex-1 overflow-auto px-page-x pb-6">
+        {enabledSkills.length > 0 && (
+          <div className="mb-section-gap">
+            <SectionHeader title="已启用技能" description={`${enabledSkills.length} 个`} />
+            <div className="flex flex-col gap-2">
+              {enabledSkills.map(skill => (
+                <ListCard key={skill.name}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-card-title text-text-primary">{skill.name}</div>
+                      <div className="text-body-sm text-text-muted mt-0.5">{skill.description}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <StatusBadge status="success" label="已启用" />
+                      <Button variant="ghost" size="sm" onClick={() => handleViewDetail(skill.name)}>配置</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleToggle(skill.name, false)}>停用</Button>
+                    </div>
+                  </div>
+                </ListCard>
+              ))}
             </div>
-            <pre style={styles.pre}>{detailSkill.content}</pre>
+          </div>
+        )}
+        {disabledSkills.length > 0 && (
+          <div className="mb-section-gap">
+            <SectionHeader title="待配置" description={`${disabledSkills.length} 个`} />
+            <div className="flex flex-col gap-2">
+              {disabledSkills.map(skill => (
+                <ListCard key={skill.name} className="opacity-60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-card-title text-text-primary">{skill.name}</div>
+                      <div className="text-body-sm text-text-muted mt-0.5">{skill.description}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <StatusBadge status="default" label="已停用" />
+                      <Button variant="ghost" size="sm" onClick={() => handleToggle(skill.name, true)}>启用</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(skill.name)} className="!text-danger">删除</Button>
+                    </div>
+                  </div>
+                </ListCard>
+              ))}
+            </div>
+          </div>
+        )}
+        {skills.length === 0 && (
+          <div className="mb-section-gap">
+            <EmptyState title="暂无技能" description="导入 .md 文件、.zip 压缩包或包含 SKILL.md 的文件夹来添加技能" />
+          </div>
+        )}
+        <div className="mb-section-gap">
+          <SectionHeader title="新增技能" />
+          <div className="bg-bg-surface-1 border border-line-default rounded-card p-card-p">
+            <div className="flex gap-2 mb-3">
+              <Button variant="secondary" size="sm" onClick={handleImport}>导入 .md</Button>
+              <Button variant="secondary" size="sm" onClick={handleImport}>导入 .zip</Button>
+              <Button variant="secondary" size="sm" onClick={handleImport}>导入文件夹</Button>
+            </div>
+            <p className="text-label-xs text-text-muted">需要包含 SKILL.md 文件</p>
+          </div>
+        </div>
+        {importError && <p className="text-body-sm text-danger">{importError}</p>}
+      </div>
+      {detailSkill && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setDetailSkill(null)}>
+          <div className="bg-bg-surface-2 rounded-card p-6 max-w-xl w-[90%] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-section-title text-text-primary">{detailSkill.name}</h2>
+              <Button variant="ghost" size="sm" onClick={() => setDetailSkill(null)}>关闭</Button>
+            </div>
+            <pre className="bg-bg-app rounded-input p-4 overflow-auto flex-1 text-body-sm leading-relaxed whitespace-pre-wrap break-words text-text-secondary">
+              {detailSkill.content}
+            </pre>
           </div>
         </div>
       )}

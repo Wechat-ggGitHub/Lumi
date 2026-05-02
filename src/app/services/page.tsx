@@ -3,6 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import type { McpServerConfig } from '@/types';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SingleLineInput } from '@/components/ui/SingleLineInput';
+import { Button } from '@/components/ui/Button';
+import { ListCard } from '@/components/ui/ListCard';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function ServicesPage() {
   const [servers, setServers] = useState<McpServerConfig[]>([]);
@@ -14,149 +21,82 @@ export default function ServicesPage() {
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   useEffect(() => {
-    ipcRenderer?.invoke('services:list').then((data: McpServerConfig[]) => {
-      setServers(data);
-    });
+    ipcRenderer?.invoke('services:list').then((data: McpServerConfig[]) => { setServers(data); });
   }, [ipcRenderer]);
 
   const handleAdd = useCallback(() => {
     if (!formName.trim() || !formCommand.trim()) return;
     ipcRenderer?.invoke('services:add', {
-      name: formName.trim(),
-      command: formCommand.trim(),
-      args: formArgs.trim() ? formArgs.trim().split(/\s+/) : [],
-      enabled: true,
+      name: formName.trim(), command: formCommand.trim(),
+      args: formArgs.trim() ? formArgs.trim().split(/\s+/) : [], enabled: true,
     }).then((updated: McpServerConfig[]) => {
-      setServers(updated);
-      setFormName('');
-      setFormCommand('');
-      setFormArgs('');
-      setShowForm(false);
+      setServers(updated); setFormName(''); setFormCommand(''); setFormArgs(''); setShowForm(false);
     });
   }, [ipcRenderer, formName, formCommand, formArgs]);
 
   const handleRemove = useCallback((id: string) => {
-    ipcRenderer?.invoke('services:remove', { id }).then((updated: McpServerConfig[]) => {
-      setServers(updated);
-    });
+    ipcRenderer?.invoke('services:remove', { id }).then((updated: McpServerConfig[]) => { setServers(updated); });
   }, [ipcRenderer]);
 
   const handleTest = useCallback(async (id: string) => {
     setTesting(id);
     try {
       const result = await ipcRenderer?.invoke('services:test', { id }) as { success: boolean; error?: string };
-      if (result?.success) {
-        alert('连接测试成功');
-      } else {
-        alert(`连接测试失败: ${result?.error || '未知错误'}`);
-      }
-    } catch (err) {
-      alert(`测试出错: ${err}`);
-    } finally {
-      setTesting(null);
-    }
+      if (result?.success) { alert('连接测试成功'); }
+      else { alert(`连接测试失败: ${result?.error || '未知错误'}`); }
+    } catch (err) { alert(`测试出错: ${err}`); }
+    finally { setTesting(null); }
   }, [ipcRenderer]);
 
   return (
-    <div style={{
-      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-      fontSize: 14, color: '#e0e0e0',
-      background: '#1a1a1e', minHeight: '100vh',
-      padding: 24, maxWidth: 600, margin: '0 auto',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>服务连接</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => window.history.back()} style={{
-            padding: '6px 16px', borderRadius: 8,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-            color: '#888', fontSize: 13, cursor: 'pointer',
-          }}>
-            返回
-          </button>
-          <button onClick={() => setShowForm(!showForm)} style={{
-            padding: '6px 16px', borderRadius: 8,
-            background: '#AF52DE', border: 'none',
-            color: '#fff', fontSize: 13, cursor: 'pointer',
-          }}>
-            {showForm ? '取消' : '+ 新增'}
-          </button>
+    <div className="min-h-screen bg-bg-window flex flex-col">
+      <PageHeader title="服务连接" subtitle="Shrew 能访问的外部服务"
+        onBack={() => window.history.back()}
+        actions={<Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>{showForm ? '取消' : '+ 新增连接'}</Button>} />
+      <div className="flex-1 overflow-auto px-page-x pb-6">
+        <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
+          <p className="text-body-sm text-text-secondary">服务连接让 Shrew 通过标准协议访问外部工具和数据源，例如 GitHub、数据库、搜索引擎等。</p>
         </div>
+        {showForm && (
+          <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
+            <SectionHeader title="新增连接" />
+            <SingleLineInput label="名称" value={formName} onChange={e => setFormName(e.target.value)} placeholder="例如：GitHub MCP" />
+            <SingleLineInput label="命令" value={formCommand} onChange={e => setFormCommand(e.target.value)} placeholder="例如：npx @modelcontextprotocol/server-github" />
+            <SingleLineInput label="参数（空格分隔）" value={formArgs} onChange={e => setFormArgs(e.target.value)} placeholder="可选" />
+            <Button variant="primary" size="sm" onClick={handleAdd} disabled={!formName.trim() || !formCommand.trim()}>添加</Button>
+          </div>
+        )}
+        {servers.length > 0 && (
+          <div className="mb-section-gap">
+            <SectionHeader title="已连接服务" description={`${servers.length} 个`} />
+            <div className="flex flex-col gap-2">
+              {servers.map(server => (
+                <ListCard key={server.id}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-card-title text-text-primary">{server.name}</span>
+                        <StatusBadge status="success" label="已连接" />
+                      </div>
+                      <div className="text-label text-text-muted font-mono mt-0.5">{server.command}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                      <Button variant="secondary" size="sm" onClick={() => handleTest(server.id)} disabled={testing === server.id}>
+                        {testing === server.id ? '测试中...' : '测试连接'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRemove(server.id)} className="!text-danger">断开</Button>
+                    </div>
+                  </div>
+                </ListCard>
+              ))}
+            </div>
+          </div>
+        )}
+        {servers.length === 0 && !showForm && (
+          <EmptyState title="还没有连接任何服务" description="服务连接让 Shrew 访问外部工具和数据源。添加第一个服务连接来开始使用。"
+            action={<Button variant="primary" size="sm" onClick={() => setShowForm(true)}>添加第一个连接</Button>} />
+        )}
       </div>
-
-      {showForm && (
-        <div style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 10, padding: 16, marginBottom: 16,
-        }}>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#888', marginBottom: 4 }}>名称</label>
-            <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="例如：GitHub MCP"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e0e0e0', outline: 'none', boxSizing: 'border-box' }} />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#888', marginBottom: 4 }}>命令</label>
-            <input value={formCommand} onChange={e => setFormCommand(e.target.value)} placeholder="例如：npx @modelcontextprotocol/server-github"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e0e0e0', outline: 'none', boxSizing: 'border-box' }} />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#888', marginBottom: 4 }}>参数（空格分隔）</label>
-            <input value={formArgs} onChange={e => setFormArgs(e.target.value)} placeholder="可选"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                color: '#e0e0e0', outline: 'none', boxSizing: 'border-box' }} />
-          </div>
-          <button onClick={handleAdd} disabled={!formName.trim() || !formCommand.trim()} style={{
-            padding: '6px 16px', borderRadius: 8,
-            background: formName.trim() && formCommand.trim() ? '#AF52DE' : 'rgba(175,82,222,0.3)',
-            border: 'none', color: '#fff', fontSize: 13, cursor: 'pointer',
-          }}>
-            添加
-          </button>
-        </div>
-      )}
-
-      {servers.length === 0 && !showForm && (
-        <div style={{ color: '#666', textAlign: 'center', padding: 40 }}>
-          暂无 MCP 服务连接
-        </div>
-      )}
-
-      {servers.map(server => (
-        <div key={server.id} style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 10, padding: '14px 16px', marginBottom: 10,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{server.name}</div>
-              <div style={{ fontSize: 12, color: '#666', fontFamily: 'monospace' }}>{server.command}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => handleTest(server.id)} disabled={testing === server.id} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                color: '#888', cursor: testing === server.id ? 'default' : 'pointer',
-              }}>
-                {testing === server.id ? '测试中...' : '测试'}
-              </button>
-              <button onClick={() => handleRemove(server.id)} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11,
-                background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.2)',
-                color: '#FF453A', cursor: 'pointer',
-              }}>
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
