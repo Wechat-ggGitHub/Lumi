@@ -1,35 +1,36 @@
 import sharp from 'sharp';
-import fs from 'fs';
 
 const SIZE = 1024;
+
+const SUPERELLIPSE_N = 5;
+
+// Raw superellipse distance: <1 inside, =1 boundary, >1 outside
+function superellipseDist(x, y) {
+  const r = SIZE / 2;
+  const nx = (x - r) / r;
+  const ny = (y - r) / r;
+  return Math.pow(Math.abs(nx), SUPERELLIPSE_N) + Math.pow(Math.abs(ny), SUPERELLIPSE_N);
+}
 
 // macOS squircle (superellipse n=5 approximation)
 // Returns opacity 0..1 for a point (x,y) within SIZE x SIZE
 function squircleOpacity(x, y) {
-  const cx = SIZE / 2;
-  const cy = SIZE / 2;
-  const r = SIZE / 2; // half-side
-
-  // Normalized coordinates: -1..1 from center
-  const nx = (x - cx) / r;
-  const ny = (y - cy) / r;
-
-  // Superellipse: |nx|^n + |ny|^n = 1
-  // For n=5, points inside satisfy |nx|^5 + |ny|^5 < 1
-  const n = 5;
-  const dist = Math.pow(Math.abs(nx), n) + Math.pow(Math.abs(ny), n);
+  const dist = superellipseDist(x, y);
 
   if (dist >= 1) {
     // Anti-alias: 1px soft edge
     // Compute the distance in pixels from the boundary
     // Approximate: check at sub-pixel offsets
+    const r = SIZE / 2;
+    const nx = (x - r) / r;
+    const ny = (y - r) / r;
     const aaSamples = 4;
     let insideCount = 0;
     for (let sy = 0; sy < aaSamples; sy++) {
       for (let sx = 0; sx < aaSamples; sx++) {
         const ox = (sx - (aaSamples - 1) / 2) / (aaSamples * r);
         const oy = (sy - (aaSamples - 1) / 2) / (aaSamples * r);
-        const d = Math.pow(Math.abs(nx + ox), n) + Math.pow(Math.abs(ny + oy), n);
+        const d = Math.pow(Math.abs(nx + ox), SUPERELLIPSE_N) + Math.pow(Math.abs(ny + oy), SUPERELLIPSE_N);
         if (d < 1) insideCount++;
       }
     }
@@ -171,6 +172,12 @@ for (let y = 0; y < SIZE; y++) {
       const reflectDist = Math.sqrt(rdx * rdx + rdy * rdy);
       const edgeAlpha = reflectDist > 0.85 ? reflectAlpha * (1.0 - (reflectDist - 0.85) / 0.15) : reflectAlpha;
       current = blendOver(current, { r: 255, g: 255, b: 255, a: Math.max(0, edgeAlpha) });
+    }
+
+    // 1px white border along squircle edge (alpha 0.06)
+    const rawDist = superellipseDist(x, y);
+    if (rawDist >= 0.95 && rawDist <= 1.05) {
+      current = blendOver(current, { r: 255, g: 255, b: 255, a: 0.06 });
     }
 
     // Apply squircle shape mask
