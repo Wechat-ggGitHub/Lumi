@@ -1,13 +1,20 @@
 import { Tray, nativeImage, Menu } from 'electron';
 import type { DotColor } from '../src/types';
 
-// 生成 Template 图标 (22x22)：一个小麦克风形状
+// 生成 Template 图标 (22x22)：4 层渐变圆盘
 function createBaseIcon(): Electron.NativeImage {
   const size = 22;
   const canvas = Buffer.alloc(size * size * 4, 0);
 
   const center = size / 2;
-  const radius = 9;
+
+  // 4 层渐变圆盘参数（半径, alpha）
+  const layers = [
+    { radius: 9.5, alpha: 0.10 },
+    { radius: 6.8, alpha: 0.18 },
+    { radius: 4.1, alpha: 0.35 },
+    { radius: 1.4, alpha: 1.00 },
+  ];
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -16,25 +23,35 @@ function createBaseIcon(): Electron.NativeImage {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const idx = (y * size + x) * 4;
 
-      if (dist <= radius) {
-        canvas[idx] = 0;
-        canvas[idx + 1] = 0;
-        canvas[idx + 2] = 0;
-        canvas[idx + 3] = 255;
+      // 叠加各层 alpha（从外到内累加）
+      let alpha = 0;
+      for (const layer of layers) {
+        if (dist <= layer.radius) {
+          alpha = layer.alpha;
+        }
       }
+
+      canvas[idx] = 0;
+      canvas[idx + 1] = 0;
+      canvas[idx + 2] = 0;
+      canvas[idx + 3] = Math.round(alpha * 255);
     }
   }
 
-  return nativeImage.createFromBuffer(canvas, {
+  const image = nativeImage.createFromBuffer(canvas, {
     width: size,
     height: size,
     scaleFactor: 2.0,
   });
+  image.setTemplateImage(true);
+  return image;
 }
 
 function createDotIcon(color: DotColor): Electron.NativeImage {
   const size = 22;
   const canvas = Buffer.alloc(size * size * 4);
+
+  const center = size / 2;
 
   const colors: Record<DotColor, [number, number, number, number]> = {
     gray:   [142, 142, 147, 200],
@@ -42,11 +59,16 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
     green:  [52, 199, 89, 255],
     red:    [255, 69, 58, 255],
     yellow: [255, 214, 10, 255],
+    purple: [175, 82, 222, 255],
   };
 
-  const [r, g, b, a] = colors[color];
-  const center = size / 2;
-  const radius = 8;
+  // 绘制 4 层圆盘主体（同 baseIcon）
+  const layers = [
+    { radius: 9.5, alpha: 0.10 },
+    { radius: 6.8, alpha: 0.18 },
+    { radius: 4.1, alpha: 0.35 },
+    { radius: 1.4, alpha: 1.00 },
+  ];
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -55,13 +77,33 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const idx = (y * size + x) * 4;
 
-      if (dist <= radius) {
+      // 圆盘主体
+      let alpha = 0;
+      for (const layer of layers) {
+        if (dist <= layer.radius) {
+          alpha = layer.alpha;
+        }
+      }
+
+      canvas[idx] = 0;
+      canvas[idx + 1] = 0;
+      canvas[idx + 2] = 0;
+      canvas[idx + 3] = Math.round(alpha * 255);
+
+      // 状态点（右上角）
+      const dotCX = size - 4;
+      const dotCY = 4;
+      const dotRadius = 2.5;
+      const ddx = x - dotCX;
+      const ddy = y - dotCY;
+      const dotDist = Math.sqrt(ddx * ddx + ddy * ddy);
+
+      if (dotDist <= dotRadius) {
+        const [r, g, b, a] = colors[color];
         canvas[idx] = r;
         canvas[idx + 1] = g;
         canvas[idx + 2] = b;
         canvas[idx + 3] = a;
-      } else {
-        canvas[idx + 3] = 0;
       }
     }
   }
