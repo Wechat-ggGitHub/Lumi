@@ -91,10 +91,6 @@ export default function ChatPage() {
     getIpcRenderer()?.send('chat:clear');
   }, []);
 
-  const handleSettingsClick = useCallback(() => {
-    getIpcRenderer()?.send('navigate:route', { path: '/settings' });
-  }, []);
-
   const isStreaming = appState === 'thinking' || appState === 'executing';
 
   return (
@@ -103,7 +99,6 @@ export default function ChatPage() {
         appState={appState}
         sdkSubState={sdkSubState}
         currentToolName={currentToolName}
-        onSettingsClick={handleSettingsClick}
       />
       <ChatStream messages={messages} isStreaming={isStreaming} />
       <ChatInput

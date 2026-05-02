@@ -1,13 +1,12 @@
 'use client';
 
 import type { AppState, SdkSubState } from '@/types';
-import { Button } from '@/components/ui/Button';
+import { HeaderDropdown } from '@/components/ui/HeaderDropdown';
 
 interface ChatHeaderProps {
   appState: AppState;
   sdkSubState: SdkSubState;
   currentToolName?: string;
-  onSettingsClick: () => void;
 }
 
 function getStatusText(appState: AppState, sdkSubState: SdkSubState, currentToolName?: string): string {
@@ -32,14 +31,24 @@ function getDotColorClass(appState: AppState): string {
     case 'completed': return 'bg-success';
     case 'error': return 'bg-danger';
     case 'recording': return 'bg-warning';
+    case 'transcribing':
+    case 'editing': return 'bg-text-muted';
     default: return '';
   }
 }
 
-export function ChatHeader({ appState, sdkSubState, currentToolName, onSettingsClick }: ChatHeaderProps) {
+export function ChatHeader({ appState, sdkSubState, currentToolName }: ChatHeaderProps) {
   const statusText = getStatusText(appState, sdkSubState, currentToolName);
   const dotColor = getDotColorClass(appState);
   const isActive = appState !== 'idle';
+
+  const menuItems = [
+    { label: '分身设定', href: '/persona', icon: '👤' },
+    { label: '记忆管理', href: '/memory', icon: '🧠' },
+    { label: '技能管理', href: '/skills', icon: '⚡' },
+    { label: '服务连接', href: '/services', icon: '🔗' },
+    { label: '设置', href: '/settings', icon: '⚙️' },
+  ];
 
   return (
     <div className="flex-shrink-0 px-4 py-3 border-b border-line-default flex items-center gap-2.5">
@@ -50,14 +59,20 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, onSettingsC
         <div className="text-card-title text-text-primary">Shrew</div>
         {isActive && (
           <div className="text-label-xs text-text-muted flex items-center gap-1 mt-0.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse-blue`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse`} />
             {statusText}
           </div>
         )}
       </div>
-      <Button variant="ghost" size="icon" onClick={onSettingsClick}>
-        ⚙
-      </Button>
+      <HeaderDropdown
+        items={menuItems}
+        dividerIndex={4}
+        trigger={
+          <svg className="w-5 h-5 text-text-muted hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+          </svg>
+        }
+      />
     </div>
   );
 }
