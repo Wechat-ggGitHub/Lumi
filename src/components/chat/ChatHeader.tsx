@@ -1,6 +1,7 @@
 'use client';
 
 import type { AppState, SdkSubState } from '@/types';
+import { Button } from '@/components/ui/Button';
 
 interface ChatHeaderProps {
   appState: AppState;
@@ -24,71 +25,39 @@ function getStatusText(appState: AppState, sdkSubState: SdkSubState, currentTool
   }
 }
 
-function getStatusDotColor(appState: AppState): string {
+function getDotColorClass(appState: AppState): string {
   switch (appState) {
     case 'thinking':
-    case 'executing': return '#007AFF';
-    case 'completed': return '#34C759';
-    case 'error': return '#FF453A';
-    case 'recording': return '#FF9500';
-    default: return 'transparent';
+    case 'executing': return 'bg-brand';
+    case 'completed': return 'bg-success';
+    case 'error': return 'bg-danger';
+    case 'recording': return 'bg-warning';
+    default: return '';
   }
 }
 
 export function ChatHeader({ appState, sdkSubState, currentToolName, onSettingsClick }: ChatHeaderProps) {
   const statusText = getStatusText(appState, sdkSubState, currentToolName);
-  const dotColor = getStatusDotColor(appState);
+  const dotColor = getDotColorClass(appState);
   const isActive = appState !== 'idle';
 
   return (
-    <div style={{
-      padding: '12px 16px',
-      borderBottom: '1px solid rgba(255,255,255,0.08)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      flexShrink: 0,
-    }}>
-      <div style={{
-        width: 36, height: 36,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #AF52DE, #5856D6)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 16, fontWeight: 600, color: '#fff',
-        flexShrink: 0,
-      }}>
+    <div className="flex-shrink-0 px-4 py-3 border-b border-line-default flex items-center gap-2.5">
+      <div className="w-9 h-9 rounded-full bg-brand-soft flex items-center justify-center text-label text-brand font-semibold flex-shrink-0">
         S
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#e0e0e0' }}>Shrew</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-card-title text-text-primary">Shrew</div>
         {isActive && (
-          <div style={{ fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: dotColor,
-              animation: 'pulse 1.5s ease-in-out infinite',
-            }} />
+          <div className="text-label-xs text-text-muted flex items-center gap-1 mt-0.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse-blue`} />
             {statusText}
           </div>
         )}
       </div>
-      <button
-        onClick={onSettingsClick}
-        style={{
-          width: 32, height: 32,
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          color: '#888',
-          fontSize: 16,
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
+      <Button variant="ghost" size="icon" onClick={onSettingsClick}>
         ⚙
-      </button>
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
+      </Button>
     </div>
   );
 }

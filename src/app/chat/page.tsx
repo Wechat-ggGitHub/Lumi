@@ -12,9 +12,9 @@ export default function ChatPage() {
   const [appState, setAppState] = useState<AppState>('idle');
   const [sdkSubState, setSdkSubState] = useState<SdkSubState>(null);
   const [currentToolName, setCurrentToolName] = useState<string | undefined>();
-  const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   useEffect(() => {
+    const ipcRenderer = getIpcRenderer();
     if (!ipcRenderer) return;
 
     const historyHandler = (_: unknown, data: { messages: ChatMessage[]; segmentId: string }) => {
@@ -54,6 +54,19 @@ export default function ChatPage() {
     };
     ipcRenderer.on('chat:state-update', stateHandler);
 
+    const userMessageHandler = (_: unknown, data: { content: string }) => {
+      setMessages(prev => [...prev, {
+        id: `user-${Date.now()}`,
+        segment_id: '',
+        role: 'user',
+        content: data.content,
+        metadata: null,
+        execution_id: null,
+        created_at: new Date().toISOString(),
+      }]);
+    };
+    ipcRenderer.on('chat:user-message', userMessageHandler);
+
     const completeHandler = (_: unknown, data: { executionId: string }) => {
       ipcRenderer.send('chat:ready');
     };
@@ -65,44 +78,27 @@ export default function ChatPage() {
       ipcRenderer.removeListener('chat:history', historyHandler);
       ipcRenderer.removeListener('chat:stream-chunk', chunkHandler);
       ipcRenderer.removeListener('chat:state-update', stateHandler);
+      ipcRenderer.removeListener('chat:user-message', userMessageHandler);
       ipcRenderer.removeListener('chat:execution-complete', completeHandler);
     };
-  }, [ipcRenderer]);
+  }, []);
 
   const handleSend = useCallback((text: string) => {
-    const tempId = `temp-${Date.now()}`;
-    setMessages(prev => [...prev, {
-      id: tempId,
-      segment_id: '',
-      role: 'user',
-      content: text,
-      metadata: null,
-      execution_id: null,
-      created_at: new Date().toISOString(),
-    }]);
-    ipcRenderer?.send('chat:send-message', { text });
-  }, [ipcRenderer]);
+    getIpcRenderer()?.send('chat:send-message', { text });
+  }, []);
 
   const handleClear = useCallback(() => {
-    ipcRenderer?.send('chat:clear');
-  }, [ipcRenderer]);
+    getIpcRenderer()?.send('chat:clear');
+  }, []);
 
   const handleSettingsClick = useCallback(() => {
-    ipcRenderer?.send('navigate:route', { path: '/settings' });
-  }, [ipcRenderer]);
+    getIpcRenderer()?.send('navigate:route', { path: '/settings' });
+  }, []);
 
   const isStreaming = appState === 'thinking' || appState === 'executing';
 
   return (
-    <div style={{
-      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-      fontSize: 14,
-      color: '#e0e0e0',
-      background: '#1a1a1e',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
+    <div className="h-screen flex flex-col bg-bg-window">
       <ChatHeader
         appState={appState}
         sdkSubState={sdkSubState}

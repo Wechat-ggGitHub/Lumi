@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { AppState } from '@/types';
+import { Button } from '@/components/ui/Button';
 
 interface ChatInputProps {
   appState: AppState;
@@ -11,7 +12,15 @@ interface ChatInputProps {
 
 export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
   const [text, setText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isBusy = appState === 'thinking' || appState === 'executing' || appState === 'recording' || appState === 'transcribing';
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [text]);
 
   const handleSubmit = () => {
     const trimmed = text.trim();
@@ -35,50 +44,29 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
   };
 
   return (
-    <div style={{
-      padding: '10px 16px',
-      borderTop: '1px solid rgba(255,255,255,0.08)',
-      display: 'flex',
-      gap: 8,
-      alignItems: 'center',
-      flexShrink: 0,
-    }}>
-      <input
-        type="text"
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={isBusy ? '处理中...' : '输入消息，/clear 清空对话'}
-        disabled={isBusy}
-        style={{
-          flex: 1,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 8,
-          padding: '10px 14px',
-          fontSize: 13,
-          color: '#e0e0e0',
-          outline: 'none',
-          fontFamily: 'inherit',
-        }}
-      />
-      <button
-        onClick={handleSubmit}
-        disabled={isBusy || !text.trim()}
-        style={{
-          width: 36, height: 36,
-          borderRadius: '50%',
-          background: isBusy ? 'rgba(175,82,222,0.3)' : '#AF52DE',
-          border: 'none',
-          cursor: isBusy ? 'default' : 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15,
-          color: '#fff',
-          flexShrink: 0,
-        }}
-      >
-        ➤
-      </button>
+    <div className="flex-shrink-0 px-page-x py-2.5 border-t border-line-default">
+      <div className="flex items-end gap-2 bg-bg-surface-2 border border-line-default rounded-btn p-2 transition-colors focus-within:border-brand">
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isBusy ? '处理中...' : '输入消息，/clear 清空对话'}
+          disabled={isBusy}
+          rows={1}
+          className="flex-1 bg-transparent text-body text-text-primary outline-none resize-none
+            placeholder:text-text-muted disabled:opacity-40 min-h-[24px] max-h-[120px] leading-relaxed"
+        />
+        <Button
+          variant="primary"
+          size="icon"
+          onClick={handleSubmit}
+          disabled={isBusy || !text.trim()}
+          className="!rounded-full !w-9 !h-9 flex-shrink-0"
+        >
+          ➤
+        </Button>
+      </div>
     </div>
   );
 }
