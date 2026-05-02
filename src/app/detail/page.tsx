@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { HistorySidebar } from '@/components/HistorySidebar';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Button } from '@/components/ui/Button';
 import type { ExecutionRecord, ConversationMessage, ToolCallRecord, AppState, SdkSubState } from '@/types';
 
 function formatDuration(ms: number): string {
@@ -15,7 +17,6 @@ function formatDuration(ms: number): string {
 
 function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
   const [expanded, setExpanded] = useState(false);
-  const icon = toolCall.status === 'completed' ? '✓' : '✗';
   const typeLabel: Record<string, string> = {
     read_file: '读取文件',
     edit_file: '编辑文件',
@@ -25,41 +26,24 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
   };
 
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: 6,
-      margin: '4px 0',
-    }}>
+    <div className="bg-bg-surface-1 border border-line-default rounded-md my-1">
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{
-          padding: '6px 10px',
-          display: 'flex', alignItems: 'center', gap: 8,
-          cursor: 'pointer',
-          fontSize: 12,
-        }}
+        className="px-2.5 py-1.5 flex items-center gap-2 cursor-pointer text-xs"
       >
-        <span style={{ color: toolCall.status === 'completed' ? '#34C759' : '#FF453A' }}>{icon}</span>
-        <span style={{ color: '#aaa' }}>{typeLabel[toolCall.type] || toolCall.type}</span>
-        <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        <StatusBadge
+          status={toolCall.status === 'completed' ? 'success' : 'danger'}
+          label={toolCall.status === 'completed' ? '完成' : '失败'}
+        />
+        <span className="text-text-muted">{typeLabel[toolCall.type] || toolCall.type}</span>
+        <span className="text-text-muted overflow-hidden text-ellipsis whitespace-nowrap flex-1">
           {toolCall.target}
         </span>
-        <span style={{ color: '#555' }}>{expanded ? '▼' : '▶'}</span>
+        <span className="text-text-muted">{expanded ? '▼' : '▶'}</span>
       </div>
       {expanded && toolCall.detail && (
-        <div style={{
-          padding: '8px 10px',
-          borderTop: '1px solid rgba(255,255,255,0.04)',
-          background: 'rgba(0,0,0,0.2)',
-          borderRadius: '0 0 6px 6px',
-        }}>
-          <pre style={{
-            fontSize: 11, lineHeight: 1.5,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-            margin: 0,
-            color: '#ccc',
-          }}>
+        <div className="px-2.5 py-2 border-t border-line-default">
+          <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-all m-0 text-text-secondary">
             {toolCall.detail}
           </pre>
         </div>
@@ -71,17 +55,8 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
 function MessageBubble({ message }: { message: ConversationMessage }) {
   if (message.role === 'user') {
     return (
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <div style={{
-          background: 'rgba(175,82,222,0.2)',
-          border: '1px solid rgba(175,82,222,0.3)',
-          borderRadius: '12px 12px 4px 12px',
-          padding: '8px 12px',
-          maxWidth: '75%',
-          fontSize: 13,
-          lineHeight: 1.5,
-          whiteSpace: 'pre-wrap',
-        }}>
+      <div className="flex justify-end mb-3">
+        <div className="bg-brand-soft border border-brand/30 rounded-xl rounded-br-sm px-3 py-2 max-w-[75%] text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
           {message.content}
         </div>
       </div>
@@ -89,17 +64,10 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
   }
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: '#AF52DE', marginBottom: 4, fontWeight: 500 }}>Claude</div>
+    <div className="mb-3">
+      <div className="text-[11px] text-brand mb-1 font-medium">Claude</div>
       {message.content && (
-        <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '4px 12px 12px 12px',
-          padding: '8px 12px',
-          fontSize: 13,
-          lineHeight: 1.5,
-          whiteSpace: 'pre-wrap',
-        }}>
+        <div className="bg-bg-surface-1 rounded-md rounded-tr-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
           {message.content}
         </div>
       )}
@@ -244,115 +212,73 @@ export default function DetailPage() {
     }
   };
 
+  const title = record?.title || record?.summary?.split('\n')[0] || record?.user_prompt || '';
+  const subtitleParts: string[] = [];
+  if (record?.duration_ms != null) subtitleParts.push(formatDuration(record.duration_ms));
+  if (record?.cost_usd != null) subtitleParts.push(`$${record.cost_usd.toFixed(4)}`);
+  const subtitle = subtitleParts.join(' · ');
+
+  const recordStatusBadge = record?.status === 'completed'
+    ? <StatusBadge status="success" label="已完成" />
+    : record?.status === 'failed'
+      ? <StatusBadge status="danger" label="失败" />
+      : record?.status === 'running'
+        ? <StatusBadge status="info" label="执行中" />
+        : record?.status === 'cancelled'
+          ? <StatusBadge status="warning" label="已取消" />
+          : null;
+
   return (
-    <div style={{
-      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-      fontSize: 14, color: '#e0e0e0',
-      background: '#1a1a1e',
-      height: '100vh', display: 'flex',
-    }}>
-      <HistorySidebar
-        records={records}
-        selectedId={selectedId}
-        appState={appState}
-        sdkSubState={sdkSubState}
-        currentToolName={currentToolName}
-        onSelect={handleSelect}
-      />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {!record ? (
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#666', fontSize: 13,
-          }}>
+    <div className="min-h-screen bg-bg-window flex flex-col h-screen">
+      {!record ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-text-muted text-[13px]">
             {records.length === 0 ? '按 ⌘ 开始对话' : '选择一个对话'}
-          </div>
-        ) : (
-          <>
-            <div style={{
-              padding: '10px 16px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              flexShrink: 0,
-            }}>
-              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {record.title || record.summary?.split('\n')[0] || record.user_prompt}
-              </div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#666', flexShrink: 0, marginLeft: 16 }}>
-                {record.duration_ms != null && <span>{formatDuration(record.duration_ms)}</span>}
-                {record.cost_usd != null && <span>${record.cost_usd.toFixed(4)}</span>}
-              </div>
-            </div>
+          </p>
+        </div>
+      ) : (
+        <>
+          <PageHeader
+            title={title}
+            subtitle={subtitle}
+            actions={recordStatusBadge}
+          />
 
-            <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-              {messages.map((msg, i) => (
-                <MessageBubble key={i} message={msg} />
-              ))}
-              {isSending && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                  <div style={{
-                    width: 12, height: 12,
-                    border: '2px solid rgba(175,82,222,0.3)',
-                    borderTopColor: '#AF52DE',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                  }} />
-                  <span style={{ fontSize: 12, color: '#888' }}>Claude 正在回复...</span>
-                </div>
-              )}
-            </div>
-
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-            {record.status === 'completed' && record.sdk_session_id && (
-              <div style={{
-                padding: '10px 16px',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                display: 'flex', gap: 8, alignItems: 'center',
-                flexShrink: 0,
-              }}>
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={e => setInputText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="输入后续指令..."
-                  disabled={isSending}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    fontSize: 13,
-                    color: '#e0e0e0',
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={isSending || !inputText.trim()}
-                  style={{
-                    width: 32, height: 32,
-                    borderRadius: '50%',
-                    background: isSending ? 'rgba(175,82,222,0.3)' : '#AF52DE',
-                    border: 'none',
-                    cursor: isSending ? 'default' : 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 14,
-                    color: '#fff',
-                    flexShrink: 0,
-                  }}
-                >
-                  ➤
-                </button>
+          <div ref={scrollRef} className="flex-1 overflow-auto px-page-x">
+            {messages.map((msg, i) => (
+              <MessageBubble key={i} message={msg} />
+            ))}
+            {isSending && (
+              <div className="flex items-center gap-2 py-1">
+                <div className="w-3 h-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+                <span className="text-xs text-text-muted">Claude 正在回复...</span>
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+
+          {record.status === 'completed' && record.sdk_session_id && (
+            <div className="border-t border-line-default px-page-x py-2.5 flex gap-2 items-center flex-shrink-0">
+              <input
+                type="text"
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="输入后续指令..."
+                disabled={isSending}
+                className="flex-1 bg-bg-surface-1 border border-line-default rounded-lg px-3 py-2 text-[13px] text-text-primary outline-none placeholder:text-text-muted focus:border-line-strong"
+              />
+              <Button
+                variant="primary"
+                size="icon"
+                onClick={handleSend}
+                disabled={isSending || !inputText.trim()}
+              >
+                ➤
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
