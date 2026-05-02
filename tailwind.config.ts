@@ -21,6 +21,7 @@ const config: Config = {
         'brand': {
           DEFAULT: 'var(--brand-primary)',
           hover: 'var(--brand-primary-hover)',
+          active: 'var(--brand-primary-active)',
           soft: 'var(--brand-soft)',
         },
         success: 'var(--success)',
