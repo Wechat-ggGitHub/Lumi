@@ -110,10 +110,10 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
       alignItems: 'center',
       gap: 12,
       padding: '16px 20px',
-      background: 'rgba(17, 23, 42, 0.95)',
+      background: 'var(--bg-window)',
       borderRadius: 16,
       backdropFilter: 'blur(20px)',
-      color: '#fff',
+      color: 'var(--text-primary)',
       width: '100%',
       boxSizing: 'border-box',
       position: 'relative',
@@ -129,8 +129,8 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
           height: 26,
           borderRadius: '50%',
           border: 'none',
-          background: 'rgba(80, 80, 80, 0.95)',
-          color: 'rgba(255,255,255,0.8)',
+          background: 'var(--bg-surface-3)',
+          color: 'var(--text-muted)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -142,12 +142,12 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
           transition: 'background 0.15s ease, color 0.15s ease',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(200, 60, 60, 0.95)';
-          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.background = 'var(--danger)';
+          e.currentTarget.style.color = 'var(--text-primary)';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(80, 80, 80, 0.95)';
-          e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+          e.currentTarget.style.background = 'var(--bg-surface-3)';
+          e.currentTarget.style.color = 'var(--text-muted)';
         }}
       >
         ✕
@@ -156,7 +156,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
       {/* Error state */}
       {status === 'error' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 14, color: '#FF453A' }}>{errorMessage || '发生错误'}</span>
+          <span style={{ fontSize: 14, color: 'var(--danger)' }}>{errorMessage || '发生错误'}</span>
         </div>
       )}
 
@@ -202,7 +202,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
               flex: 1,
               background: 'transparent',
               border: 'none',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontSize: 15,
               resize: 'none',
               outline: 'none',
@@ -219,7 +219,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
             disabled={!text.trim()}
             style={{
               background: text.trim() ? 'var(--brand-primary)' : 'var(--bg-surface-3)',
-              color: text.trim() ? '#fff' : 'var(--text-muted)',
+              color: text.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
               border: 'none',
               borderRadius: 8,
               padding: '6px 16px',
@@ -239,7 +239,7 @@ function RecordingPulse() {
   return (
     <div style={{
       width: 12, height: 12, borderRadius: '50%',
-      background: '#FF453A',
+      background: 'var(--danger)',
       animation: 'pulse 1.5s ease-in-out infinite',
     }} />
   );

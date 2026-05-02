@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { Button } from '@/components/ui/Button';
+import { SingleLineInput } from '@/components/ui/SingleLineInput';
 
 type Step = 'welcome' | 'accessibility' | 'volcengine' | 'api-key' | 'cwd' | 'done';
 
@@ -90,19 +91,17 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">语音识别配置</h2>
         <p className="text-body text-text-muted mb-6">Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
-        <input
+        <SingleLineInput
           type="text"
           value={volcAppId}
           onChange={e => setVolcAppId(e.target.value)}
           placeholder="App ID"
-          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-2 placeholder:text-text-muted focus:border-brand"
         />
-        <input
+        <SingleLineInput
           type="password"
           value={volcToken}
           onChange={e => setVolcToken(e.target.value)}
           placeholder="Access Token"
-          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
         {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
         <Button variant="primary" onClick={saveVolcengine} disabled={saving || !volcAppId.trim() || !volcToken.trim()}>
@@ -114,12 +113,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">API Key</h2>
         <p className="text-body text-text-muted mb-6">需要 API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
-        <input
+        <SingleLineInput
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
           placeholder="从 open.bigmodel.cn 获取您的 API Key"
-          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
         {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
         <Button variant="primary" onClick={validateApiKey} disabled={!apiKey.trim()}>
@@ -131,11 +129,10 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">工作目录</h2>
         <p className="text-body text-text-muted mb-6">Claude Code 将在此目录下执行命令。</p>
-        <input
+        <SingleLineInput
           type="text"
           value={defaultCwd}
           onChange={e => setDefaultCwd(e.target.value)}
-          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
         <div className="flex gap-2 justify-center">
           <Button variant="secondary" onClick={() => {
