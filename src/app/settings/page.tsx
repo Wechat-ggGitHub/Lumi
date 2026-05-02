@@ -86,22 +86,10 @@ export default function SettingsPage() {
       path: '/settings/runtime',
     },
     {
-      title: '交互偏好',
-      summary: '发送方式、清空确认等',
-      status: 'default' as const,
-      path: '/settings/preferences',
-    },
-    {
       title: '外观',
       summary: '选择浅色或深色模式',
       status: 'default' as const,
       path: '/settings/appearance',
-    },
-    {
-      title: '数据与隐私',
-      summary: '日志、历史、缓存管理',
-      status: 'default' as const,
-      path: '/settings/privacy',
     },
   ];
 

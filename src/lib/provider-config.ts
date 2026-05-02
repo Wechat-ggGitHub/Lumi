@@ -49,7 +49,7 @@ const PROVIDERS: Record<string, ProviderPreset> = {
       ANTHROPIC_TIMEOUT: '3000000',
     },
     keyPlaceholder: '从 open.bigmodel.cn 获取您的 API Key',
-    validateEndpoint: 'https://open.bigmodel.cn/api/anthropic/v1/messages',
+    validateEndpoint: 'https://api.z.ai/api/anthropic/v1/messages',
   },
   anthropic: {
     key: 'anthropic',
@@ -97,6 +97,9 @@ export function buildSdkEnv(providerKey: string, apiKey: string, modelRole: stri
       env[k] = v;
     }
   }
+
+  // Point Claude Agent SDK to Shrew's own config directory
+  env.CLAUDE_CONFIG_DIR = `${process.env.HOME}/.shrew`;
 
   // Set auth based on provider style
   if (provider.authStyle === 'auth_token') {

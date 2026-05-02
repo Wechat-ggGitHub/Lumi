@@ -13,15 +13,11 @@ export default function VoiceSettingsPage() {
   const [appId, setAppId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [hasCredentials, setHasCredentials] = useState(false);
-  const [vadTimeout, setVadTimeout] = useState(2);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [error, setError] = useState('');
 
   useEffect(() => {
     const ipcRenderer = getIpcRenderer();
-    ipcRenderer?.invoke('settings:load').then((settings: any) => {
-      setVadTimeout(settings.vadTimeout || 2);
-    });
     ipcRenderer?.invoke('settings:load-volcengine-credentials').then((creds: any) => {
       if (creds) {
         setAppId(creds.appId || '');
@@ -31,7 +27,18 @@ export default function VoiceSettingsPage() {
   }, []);
 
   const handleSave = async () => {
-    if (appId.trim() && accessToken.trim()) {
+    const hasPartialCreds = !!(appId.trim() || accessToken.trim());
+    const hasBothCreds = !!(appId.trim() && accessToken.trim());
+
+    if (hasPartialCreds && !hasBothCreds) {
+      setError('App ID 和 Access Token 需同时填写');
+      setStatus('error');
+      setTimeout(() => { setStatus('idle'); setError(''); }, 3000);
+      return;
+    }
+
+    let credsFailed = false;
+    if (hasBothCreds) {
       setStatus('saving');
       setError('');
       try {
@@ -41,14 +48,13 @@ export default function VoiceSettingsPage() {
         });
         setHasCredentials(true);
         setAccessToken('');
-        setStatus('saved');
       } catch (e: any) {
         setError(e?.message || '未知错误');
         setStatus('error');
+        credsFailed = true;
       }
     }
-    await getIpcRenderer()?.invoke('settings:save', { vadTimeout });
-    if (status !== 'error') {
+    if (!credsFailed) {
       setStatus('saved');
     }
     setTimeout(() => { setStatus('idle'); setError(''); }, 2000);
@@ -69,11 +75,6 @@ export default function VoiceSettingsPage() {
           <SingleLineInput label="Access Token" type="password" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder={hasCredentials ? '输入新 Token 替换' : '输入 Access Token'} />
           {status === 'error' && <p className="text-body-sm text-danger mt-1">凭证验证失败：{error}</p>}
           {status === 'saved' && <p className="text-body-sm text-success mt-1">已保存</p>}
-        </div>
-        <div className="mb-section-gap">
-          <SectionHeader title="语音静音超时" description="停止说话后多少秒自动结束录音" />
-          <input type="range" min={1} max={5} step={0.5} value={vadTimeout} onChange={e => setVadTimeout(Number(e.target.value))} className="w-full" />
-          <span className="text-body-sm text-text-muted">{vadTimeout} 秒</span>
         </div>
       </div>
       <BottomActionBar>

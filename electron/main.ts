@@ -16,7 +16,7 @@ import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteS
 import { buildShrewContext, getActiveMemories } from '../src/lib/shrew-context';
 import { extractMemories } from '../src/lib/memory-extractor';
 import { log, initLogger } from '../src/lib/logger';
-import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage } from '../src/types';
+import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, SdkSubState, ToolCallRecord } from '../src/types';
 
 // 全局状态
 import Database from 'better-sqlite3';
@@ -247,8 +247,23 @@ async function executePrompt(prompt: string): Promise<void> {
   log.info('executePrompt 开始, prompt:', prompt.slice(0, 100));
   const settings = loadSettings();
   const apiKey = loadApiKey();
+
+  // 无论 API key 是否存在，都先推送用户消息
+  const segment = getActiveSegment(db);
+  insertChatMessage(db, {
+    segmentId: segment.id,
+    role: 'user',
+    content: prompt,
+  });
+  sendToMainWindow('chat:user-message', { content: prompt });
+
   if (!apiKey) {
     log.error('API Key 未配置');
+    sendToMainWindow('chat:stream-chunk', {
+      messageId: `error-${Date.now()}`,
+      content: 'API Key 未配置，请在设置中配置 API Key 后重试。',
+      done: false,
+    });
     tray.updateDot('red');
     store.transition('idle');
     updateTrayDot();
@@ -258,19 +273,6 @@ async function executePrompt(prompt: string): Promise<void> {
   const cwd = settings.defaultCwd.replace('~', app.getPath('home'));
   const providerKey = settings.provider || 'glm-cn';
   const modelPreset = settings.modelPreset || 'opus';
-
-  // 获取当前 context segment
-  const segment = getActiveSegment(db);
-
-  // 写入用户消息到 chat_message
-  insertChatMessage(db, {
-    segmentId: segment.id,
-    role: 'user',
-    content: prompt,
-  });
-
-  // 推送用户消息到聊天窗口
-  sendToMainWindow('chat:user-message', { content: prompt });
 
   // 生产模式下定位 claude 原生二进制（绕过 ASAR）
   let claudeExecutablePath: string | undefined;
