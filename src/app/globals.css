@@ -1,23 +1,46 @@
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 :root {
-  --bg-app: #0b1020;
-  --bg-window: #11172a;
-  --bg-surface-1: #151d33;
-  --bg-surface-2: #1a2440;
-  --bg-surface-3: #202b49;
-  --line-default: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
-  --text-primary: #eef2ff;
-  --text-secondary: #c7d0ee;
-  --text-muted: #97a3c7;
-  --brand-primary: #7c9cff;
-  --brand-primary-hover: #92adff;
-  --brand-soft: rgba(124, 156, 255, 0.16);
-  --success: #6ee7b7;
-  --warning: #f6c177;
-  --danger: #ff8a8a;
-  --info: #7dd3fc;
+  --bg-app: #f5f0e8;
+  --bg-window: #faf9f5;
+  --bg-surface-1: #efe9de;
+  --bg-surface-2: #e6dfd8;
+  --bg-surface-3: #ddd5c8;
+  --line-default: #e6dfd8;
+  --line-strong: #d4cbc0;
+  --text-primary: #141413;
+  --text-secondary: #3d3d3a;
+  --text-muted: #6c6a64;
+  --brand-primary: #82699b;
+  --brand-primary-hover: #947db0;
+  --brand-primary-active: #725a8a;
+  --brand-soft: rgba(130, 105, 155, 0.12);
+  --success: #4a9e5f;
+  --warning: #b88a0f;
+  --danger: #b33a3a;
+  --info: #6a9ec7;
+}
+
+:root.dark {
+  --bg-app: #111110;
+  --bg-window: #1a1918;
+  --bg-surface-1: #242321;
+  --bg-surface-2: #2e2c29;
+  --bg-surface-3: #38352f;
+  --line-default: rgba(255, 255, 255, 0.06);
+  --line-strong: rgba(255, 255, 255, 0.10);
+  --text-primary: #faf9f5;
+  --text-secondary: #c7c4bb;
+  --text-muted: #8e8b82;
+  --brand-primary: #a382ba;
+  --brand-primary-hover: #b395c8;
+  --brand-primary-active: #9170a8;
+  --brand-soft: rgba(163, 130, 186, 0.12);
+  --success: #5db872;
+  --warning: #d4a017;
+  --danger: #c64545;
+  --info: #7db8d4;
 }
 
 body {
