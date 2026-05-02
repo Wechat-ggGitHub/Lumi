@@ -9,15 +9,15 @@ export default function GlobalError({
 }) {
   return (
     <html lang="zh-CN">
-      <body style={{ margin: 0, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', padding: 40 }}>
-        <h2 style={{ color: '#FF453A' }}>Something went wrong</h2>
-        <p style={{ fontSize: 14, color: '#666' }}>{error.message}</p>
+      <body className="m-0 font-sans p-10">
+        <h2 className="text-danger">Something went wrong</h2>
+        <p className="text-body text-text-muted">{error.message}</p>
         {error.digest && (
-          <p style={{ fontSize: 12, color: '#999' }}>Digest: {error.digest}</p>
+          <p className="text-label text-text-muted">Digest: {error.digest}</p>
         )}
         <button
           onClick={reset}
-          style={{ marginTop: 16, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#007AFF', color: '#fff', cursor: 'pointer' }}
+          className="mt-4 px-4 py-2 rounded-btn border-none bg-brand text-white cursor-pointer"
         >
           Try again
         </button>

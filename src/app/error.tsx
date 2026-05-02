@@ -8,12 +8,12 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <div style={{ padding: 40, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      <h2 style={{ color: '#FF453A' }}>Something went wrong</h2>
-      <p style={{ fontSize: 14, color: '#666' }}>{error.message}</p>
+    <div className="p-10 font-sans">
+      <h2 className="text-danger">Something went wrong</h2>
+      <p className="text-body text-text-muted">{error.message}</p>
       <button
         onClick={reset}
-        style={{ marginTop: 16, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#007AFF', color: '#fff', cursor: 'pointer' }}
+        className="mt-4 px-4 py-2 rounded-btn border-none bg-brand text-white cursor-pointer"
       >
         Try again
       </button>
