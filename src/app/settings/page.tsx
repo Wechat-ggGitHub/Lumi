@@ -1,332 +1,130 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { SummaryCard } from '@/components/ui/SummaryCard';
+import { Button } from '@/components/ui/Button';
 
 type ProviderKey = 'glm-cn' | 'glm-global' | 'anthropic';
-type ModelPreset = 'opus' | 'sonnet' | 'haiku';
 
-const PROVIDER_INFO: Record<ProviderKey, { name: string; nameZh: string; models: Record<ModelPreset, string>; keyPlaceholder: string }> = {
-  'glm-cn': {
-    name: 'GLM (CN)',
-    nameZh: 'GLM (国内)',
-    models: { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
-    keyPlaceholder: '从 open.bigmodel.cn 获取您的 API Key',
-  },
-  'glm-global': {
-    name: 'GLM (Global)',
-    nameZh: 'GLM (国际)',
-    models: { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
-    keyPlaceholder: '从 open.bigmodel.cn 获取您的 API Key',
-  },
-  anthropic: {
-    name: 'Anthropic',
-    nameZh: 'Anthropic',
-    models: { opus: 'Claude Opus 4.6', sonnet: 'Claude Sonnet 4.6', haiku: 'Claude Haiku 4.5' },
-    keyPlaceholder: 'sk-ant-...',
-  },
-};
-
-const MODEL_LABELS: Record<ModelPreset, string> = {
-  opus: '高性能',
-  sonnet: '均衡',
-  haiku: '快速',
-};
+interface SettingsSummary {
+  provider: ProviderKey;
+  modelPreset: string;
+  hasApiKey: boolean;
+  hasVolcCreds: boolean;
+  defaultCwd: string;
+  vadTimeout: number;
+}
 
 export default function SettingsPage() {
-  const [apiKey, setApiKey] = useState('');
-  const [hasKey, setHasKey] = useState(false);
-  const [defaultCwd, setDefaultCwd] = useState('~/Documents');
-  const [vadTimeout, setVadTimeout] = useState(2);
-  const [provider, setProvider] = useState<ProviderKey>('glm-cn');
-  const [modelPreset, setModelPreset] = useState<ModelPreset>('opus');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [volcAppId, setVolcAppId] = useState('');
-  const [volcToken, setVolcToken] = useState('');
-  const [hasVolcCreds, setHasVolcCreds] = useState(false);
-  const [volcStatus, setVolcStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [volcError, setVolcError] = useState('');
+  const [summary, setSummary] = useState<SettingsSummary>({
+    provider: 'glm-cn',
+    modelPreset: 'opus',
+    hasApiKey: false,
+    hasVolcCreds: false,
+    defaultCwd: '~/Documents',
+    vadTimeout: 2,
+  });
 
   useEffect(() => {
     const ipcRenderer = getIpcRenderer();
     ipcRenderer?.invoke('settings:load').then((settings: any) => {
-      setDefaultCwd(settings.defaultCwd || '~/Documents');
-      setVadTimeout(settings.vadTimeout || 2);
-      setHasKey(settings.hasApiKey || false);
-      setProvider(settings.provider || 'glm-cn');
-      setModelPreset(settings.modelPreset || 'opus');
+      setSummary(prev => ({
+        ...prev,
+        provider: settings.provider || 'glm-cn',
+        modelPreset: settings.modelPreset || 'opus',
+        hasApiKey: settings.hasApiKey || false,
+        defaultCwd: settings.defaultCwd || '~/Documents',
+        vadTimeout: settings.vadTimeout || 2,
+      }));
     });
     ipcRenderer?.invoke('settings:load-volcengine-credentials').then((creds: any) => {
       if (creds) {
-        setVolcAppId(creds.appId || '');
-        setHasVolcCreds(creds.hasCredentials || false);
+        setSummary(prev => ({ ...prev, hasVolcCreds: creds.hasCredentials || false }));
       }
     });
   }, []);
 
-  const handleSaveApiKey = async () => {
-    if (!apiKey.trim()) return;
-    setStatus('saving');
-    try {
-      await getIpcRenderer()?.invoke('settings:save-api-key', { key: apiKey.trim() });
-      setHasKey(true);
-      setApiKey('');
-      setStatus('saved');
-      setTimeout(() => setStatus('idle'), 2000);
-    } catch {
-      setStatus('error');
-      setTimeout(() => setStatus('idle'), 2000);
-    }
+  const navigate = (path: string) => {
+    getIpcRenderer()?.send('navigate:route', { path });
   };
 
-  const handleSaveSettings = async () => {
-    setStatus('saving');
-    try {
-      await getIpcRenderer()?.invoke('settings:save', { defaultCwd, vadTimeout, provider, modelPreset });
-      setStatus('saved');
-      setTimeout(() => setStatus('idle'), 2000);
-    } catch {
-      setStatus('error');
-      setTimeout(() => setStatus('idle'), 2000);
-    }
+  const providerNames: Record<ProviderKey, string> = {
+    'glm-cn': 'GLM (国内)',
+    'glm-global': 'GLM (国际)',
+    anthropic: 'Anthropic',
   };
 
-  const currentProvider = PROVIDER_INFO[provider];
-
-  const handleSaveVolcengine = async () => {
-    if (!volcAppId.trim() || !volcToken.trim()) return;
-    setVolcStatus('saving');
-    setVolcError('');
-    try {
-      await getIpcRenderer()?.invoke('settings:save-volcengine-credentials', {
-        appId: volcAppId.trim(),
-        accessToken: volcToken.trim(),
-      });
-      setHasVolcCreds(true);
-      setVolcToken('');
-      setVolcStatus('saved');
-      setTimeout(() => setVolcStatus('idle'), 2000);
-    } catch (e: any) {
-      setVolcError(e?.message || '未知错误');
-      setVolcStatus('error');
-      setTimeout(() => { setVolcStatus('idle'); setVolcError(''); }, 5000);
-    }
-  };
+  const settingsGroups = [
+    {
+      title: '模型与凭证',
+      summary: summary.hasApiKey
+        ? `${providerNames[summary.provider]} / ${summary.modelPreset}`
+        : '尚未配置 API Key',
+      status: summary.hasApiKey ? 'configured' as const : 'unconfigured' as const,
+      path: '/settings/provider',
+    },
+    {
+      title: '语音',
+      summary: summary.hasVolcCreds ? '豆包语音识别已配置' : '语音识别服务未配置',
+      status: summary.hasVolcCreds ? 'configured' as const : 'unconfigured' as const,
+      path: '/settings/voice',
+    },
+    {
+      title: '运行环境',
+      summary: summary.defaultCwd,
+      status: 'configured' as const,
+      path: '/settings/runtime',
+    },
+    {
+      title: '交互偏好',
+      summary: '发送方式、清空确认等',
+      status: 'default' as const,
+      path: '/settings/preferences',
+    },
+    {
+      title: '数据与隐私',
+      summary: '日志、历史、缓存管理',
+      status: 'default' as const,
+      path: '/settings/privacy',
+    },
+  ];
 
   return (
-    <div style={{ maxWidth: 480, margin: '40px auto', padding: '0 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Shrew 设置</h1>
-        <button onClick={() => getIpcRenderer()?.send('navigate:route', { path: '/chat' })} style={{
-          padding: '6px 16px', borderRadius: 8,
-          background: '#f0f0f0', border: '1px solid #ddd',
-          color: '#333', fontSize: 13, cursor: 'pointer',
-        }}>
-          ← 返回聊天
-        </button>
-      </div>
+    <div className="min-h-screen bg-bg-window flex flex-col">
+      <PageHeader
+        title="设置"
+        subtitle="系统配置与偏好"
+        onBack={() => navigate('/chat')}
+      />
 
-      {/* 导航卡片 */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 32 }}>
-        {[
-          { path: '/persona', label: '分身设定' },
-          { path: '/memory', label: '记忆管理' },
-          { path: '/skills', label: '技能管理' },
-          { path: '/services', label: '服务连接' },
-        ].map(item => (
-          <button key={item.path} onClick={() => getIpcRenderer()?.send('navigate:route', { path: item.path })} style={{
-            flex: 1, padding: '10px 8px', borderRadius: 8,
-            background: '#f8f8f8', border: '1px solid #eee',
-            color: '#333', fontSize: 13, cursor: 'pointer',
-            textAlign: 'center',
-          }}>
-            {item.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Provider */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>API 服务商</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {(Object.entries(PROVIDER_INFO) as [ProviderKey, typeof PROVIDER_INFO[ProviderKey]][]).map(([key, info]) => (
-            <label key={key} style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-              borderRadius: 8, border: `1px solid ${provider === key ? '#007AFF' : '#ddd'}`,
-              background: provider === key ? '#f0f7ff' : '#fff', cursor: 'pointer',
-            }}>
-              <input
-                type="radio" name="provider" value={key}
-                checked={provider === key}
-                onChange={() => setProvider(key)}
-              />
-              <span style={{ fontSize: 14, fontWeight: 500 }}>{info.nameZh}</span>
-            </label>
+      <div className="flex-1 overflow-auto px-page-x pb-6">
+        <div className="flex gap-2 mb-section-gap">
+          {[
+            { path: '/persona', label: '分身设定' },
+            { path: '/memory', label: '记忆管理' },
+            { path: '/skills', label: '技能管理' },
+            { path: '/services', label: '服务连接' },
+          ].map(item => (
+            <Button key={item.path} variant="secondary" size="sm" onClick={() => navigate(item.path)}>
+              {item.label}
+            </Button>
           ))}
         </div>
-      </section>
 
-      {/* Model */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>模型</h2>
-        <select
-          value={modelPreset}
-          onChange={e => setModelPreset(e.target.value as ModelPreset)}
-          style={{
-            width: '100%', padding: '10px 12px', borderRadius: 8,
-            border: '1px solid #ddd', fontSize: 14, background: '#fff',
-          }}
-        >
-          {(Object.entries(MODEL_LABELS) as [ModelPreset, string][]).map(([role, label]) => (
-            <option key={role} value={role}>
-              {currentProvider.models[role]} — {label}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      {/* API Key */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>API Key</h2>
-        <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
-          Key 将安全存储在 macOS 钥匙串中。
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder={hasKey ? '已存储（输入新 Key 替换）' : currentProvider.keyPlaceholder}
-            style={{
-              flex: 1, padding: '8px 12px', borderRadius: 8,
-              border: '1px solid #ddd', fontSize: 14,
-            }}
-          />
-          <button
-            onClick={handleSaveApiKey}
-            disabled={!apiKey.trim() || status === 'saving'}
-            style={{
-              padding: '8px 16px', borderRadius: 8, border: 'none',
-              background: apiKey.trim() ? '#007AFF' : '#ccc',
-              color: '#fff', cursor: apiKey.trim() ? 'pointer' : 'default',
-            }}
-          >
-            {status === 'saving' ? '验证中...' : '保存'}
-          </button>
-        </div>
-        {status === 'saved' && <p style={{ color: '#34C759', fontSize: 13, marginTop: 4 }}>已保存</p>}
-        {status === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>API Key 验证失败，请检查是否正确</p>}
-      </section>
-
-      {/* 语音识别 */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>语音识别</h2>
-        <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
-          豆包语音大模型（火山引擎在线识别）。凭证将安全存储。
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input
-            type="text"
-            value={volcAppId}
-            onChange={e => setVolcAppId(e.target.value)}
-            placeholder={hasVolcCreds ? '已存储（输入新 App ID 替换）' : 'App ID'}
-            style={{
-              padding: '8px 12px', borderRadius: 8,
-              border: '1px solid #ddd', fontSize: 14,
-            }}
-          />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="password"
-              value={volcToken}
-              onChange={e => setVolcToken(e.target.value)}
-              placeholder={hasVolcCreds ? '输入新 Access Token 替换' : 'Access Token'}
-              style={{
-                flex: 1, padding: '8px 12px', borderRadius: 8,
-                border: '1px solid #ddd', fontSize: 14,
-              }}
+        <div className="flex flex-col gap-3">
+          {settingsGroups.map(group => (
+            <SummaryCard
+              key={group.path}
+              title={group.title}
+              summary={group.summary}
+              status={group.status}
+              onClick={() => navigate(group.path)}
             />
-            <button
-              onClick={handleSaveVolcengine}
-              disabled={!volcAppId.trim() || !volcToken.trim() || volcStatus === 'saving'}
-              style={{
-                padding: '8px 16px', borderRadius: 8, border: 'none',
-                background: (volcAppId.trim() && volcToken.trim()) ? '#007AFF' : '#ccc',
-                color: '#fff', cursor: (volcAppId.trim() && volcToken.trim()) ? 'pointer' : 'default',
-              }}
-            >
-              {volcStatus === 'saving' ? '验证中...' : '保存'}
-            </button>
-          </div>
+          ))}
         </div>
-        {volcStatus === 'saved' && <p style={{ color: '#34C759', fontSize: 13, marginTop: 4 }}>已保存</p>}
-        {volcStatus === 'error' && <p style={{ color: '#FF453A', fontSize: 13, marginTop: 4 }}>凭证验证失败：{volcError}</p>}
-      </section>
-
-      {/* 工作目录 */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>默认工作目录</h2>
-        <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
-          Claude Code 将在此目录下执行命令。
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            value={defaultCwd}
-            onChange={e => setDefaultCwd(e.target.value)}
-            style={{
-              flex: 1, padding: '8px 12px', borderRadius: 8,
-              border: '1px solid #ddd', fontSize: 14,
-            }}
-          />
-          <button
-            onClick={async () => {
-              const path = await getIpcRenderer()?.invoke('settings:pick-directory');
-              if (path) setDefaultCwd(path);
-            }}
-            style={{
-              padding: '8px 16px', borderRadius: 8,
-              border: '1px solid #ddd', background: '#fff', cursor: 'pointer',
-            }}
-          >
-            浏览
-          </button>
-        </div>
-      </section>
-
-      {/* VAD 超时 */}
-      <section style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>语音静音超时</h2>
-        <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
-          停止说话后多少秒自动结束录音。
-        </p>
-        <input
-          type="range"
-          min={1} max={5} step={0.5}
-          value={vadTimeout}
-          onChange={e => setVadTimeout(Number(e.target.value))}
-          style={{ width: '100%' }}
-        />
-        <span style={{ fontSize: 13 }}>{vadTimeout} 秒</span>
-      </section>
-
-      <button
-        onClick={handleSaveSettings}
-        style={{
-          padding: '10px 24px', borderRadius: 8,
-          border: 'none', background: '#007AFF',
-          color: '#fff', fontSize: 15, cursor: 'pointer',
-        }}
-      >
-        保存设置
-      </button>
-
-      {/* 关于 */}
-      <section style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #eee' }}>
-        <p style={{ fontSize: 12, color: '#999' }}>
-          Shrew v0.1.0 · Claude Code 语音壳子
-        </p>
-      </section>
+      </div>
     </div>
   );
 }
