@@ -219,7 +219,7 @@ export function createSegment(db: Database.Database): string {
   return id;
 }
 
-export function updateSegmentSessionId(db: Database.Database, segmentId: string, sessionId: string): void {
+export function updateSegmentSessionId(db: Database.Database, segmentId: string, sessionId: string | null): void {
   db.prepare(`UPDATE context_segment SET sdk_session_id = ? WHERE id = ?`).run(sessionId, segmentId);
 }
 

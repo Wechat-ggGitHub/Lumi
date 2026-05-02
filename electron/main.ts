@@ -269,6 +269,9 @@ async function executePrompt(prompt: string): Promise<void> {
     content: prompt,
   });
 
+  // 推送用户消息到聊天窗口
+  sendToMainWindow('chat:user-message', { content: prompt });
+
   // 生产模式下定位 claude 原生二进制（绕过 ASAR）
   let claudeExecutablePath: string | undefined;
   if (!isDev) {
@@ -326,62 +329,84 @@ async function executePrompt(prompt: string): Promise<void> {
 
   const fullPrompt = shrewContext ? shrewContext + '\n\n' + prompt : prompt;
 
+  const resumeSessionId = segment.sdk_session_id ?? undefined;
+
+  const callbacks = {
+    onSubState: (substate: SdkSubState, toolName?: string) => {
+      log.debug('SDK 子状态:', substate, toolName || '');
+      store.setSdkSubState(substate, toolName);
+      updateTrayDot();
+      broadcastChatState();
+
+      if (substate === 'executing_tool' && store.appState === 'thinking') {
+        store.transition('executing');
+        updateTrayDot();
+        broadcastChatState();
+      }
+    },
+    onError: (error: string) => {
+      log.error('Claude 执行错误:', error);
+    },
+    onMessage: (msg: ConversationMessage) => {
+      conversationMessages.push(msg);
+
+      if (msg.role === 'assistant' && msg.content) {
+        if (!assistantMessageId) {
+          assistantMessageId = insertChatMessage(db, {
+            segmentId: segment.id,
+            role: 'assistant',
+            content: msg.content,
+            executionId,
+          });
+        } else {
+          appendChatMessageContent(db, assistantMessageId, msg.content);
+        }
+        sendToMainWindow('chat:stream-chunk', {
+          messageId: assistantMessageId,
+          content: msg.content,
+          done: false,
+        });
+      }
+    },
+    onToolCall: (toolCall: ToolCallRecord) => {
+      log.debug('工具调用:', toolCall.type, toolCall.target);
+    },
+  };
+
   try {
-    const result = await executeClaude(
+    let result = await executeClaude(
       fullPrompt,
       cwd,
       apiKey,
       providerKey,
       modelPreset,
-      {
-        onSubState: (substate, toolName) => {
-          log.debug('SDK 子状态:', substate, toolName || '');
-          store.setSdkSubState(substate, toolName);
-          updateTrayDot();
-          broadcastChatState();
-
-          // thinking → executing_tool 切换时更新 appState
-          if (substate === 'executing_tool' && store.appState === 'thinking') {
-            store.transition('executing');
-            updateTrayDot();
-            broadcastChatState();
-          }
-        },
-        onError: (error) => {
-          log.error('Claude 执行错误:', error);
-        },
-        onMessage: (msg) => {
-          conversationMessages.push(msg);
-
-          if (msg.role === 'assistant' && msg.content) {
-            if (!assistantMessageId) {
-              // 首次收到 assistant 内容，创建消息记录
-              assistantMessageId = insertChatMessage(db, {
-                segmentId: segment.id,
-                role: 'assistant',
-                content: msg.content,
-                executionId,
-              });
-            } else {
-              // 追加内容
-              appendChatMessageContent(db, assistantMessageId, msg.content);
-            }
-            sendToMainWindow('chat:stream-chunk', {
-              messageId: assistantMessageId,
-              content: msg.content,
-              done: false,
-            });
-          }
-        },
-        onToolCall: (toolCall) => {
-          log.debug('工具调用:', toolCall.type, toolCall.target);
-        },
-      },
+      callbacks,
       currentAbortController.signal,
       claudeExecutablePath,
-      segment.sdk_session_id ?? undefined,
+      resumeSessionId,
       skillCatalog,
     );
+
+    // Resume 失败：旧 session 不存在，清除后重试
+    if (result.status === 'failed' && result.error?.includes('No conversation found') && resumeSessionId) {
+      log.info('旧 session 不存在，清除后重试');
+      updateSegmentSessionId(db, segment.id, null);
+      conversationMessages.length = 0;
+      conversationMessages.push({ role: 'user', content: prompt });
+      assistantMessageId = null;
+      result = await executeClaude(
+        fullPrompt,
+        cwd,
+        apiKey,
+        providerKey,
+        modelPreset,
+        callbacks,
+        currentAbortController.signal,
+        claudeExecutablePath,
+        undefined,
+        skillCatalog,
+      );
+    }
 
     currentAbortController = null;
     log.info('执行完成:', { status: result.status, duration: result.durationMs, cost: result.costUsd });
