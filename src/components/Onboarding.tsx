@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { Button } from '@/components/ui/Button';
 
 type Step = 'welcome' | 'accessibility' | 'volcengine' | 'api-key' | 'cwd' | 'done';
 
@@ -86,74 +87,66 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       />
     ),
     volcengine: (
-      <div style={stepStyle}>
-        <h2 style={titleStyle}>语音识别配置</h2>
-        <p style={descStyle}>
-          Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。
-        </p>
+      <div className="text-center">
+        <h2 className="text-page-title text-text-primary mb-3">语音识别配置</h2>
+        <p className="text-body text-text-muted mb-6">Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
         <input
           type="text"
           value={volcAppId}
           onChange={e => setVolcAppId(e.target.value)}
           placeholder="App ID"
-          style={{ ...inputStyle, marginBottom: 8 }}
+          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-2 placeholder:text-text-muted focus:border-brand"
         />
         <input
           type="password"
           value={volcToken}
           onChange={e => setVolcToken(e.target.value)}
           placeholder="Access Token"
-          style={{ ...inputStyle, marginBottom: 12 }}
+          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
-        {error && <p style={{ color: '#FF453A', fontSize: 13, marginBottom: 8 }}>{error}</p>}
-        <button onClick={saveVolcengine} disabled={saving || !volcAppId.trim() || !volcToken.trim()} style={{
-          ...buttonStyle,
-          opacity: (!saving && volcAppId.trim() && volcToken.trim()) ? 1 : 0.5,
-          cursor: (!saving && volcAppId.trim() && volcToken.trim()) ? 'pointer' : 'default',
-        }}>
+        {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
+        <Button variant="primary" onClick={saveVolcengine} disabled={saving || !volcAppId.trim() || !volcToken.trim()}>
           {saving ? '验证中...' : '验证并保存'}
-        </button>
+        </Button>
       </div>
     ),
     'api-key': (
-      <div style={stepStyle}>
-        <h2 style={titleStyle}>API Key</h2>
-        <p style={descStyle}>需要 GLM API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
+      <div className="text-center">
+        <h2 className="text-page-title text-text-primary mb-3">API Key</h2>
+        <p className="text-body text-text-muted mb-6">需要 API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
         <input
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
           placeholder="从 open.bigmodel.cn 获取您的 API Key"
-          style={{ ...inputStyle, marginBottom: 12 }}
+          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
-        {error && <p style={{ color: '#FF453A', fontSize: 13, marginBottom: 8 }}>{error}</p>}
-        <button onClick={validateApiKey} disabled={!apiKey.trim()} style={{
-          ...buttonStyle,
-          opacity: apiKey.trim() ? 1 : 0.5,
-          cursor: apiKey.trim() ? 'pointer' : 'default',
-        }}>
+        {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
+        <Button variant="primary" onClick={validateApiKey} disabled={!apiKey.trim()}>
           验证并保存
-        </button>
+        </Button>
       </div>
     ),
     cwd: (
-      <div style={stepStyle}>
-        <h2 style={titleStyle}>工作目录</h2>
-        <p style={descStyle}>Claude Code 将在此目录下执行命令。</p>
+      <div className="text-center">
+        <h2 className="text-page-title text-text-primary mb-3">工作目录</h2>
+        <p className="text-body text-text-muted mb-6">Claude Code 将在此目录下执行命令。</p>
         <input
           type="text"
           value={defaultCwd}
           onChange={e => setDefaultCwd(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 12 }}
+          className="w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary outline-none mb-3 placeholder:text-text-muted focus:border-brand"
         />
-        <button onClick={() => {
-          ipcRenderer?.invoke('settings:pick-directory').then((p: string | null) => {
-            if (p) setDefaultCwd(p);
-          });
-        }} style={{ ...buttonStyle, background: '#fff', color: '#007AFF', border: '1px solid #007AFF', marginBottom: 12 }}>
-          浏览
-        </button>
-        <button onClick={finish} style={buttonStyle}>完成设置</button>
+        <div className="flex gap-2 justify-center">
+          <Button variant="secondary" onClick={() => {
+            ipcRenderer?.invoke('settings:pick-directory').then((p: string | null) => {
+              if (p) setDefaultCwd(p);
+            });
+          }}>
+            浏览
+          </Button>
+          <Button variant="primary" onClick={finish}>完成设置</Button>
+        </div>
       </div>
     ),
     done: (
@@ -167,11 +160,10 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      minHeight: '100vh', background: '#fafafa',
-    }}>
-      {steps[step]}
+    <div className="flex justify-center items-center min-h-screen bg-bg-app">
+      <div className="max-w-md px-10 py-10">
+        {steps[step]}
+      </div>
     </div>
   );
 }
@@ -181,29 +173,15 @@ function OnboardingStep({ title, description, buttonText, onAction, secondaryBut
   onAction: () => void; secondaryButton?: string; onSecondary?: () => void;
 }) {
   return (
-    <div style={stepStyle}>
-      <h2 style={titleStyle}>{title}</h2>
-      <p style={descStyle}>{description}</p>
-      <button onClick={onAction} style={buttonStyle}>{buttonText}</button>
+    <div className="text-center">
+      <h2 className="text-page-title text-text-primary mb-3">{title}</h2>
+      <p className="text-body text-text-muted leading-relaxed mb-6">{description}</p>
+      <Button variant="primary" onClick={onAction}>{buttonText}</Button>
       {secondaryButton && onSecondary && (
-        <button onClick={onSecondary} style={{ ...linkStyle, marginTop: 8 }}>{secondaryButton}</button>
+        <button onClick={onSecondary} className="block mx-auto mt-2 bg-transparent border-none text-brand text-body-sm cursor-pointer hover:underline">
+          {secondaryButton}
+        </button>
       )}
     </div>
   );
 }
-
-const stepStyle: React.CSSProperties = { maxWidth: 420, padding: 40, textAlign: 'center' as const };
-const titleStyle: React.CSSProperties = { fontSize: 22, fontWeight: 700, marginBottom: 12 };
-const descStyle: React.CSSProperties = { fontSize: 14, color: '#666', lineHeight: 1.6, marginBottom: 24 };
-const buttonStyle: React.CSSProperties = {
-  padding: '10px 24px', borderRadius: 8, border: 'none',
-  background: '#007AFF', color: '#fff', fontSize: 15, cursor: 'pointer',
-};
-const linkStyle: React.CSSProperties = {
-  background: 'none', border: 'none', color: '#007AFF',
-  fontSize: 13, cursor: 'pointer', textDecoration: 'underline',
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 8,
-  border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box',
-};
