@@ -971,8 +971,10 @@ app.whenReady().then(async () => {
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 920,
+    height: 640,
+    minWidth: 880,
+    minHeight: 620,
     show: false,
     webPreferences: {
       nodeIntegration: true,
