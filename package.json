@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/adm-zip": "^0.5.8",
     "@types/better-sqlite3": "^7.6.0",
     "@types/jest": "^30.0.0",
@@ -34,6 +35,8 @@
     "electron-builder": "^25.0.0",
     "esbuild": "^0.28.0",
     "jest": "^30.3.0",
+    "postcss": "^8.5.13",
+    "tailwindcss": "^4.2.4",
     "ts-jest": "^29.4.9",
     "typescript": "^5.7.0",
     "wait-on": "^8.0.0"
