@@ -9,7 +9,7 @@ Full UI revision of Shrew desktop app to unify visual language, establish a comp
 
 ## Scope
 
-**10 pages** to create or revise:
+**13 pages** to create or revise:
 1. Chat main page (`/chat`) — revamp
 2. Settings home (`/settings`) — restructure from single page to card directory
 3. Settings detail: Provider (`/settings/provider`) — new
@@ -47,6 +47,8 @@ Font stack (spec §7.1):
 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif
 ```
 
+Inter font needs to be loaded. Options: `@font-face` with local woff2 file, or Google Fonts CDN. Prefer local `@font-face` to avoid network dependency for a desktop app.
+
 ### 1.2 Layout Root
 
 Modify `layout.tsx` to import `globals.css` and set body background to `var(--bg-app)`.
@@ -56,9 +58,8 @@ Modify `layout.tsx` to import `globals.css` and set body background to `var(--bg
 In `electron/main.ts`, adjust main window dimensions:
 - Width: 920px (min 880px)
 - Height: 640px (min 620px)
-- Corner radius: 20px
 
-Native macOS title bar (no custom Window Bar component needed).
+Native macOS title bar (no custom Window Bar component needed). Window corner radius is handled by macOS natively.
 
 ## Section 2: Component Library
 
