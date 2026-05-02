@@ -110,7 +110,7 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
       alignItems: 'center',
       gap: 12,
       padding: '16px 20px',
-      background: 'rgba(30, 30, 30, 0.95)',
+      background: 'rgba(17, 23, 42, 0.95)',
       borderRadius: 16,
       backdropFilter: 'blur(20px)',
       color: '#fff',
@@ -218,8 +218,8 @@ export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
             onClick={handleSend}
             disabled={!text.trim()}
             style={{
-              background: text.trim() ? '#007AFF' : '#333',
-              color: text.trim() ? '#fff' : '#666',
+              background: text.trim() ? 'var(--brand-primary)' : 'var(--bg-surface-3)',
+              color: text.trim() ? '#fff' : 'var(--text-muted)',
               border: 'none',
               borderRadius: 8,
               padding: '6px 16px',
@@ -239,11 +239,9 @@ function RecordingPulse() {
   return (
     <div style={{
       width: 12, height: 12, borderRadius: '50%',
-      background: '#FF3B30',
+      background: '#FF453A',
       animation: 'pulse 1.5s ease-in-out infinite',
-    }}>
-      <style>{`@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }`}</style>
-    </div>
+    }} />
   );
 }
 
@@ -251,11 +249,9 @@ function Spinner() {
   return (
     <div style={{
       width: 16, height: 16, borderRadius: '50%',
-      border: '2px solid #333',
-      borderTopColor: '#007AFF',
+      border: '2px solid var(--bg-surface-3)',
+      borderTopColor: 'var(--brand-primary)',
       animation: 'spin 0.8s linear infinite',
-    }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    }} />
   );
 }
