@@ -112,10 +112,8 @@ export default function SkillsPage() {
         <div className="mb-section-gap">
           <SectionHeader title="新增技能" />
           <div className="bg-bg-surface-1 border border-line-default rounded-card p-card-p">
-            <div className="flex gap-2 mb-3">
-              <Button variant="secondary" size="sm" onClick={handleImport}>导入 .md</Button>
-              <Button variant="secondary" size="sm" onClick={handleImport}>导入 .zip</Button>
-              <Button variant="secondary" size="sm" onClick={handleImport}>导入文件夹</Button>
+            <div className="mb-3">
+              <Button variant="secondary" size="sm" onClick={handleImport}>导入技能</Button>
             </div>
             <p className="text-label-xs text-text-muted">需要包含 SKILL.md 文件</p>
           </div>
@@ -123,7 +121,7 @@ export default function SkillsPage() {
         {importError && <p className="text-body-sm text-danger">{importError}</p>}
       </div>
       {detailSkill && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setDetailSkill(null)}>
+        <div className="fixed inset-0 bg-bg-app/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDetailSkill(null)}>
           <div className="bg-bg-surface-2 rounded-card p-6 max-w-xl w-[90%] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-section-title text-text-primary">{detailSkill.name}</h2>
