@@ -100,6 +100,15 @@ export function initDb(db: Database.Database): void {
   if (!persona) {
     db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
   }
+
+  // 迁移：删除 persona 表的旧列
+  const personaColumns = db.pragma('table_info(persona)') as { name: string }[];
+  const deprecatedColumns = ['bio', 'personality', 'tone', 'detail_level', 'clarify_pref', 'work_style', 'system_prompt'];
+  for (const col of deprecatedColumns) {
+    if (personaColumns.some(c => c.name === col)) {
+      db.exec(`ALTER TABLE persona DROP COLUMN ${col}`);
+    }
+  }
 }
 
 export function insertExecution(
@@ -274,22 +283,8 @@ export function getPersona(db: Database.Database): Persona {
   return row;
 }
 
-export function updatePersona(
-  db: Database.Database,
-  updates: Partial<Omit<Persona, 'id' | 'updated_at'>>
-): Persona {
-  const fields: string[] = [];
-  const values: unknown[] = [];
-  for (const [key, value] of Object.entries(updates)) {
-    fields.push(`${key} = ?`);
-    values.push(value);
-  }
-  if (fields.length > 0) {
-    fields.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(1);
-    db.prepare(`UPDATE persona SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-  }
-  return getPersona(db);
+export function updatePersonaName(db: Database.Database, name: string): void {
+  db.prepare(`UPDATE persona SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`).run(name);
 }
 
 // --- Memory Item ---

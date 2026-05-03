@@ -98,13 +98,6 @@ export interface Persona {
   id: number;
   name: string;
   avatar: string | null;
-  bio: string | null;
-  personality: string;
-  tone: string;
-  detail_level: string;
-  clarify_pref: string;
-  work_style: string;
-  system_prompt: string | null;
   updated_at: string;
 }
 
@@ -190,7 +183,7 @@ export interface IpcMessages {
 
   // persona: invoke (request-response)
   'persona:load': void;
-  'persona:save': Partial<Omit<Persona, 'id' | 'updated_at'>>;
+  'persona:save': { name: string; content: string };
 
   // skills: invoke
   'skills:list': void;
