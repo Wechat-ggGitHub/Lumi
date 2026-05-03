@@ -157,7 +157,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-bg-app">
+    <div className="flex justify-center items-center min-h-screen bg-bg-app pt-8">
       <div className="max-w-md px-10 py-10">
         {steps[step]}
       </div>
