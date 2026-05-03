@@ -7,7 +7,8 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, getPersona, updatePersona, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, updatePersonaName, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
+import { readPersonaFile, writePersonaFile, migratePersonaFromDb } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -151,7 +152,11 @@ function saveSettings(settings: AppSettings): void {
 }
 
 function updateTrayDot(): void {
-  tray.updateDot(store.dotColor);
+  if (store.appState === 'executing' || store.appState === 'thinking') {
+    tray.startAnimation();
+  } else {
+    tray.updateDot(store.dotColor);
+  }
 }
 
 const RECENT_LIMIT = 10;
@@ -319,9 +324,9 @@ async function executePrompt(prompt: string): Promise<void> {
   let assistantMessageId: string | null = null;
 
   // 构建 persona + memory 上下文
-  const persona = getPersona(db);
+  const { content: personaContent } = readPersonaFile(shrewDir);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(persona, memoryLines);
+  const shrewContext = buildShrewContext(personaContent, memoryLines);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
@@ -635,12 +640,14 @@ function registerIpcHandlers(): void {
 
   // persona
   ipcMain.handle('persona:load', () => {
-    return getPersona(db);
+    const { name, content } = readPersonaFile(shrewDir);
+    return { name, content };
   });
 
-  ipcMain.handle('persona:save', (_, updates) => {
-    const persona = updatePersona(db, updates);
-    return persona;
+  ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
+    writePersonaFile(shrewDir, name, content);
+    updatePersonaName(db, name);
+    return { name, content };
   });
 
   // skills
@@ -890,6 +897,9 @@ app.whenReady().then(async () => {
   // 初始化数据库
   db = new Database(dbPath);
   initDb(db);
+
+  // 迁移 persona 旧字段到 persona.md
+  migratePersonaFromDb(shrewDir, db);
 
   // 迁移旧的 API key 文件
   migrateKeyFile();
