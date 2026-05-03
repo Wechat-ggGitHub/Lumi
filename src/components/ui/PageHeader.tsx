@@ -12,8 +12,8 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, onBack, actions }: PageHeaderProps) {
   return (
-    <div className="flex-shrink-0 px-page-x pt-page-top pb-4">
-      <div className="flex items-center justify-between mb-1">
+    <div className="flex-shrink-0 px-page-x pt-12 pb-4" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+      <div className="flex items-center justify-between mb-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="flex items-center gap-3">
           {onBack && (
             <Button variant="ghost" size="sm" onClick={onBack}>

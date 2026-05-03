@@ -978,6 +978,9 @@ function createMainWindow(): void {
     minWidth: 880,
     minHeight: 620,
     show: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#faf9f5',
+    trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -993,6 +996,9 @@ function createOnboardingWindow(): void {
     height: 500,
     show: false,
     resizable: false,
+    titleBarStyle: 'hidden',
+    backgroundColor: '#faf9f5',
+    trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
