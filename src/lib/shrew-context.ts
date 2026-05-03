@@ -1,31 +1,17 @@
-import type { Persona } from '@/types';
 import Database from 'better-sqlite3';
 
-export function buildShrewContext(persona: Persona, memoryLines: string[]): string {
+export function buildShrewContext(personaContent: string, memoryLines: string[]): string {
   const parts: string[] = [];
 
-  parts.push(`# 你是 ${persona.name}`);
-  if (persona.bio) {
-    parts.push(persona.bio);
+  if (personaContent.trim()) {
+    parts.push(personaContent.trim());
   }
-
-  parts.push(`\n## 性格与风格`);
-  parts.push(`- 性格：${persona.personality}`);
-  parts.push(`- 语气：${persona.tone}`);
-  parts.push(`- 详细程度：${persona.detail_level}`);
-  parts.push(`- 澄清偏好：${persona.clarify_pref}`);
-  parts.push(`- 工作方式：${persona.work_style}`);
 
   if (memoryLines.length > 0) {
     parts.push(`\n## 关于用户的记忆`);
     for (const line of memoryLines) {
       parts.push(`- ${line}`);
     }
-  }
-
-  if (persona.system_prompt) {
-    parts.push(`\n## 额外指令`);
-    parts.push(persona.system_prompt);
   }
 
   return parts.join('\n');
