@@ -42,13 +42,6 @@ CREATE TABLE IF NOT EXISTS persona (
   id INTEGER PRIMARY KEY DEFAULT 1,
   name TEXT NOT NULL DEFAULT 'Shrew',
   avatar TEXT,
-  bio TEXT,
-  personality TEXT DEFAULT '专业',
-  tone TEXT DEFAULT '自然',
-  detail_level TEXT DEFAULT '平衡',
-  clarify_pref TEXT DEFAULT '视情况平衡',
-  work_style TEXT DEFAULT '先执行再总结',
-  system_prompt TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -273,15 +266,6 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
 }
 
 // --- Persona ---
-
-export function getPersona(db: Database.Database): Persona {
-  const row = db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Persona | undefined;
-  if (!row) {
-    db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
-    return db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Persona;
-  }
-  return row;
-}
 
 export function updatePersonaName(db: Database.Database, name: string): void {
   db.prepare(`UPDATE persona SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`).run(name);

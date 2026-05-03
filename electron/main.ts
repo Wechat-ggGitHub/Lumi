@@ -896,10 +896,11 @@ app.whenReady().then(async () => {
 
   // 初始化数据库
   db = new Database(dbPath);
-  initDb(db);
 
-  // 迁移 persona 旧字段到 persona.md
+  // 迁移 persona 旧字段到 persona.md（必须在 initDb 删列之前）
   migratePersonaFromDb(shrewDir, db);
+
+  initDb(db);
 
   // 迁移旧的 API key 文件
   migrateKeyFile();
