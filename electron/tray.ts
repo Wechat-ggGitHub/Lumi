@@ -31,20 +31,18 @@ function createBaseIcon(): Electron.NativeImage {
         }
       }
 
-      canvas[idx] = 0;
-      canvas[idx + 1] = 0;
-      canvas[idx + 2] = 0;
+      canvas[idx] = 255;
+      canvas[idx + 1] = 255;
+      canvas[idx + 2] = 255;
       canvas[idx + 3] = Math.round(alpha * 255);
     }
   }
 
-  const image = nativeImage.createFromBuffer(canvas, {
+  return nativeImage.createFromBuffer(canvas, {
     width: size,
     height: size,
     scaleFactor: 2.0,
   });
-  image.setTemplateImage(true);
-  return image;
 }
 
 function createDotIcon(color: DotColor): Electron.NativeImage {
@@ -85,9 +83,9 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
         }
       }
 
-      canvas[idx] = 0;
-      canvas[idx + 1] = 0;
-      canvas[idx + 2] = 0;
+      canvas[idx] = 255;
+      canvas[idx + 1] = 255;
+      canvas[idx + 2] = 255;
       canvas[idx + 3] = Math.round(alpha * 255);
 
       // 状态点（右上角）
