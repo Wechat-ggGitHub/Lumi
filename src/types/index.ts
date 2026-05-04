@@ -188,6 +188,9 @@ export interface IpcMessages {
   'persona:avatar:save': { dataUrl: string };
   'persona:avatar:remove': void;
 
+  // main -> renderer (persona auto-updated)
+  'persona:updated': void;
+
   // skills: invoke
   'skills:list': void;
   'skills:import': void;

@@ -74,6 +74,14 @@ export default function ChatPage() {
     };
     ipcRenderer.on('chat:execution-complete', completeHandler);
 
+    const personaUpdatedHandler = () => {
+      ipcRenderer.invoke('persona:load').then((data: { name: string; avatar: string | null; content: string }) => {
+        setPersonaName(data.name);
+        setPersonaAvatar(data.avatar);
+      });
+    };
+    ipcRenderer.on('persona:updated', personaUpdatedHandler);
+
     ipcRenderer.invoke('persona:load').then((data: { name: string; avatar: string | null; content: string }) => {
       setPersonaName(data.name);
       setPersonaAvatar(data.avatar);
@@ -87,6 +95,7 @@ export default function ChatPage() {
       ipcRenderer.removeListener('chat:state-update', stateHandler);
       ipcRenderer.removeListener('chat:user-message', userMessageHandler);
       ipcRenderer.removeListener('chat:execution-complete', completeHandler);
+      ipcRenderer.removeListener('persona:updated', personaUpdatedHandler);
     };
   }, []);
 
