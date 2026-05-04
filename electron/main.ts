@@ -8,7 +8,7 @@ import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
-import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir, syncNameToMarkdown } from '../src/lib/persona-file';
+import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -48,16 +48,6 @@ function startPersonaWatcher(): void {
     if (filename !== 'profile.json' && filename !== 'persona.md') return;
 
     log.info(`Persona 文件变更: ${filename} (${eventType})`);
-
-    // 名称变更时同步 persona.md 中的名称引用
-    if (filename === 'profile.json') {
-      try {
-        const synced = syncNameToMarkdown(shrewDir);
-        if (synced) log.info('Persona watcher: 已同步 persona.md 中的名称引用');
-      } catch (err) {
-        log.error('Persona watcher: 名称同步失败:', err);
-      }
-    }
 
     try {
       const profile = readProfile(shrewDir);
