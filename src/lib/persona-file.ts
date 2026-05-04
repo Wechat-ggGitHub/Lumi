@@ -33,7 +33,7 @@ export function getAvatarPath(shrewDir: string): string | null {
 
 // --- Ensure directory exists ---
 
-function ensurePersonaDir(shrewDir: string): void {
+export function ensurePersonaDir(shrewDir: string): void {
   const dir = getPersonaDir(shrewDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });

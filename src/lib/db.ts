@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment, Persona, MemoryItem } from '@/types';
+import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment, MemoryItem } from '@/types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS execution_history (
@@ -263,12 +263,6 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
     `SELECT * FROM chat_message WHERE segment_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
   ).get(segmentId) as ChatMessage | undefined;
   return row ?? null;
-}
-
-// --- Persona ---
-
-export function updatePersonaName(db: Database.Database, name: string): void {
-  db.prepare(`UPDATE persona SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`).run(name);
 }
 
 // --- Memory Item ---

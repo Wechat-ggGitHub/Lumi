@@ -101,7 +101,7 @@ const cx = SIZE / 2;
 const cy = SIZE / 2;
 
 // Orb parameters
-const orbRadius = SIZE * 0.32; // ~328px at 1024
+const orbRadius = SIZE * 0.44; // ~451px at 1024 — fills ~88% of frame diameter
 const orbCenterY = cy - SIZE * 0.00; // centered vertically
 const orbCenterX = cx;
 
@@ -118,19 +118,19 @@ const reflectCX = cx;
 const reflectCY = cy - orbRadius * 0.25; // above center
 const reflectAlpha = 0.08;
 
-// Orb gradient stops
+// Orb gradient stops — increased alpha for more vivid orb
 const orbStops = [
-  { pos: 0.0, color: '#ff6b9d', alpha: 0.95 },
-  { pos: 0.2, color: '#c44dff', alpha: 0.80 },
-  { pos: 0.5, color: '#6e8efb', alpha: 0.50 },
-  { pos: 0.8, color: '#1e1b4b', alpha: 0.30 },
+  { pos: 0.0, color: '#ff6b9d', alpha: 1.00 },
+  { pos: 0.25, color: '#c44dff', alpha: 0.90 },
+  { pos: 0.55, color: '#6e8efb', alpha: 0.70 },
+  { pos: 0.85, color: '#1e1b4b', alpha: 0.40 },
   { pos: 1.0, color: '#0f0a1e', alpha: 0.00 },
 ];
 
-// Core highlight gradient stops
+// Core highlight gradient stops — brighter core
 const highlightStops = [
-  { pos: 0.0, color: '#ffffff', alpha: 0.70 },
-  { pos: 0.35, color: '#f0d0ff', alpha: 0.35 },
+  { pos: 0.0, color: '#ffffff', alpha: 0.85 },
+  { pos: 0.4, color: '#f0d0ff', alpha: 0.45 },
   { pos: 1.0, color: '#c44dff', alpha: 0.00 },
 ];
 

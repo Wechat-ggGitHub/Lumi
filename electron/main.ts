@@ -8,7 +8,7 @@ import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
-import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir } from '../src/lib/persona-file';
+import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -663,21 +663,30 @@ function registerIpcHandlers(): void {
     return { name, content };
   });
 
-  ipcMain.handle('persona:avatar:upload', async () => {
+  ipcMain.handle('persona:avatar:select', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       title: '选择头像',
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const srcPath = result.filePaths[0];
-    const filename = saveAvatarFile(shrewDir, srcPath);
-    writeProfile(shrewDir, { avatar: filename });
-    const avatarPath = path.join(getPersonaDir(shrewDir), filename);
-    const data = fs.readFileSync(avatarPath);
-    const ext = path.extname(avatarPath).slice(1);
+    const filePath = result.filePaths[0];
+    const ext = path.extname(filePath).slice(1).toLowerCase();
     const mime = ext === 'jpg' ? 'jpeg' : ext;
+    const data = fs.readFileSync(filePath);
     return `data:image/${mime};base64,${data.toString('base64')}`;
+  });
+
+  ipcMain.handle('persona:avatar:save', (_, { dataUrl }: { dataUrl: string }) => {
+    const matches = dataUrl.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/);
+    if (!matches) return null;
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    ensurePersonaDir(shrewDir);
+    const filename = `avatar.${ext}`;
+    fs.writeFileSync(path.join(getPersonaDir(shrewDir), filename), buffer);
+    writeProfile(shrewDir, { avatar: filename });
+    return dataUrl;
   });
 
   ipcMain.handle('persona:avatar:remove', () => {

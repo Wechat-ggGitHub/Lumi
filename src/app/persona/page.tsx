@@ -8,6 +8,7 @@ import { SingleLineInput } from '@/components/ui/SingleLineInput';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { BottomActionBar } from '@/components/ui/BottomActionBar';
+import { AvatarCropModal } from '@/components/AvatarCropModal';
 
 interface PersonaData {
   name: string;
@@ -20,6 +21,7 @@ export default function PersonaPage() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState(false);
+  const [cropImage, setCropImage] = useState<string | null>(null);
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   useEffect(() => {
@@ -40,9 +42,20 @@ export default function PersonaPage() {
 
   const handleAvatarClick = useCallback(async () => {
     if (!ipcRenderer) return;
-    const result = await ipcRenderer.invoke('persona:avatar:upload');
+    const dataUrl = await ipcRenderer.invoke('persona:avatar:select');
+    if (dataUrl) setCropImage(dataUrl);
+  }, [ipcRenderer]);
+
+  const handleCropConfirm = useCallback(async (croppedDataUrl: string) => {
+    if (!ipcRenderer) return;
+    setCropImage(null);
+    const result = await ipcRenderer.invoke('persona:avatar:save', { dataUrl: croppedDataUrl });
     if (result) setAvatar(result);
   }, [ipcRenderer]);
+
+  const handleCropCancel = useCallback(() => {
+    setCropImage(null);
+  }, []);
 
   const handleAvatarRemove = useCallback(() => {
     if (!ipcRenderer) return;
@@ -99,6 +112,13 @@ export default function PersonaPage() {
       <BottomActionBar>
         <Button variant="primary" onClick={handleSave}>{saved ? '已保存' : '保存更改'}</Button>
       </BottomActionBar>
+      {cropImage && (
+        <AvatarCropModal
+          imageSrc={cropImage}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   );
 }
