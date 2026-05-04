@@ -184,6 +184,8 @@ export interface IpcMessages {
   // persona: invoke (request-response)
   'persona:load': void;
   'persona:save': { name: string; content: string };
+  'persona:avatar:upload': void;
+  'persona:avatar:remove': void;
 
   // skills: invoke
   'skills:list': void;
