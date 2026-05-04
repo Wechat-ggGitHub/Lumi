@@ -643,9 +643,16 @@ function registerIpcHandlers(): void {
     const profile = readProfile(shrewDir);
     const content = readPersonaMarkdown(shrewDir);
     const avatarPath = getAvatarPath(shrewDir);
+    let avatarDataUrl: string | null = null;
+    if (avatarPath && fs.existsSync(avatarPath)) {
+      const data = fs.readFileSync(avatarPath);
+      const ext = path.extname(avatarPath).slice(1);
+      const mime = ext === 'jpg' ? 'jpeg' : ext;
+      avatarDataUrl = `data:image/${mime};base64,${data.toString('base64')}`;
+    }
     return {
       name: profile.name,
-      avatar: avatarPath && fs.existsSync(avatarPath) ? avatarPath : null,
+      avatar: avatarDataUrl,
       content,
     };
   });
@@ -663,10 +670,14 @@ function registerIpcHandlers(): void {
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const filename = saveAvatarFile(shrewDir, result.filePaths[0]);
+    const srcPath = result.filePaths[0];
+    const filename = saveAvatarFile(shrewDir, srcPath);
     writeProfile(shrewDir, { avatar: filename });
     const avatarPath = path.join(getPersonaDir(shrewDir), filename);
-    return avatarPath;
+    const data = fs.readFileSync(avatarPath);
+    const ext = path.extname(avatarPath).slice(1);
+    const mime = ext === 'jpg' ? 'jpeg' : ext;
+    return `data:image/${mime};base64,${data.toString('base64')}`;
   });
 
   ipcMain.handle('persona:avatar:remove', () => {
