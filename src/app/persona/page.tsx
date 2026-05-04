@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
@@ -22,6 +22,8 @@ export default function PersonaPage() {
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
+  const loadedRef = useRef(false);
+  const [dirty, setDirty] = useState(false);
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
 
   useEffect(() => {
@@ -29,13 +31,29 @@ export default function PersonaPage() {
       setName(data.name);
       setAvatar(data.avatar);
       setContent(data.content);
+      loadedRef.current = true;
     });
   }, [ipcRenderer]);
+
+  useEffect(() => {
+    if (!ipcRenderer) return;
+    const handler = () => {
+      if (dirty || !loadedRef.current) return;
+      ipcRenderer.invoke('persona:load').then((data: PersonaData) => {
+        setName(data.name);
+        setAvatar(data.avatar);
+        setContent(data.content);
+      });
+    };
+    ipcRenderer.on('persona:updated', handler);
+    return () => { ipcRenderer.removeListener('persona:updated', handler); };
+  }, [ipcRenderer, dirty]);
 
   const handleSave = useCallback(() => {
     if (!ipcRenderer) return;
     ipcRenderer.invoke('persona:save', { name, content }).then(() => {
       setSaved(true);
+      setDirty(false);
       setTimeout(() => setSaved(false), 1500);
     });
   }, [name, content, ipcRenderer]);
@@ -93,7 +111,7 @@ export default function PersonaPage() {
               </div>
             )}
             <div className="flex-1">
-              <SingleLineInput value={name} onChange={e => setName(e.target.value)} placeholder="分身名称" />
+              <SingleLineInput value={name} onChange={e => { setName(e.target.value); setDirty(true); }} placeholder="分身名称" />
             </div>
           </div>
           {avatar && (
@@ -104,7 +122,7 @@ export default function PersonaPage() {
         </div>
         <div className="flex-1">
           <SectionHeader title="人格设定" />
-          <Textarea value={content} onChange={e => setContent(e.target.value)}
+          <Textarea value={content} onChange={e => { setContent(e.target.value); setDirty(true); }}
             placeholder="用 Markdown 编写分身的人格设定..."
             className="!font-mono min-h-[400px]" />
         </div>
