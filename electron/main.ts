@@ -7,6 +7,8 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
+import { TtsService } from './tts';
+import { SubtitlePopup } from './subtitle-popup';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
@@ -37,6 +39,9 @@ let mainWindow: BrowserWindow | null = null;
 let serverPort = 3000;
 let nextServer: ChildProcess | null = null;
 let currentAbortController: AbortController | null = null;
+let ttsService: TtsService;
+let subtitlePopup: SubtitlePopup;
+let ttsAbortController: AbortController | null = null;
 let personaWatcher: fs.FSWatcher | null = null;
 
 function startPersonaWatcher(): void {
@@ -278,6 +283,18 @@ function handleRightCommand(): void {
       }
       break;
 
+    case 'stop-speaking':
+      log.info('中断语音朗读');
+      if (ttsAbortController) {
+        ttsAbortController.abort();
+        ttsAbortController = null;
+      }
+      ttsService.stop();
+      subtitlePopup.close();
+      store.setSpeaking(false);
+      updateTrayDot();
+      break;
+
     case 'none':
       break;
   }
@@ -485,6 +502,11 @@ async function executePrompt(prompt: string): Promise<void> {
 
     sendToMainWindow('chat:execution-complete', { executionId });
 
+    // 语音播报结果
+    if (result.status === 'completed' && result.summary) {
+      speakResult(result.summary);
+    }
+
     // 异步触发 Memory 提炼（不阻塞主流程）
     if (result.status === 'completed') {
       const segment = getActiveSegment(db);
@@ -530,6 +552,54 @@ async function executePrompt(prompt: string): Promise<void> {
 
   updateTrayDot();
   broadcastChatState();
+}
+
+async function speakResult(summary: string): Promise<void> {
+  const creds = loadVolcengineCredentials();
+  if (!creds) {
+    log.info('TTS: 火山引擎凭证未配置，跳过语音播报');
+    return;
+  }
+
+  if (!summary || summary.trim().length === 0) {
+    log.info('TTS: summary 为空，跳过语音播报');
+    return;
+  }
+
+  ttsAbortController = new AbortController();
+  store.setSpeaking(true);
+  updateTrayDot();
+
+  try {
+    const audioPath = await ttsService.synthesize({
+      appId: creds.appId,
+      accessToken: creds.accessToken,
+      text: summary,
+      signal: ttsAbortController.signal,
+    });
+
+    if (!audioPath) {
+      log.info('TTS: 合成失败或被中断，跳过播放');
+      return;
+    }
+
+    const trayBounds = tray.getBounds();
+    subtitlePopup.show(summary, trayBounds);
+
+    await ttsService.play(audioPath);
+  } catch (err) {
+    log.error('TTS: 语音播报异常:', err);
+  } finally {
+    store.setSpeaking(false);
+    ttsAbortController = null;
+    subtitlePopup.close();
+    ttsService.stop();
+    updateTrayDot();
+    // If still in completed state after speaking, transition to idle
+    if (store.appState === 'completed') {
+      store.transition('idle');
+    }
+  }
 }
 
 // IPC Handlers
@@ -1017,6 +1087,8 @@ app.whenReady().then(async () => {
 
   // 创建窗口管理器
   voiceBar = new VoiceBarWindow(serverPort);
+  ttsService = new TtsService();
+  subtitlePopup = new SubtitlePopup(serverPort);
 
   // 初始化快捷键
   shortcutManager = new ShortcutManager();
@@ -1108,6 +1180,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   personaWatcher?.close();
   shortcutManager?.stop();
+  ttsService?.stop();
+  subtitlePopup?.destroy();
   voiceBar?.destroy();
   db?.close();
   if (nextServer) {
