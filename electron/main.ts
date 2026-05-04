@@ -7,8 +7,8 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, updatePersonaName, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
-import { readPersonaFile, writePersonaFile, migratePersonaFromDb } from '../src/lib/persona-file';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
+import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
@@ -324,7 +324,7 @@ async function executePrompt(prompt: string): Promise<void> {
   let assistantMessageId: string | null = null;
 
   // 构建 persona + memory 上下文
-  const { content: personaContent } = readPersonaFile(shrewDir);
+  const personaContent = buildPersonaContext(shrewDir);
   const memoryLines = getActiveMemories(db);
   const shrewContext = buildShrewContext(personaContent, memoryLines);
 
@@ -640,14 +640,38 @@ function registerIpcHandlers(): void {
 
   // persona
   ipcMain.handle('persona:load', () => {
-    const { name, content } = readPersonaFile(shrewDir);
-    return { name, content };
+    const profile = readProfile(shrewDir);
+    const content = readPersonaMarkdown(shrewDir);
+    const avatarPath = getAvatarPath(shrewDir);
+    return {
+      name: profile.name,
+      avatar: avatarPath && fs.existsSync(avatarPath) ? avatarPath : null,
+      content,
+    };
   });
 
   ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
-    writePersonaFile(shrewDir, name, content);
-    updatePersonaName(db, name);
+    writeProfile(shrewDir, { name });
+    writePersonaMarkdown(shrewDir, content);
     return { name, content };
+  });
+
+  ipcMain.handle('persona:avatar:upload', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      title: '选择头像',
+      filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const filename = saveAvatarFile(shrewDir, result.filePaths[0]);
+    writeProfile(shrewDir, { avatar: filename });
+    const avatarPath = path.join(getPersonaDir(shrewDir), filename);
+    return avatarPath;
+  });
+
+  ipcMain.handle('persona:avatar:remove', () => {
+    removeAvatarFile(shrewDir);
+    writeProfile(shrewDir, { avatar: null });
   });
 
   // skills
@@ -898,7 +922,7 @@ app.whenReady().then(async () => {
   db = new Database(dbPath);
 
   // 迁移 persona 旧字段到 persona.md（必须在 initDb 删列之前）
-  migratePersonaFromDb(shrewDir, db);
+  migratePersona(shrewDir, db);
 
   initDb(db);
 
