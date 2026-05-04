@@ -84,9 +84,14 @@ export function writePersonaMarkdown(shrewDir: string, content: string): void {
 
 // --- Avatar file ---
 
+const ALLOWED_AVATAR_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
+
 export function saveAvatarFile(shrewDir: string, sourcePath: string): string {
   ensurePersonaDir(shrewDir);
   const ext = path.extname(sourcePath).toLowerCase();
+  if (!ALLOWED_AVATAR_EXTENSIONS.includes(ext)) {
+    throw new Error(`Unsupported avatar format: ${ext}`);
+  }
   const filename = `${AVATAR_FILENAME}${ext}`;
   const dest = path.join(getPersonaDir(shrewDir), filename);
 

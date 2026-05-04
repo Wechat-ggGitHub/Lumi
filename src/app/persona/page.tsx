@@ -66,7 +66,7 @@ export default function PersonaPage() {
                 onClick={handleAvatarClick}
                 onContextMenu={(e) => { e.preventDefault(); handleAvatarRemove(); }}
               >
-                <img src={`file://${avatar}`} alt={name} className="w-full h-full object-cover" />
+                <img src={`file://${encodeURI(avatar)}`} alt={name} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                   <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">更换</span>
                 </div>
