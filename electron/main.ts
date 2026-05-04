@@ -37,6 +37,42 @@ let mainWindow: BrowserWindow | null = null;
 let serverPort = 3000;
 let nextServer: ChildProcess | null = null;
 let currentAbortController: AbortController | null = null;
+let personaWatcher: fs.FSWatcher | null = null;
+
+function startPersonaWatcher(): void {
+  const personaDir = getPersonaDir(shrewDir);
+  ensurePersonaDir(shrewDir);
+
+  personaWatcher = fs.watch(personaDir, (eventType, filename) => {
+    if (!filename) return;
+    if (filename !== 'profile.json' && filename !== 'persona.md') return;
+
+    log.info(`Persona 文件变更: ${filename} (${eventType})`);
+
+    try {
+      const profile = readProfile(shrewDir);
+      if (!profile.name) {
+        log.warn('Persona watcher: profile.json 缺少 name 字段，跳过广播');
+        return;
+      }
+    } catch (err) {
+      log.error('Persona watcher: 解析 profile.json 失败:', err);
+      return;
+    }
+
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('persona:updated');
+      }
+    });
+  });
+
+  personaWatcher.on('error', (err) => {
+    log.error('Persona watcher 错误:', err);
+  });
+
+  log.info('Persona file watcher 已启动');
+}
 
 // 启动 Next.js standalone 服务器（生产模式）
 function startNextServer(): Promise<number> {
@@ -946,6 +982,8 @@ app.whenReady().then(async () => {
 
   initDb(db);
 
+  startPersonaWatcher();
+
   // 迁移旧的 API key 文件
   migrateKeyFile();
 
@@ -1068,6 +1106,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  personaWatcher?.close();
   shortcutManager?.stop();
   voiceBar?.destroy();
   db?.close();
