@@ -18,7 +18,8 @@ export type RightCommandAction =
   | 'stop-recording'
   | 'none'
   | 'append-recording'
-  | 'cancel-execution';
+  | 'cancel-execution'
+  | 'stop-speaking';
 
 export type StateChangeCallback = (state: { appState: AppState; sdkSubState: SdkSubState }) => void;
 
@@ -28,11 +29,13 @@ export class ShrewStore {
   private _previousSdkSubState: SdkSubState = null;
   private _currentToolName: string | null = null;
   private _completedTimer: ReturnType<typeof setTimeout> | null = null;
+  private _speaking: boolean = false;
   private _listeners: StateChangeCallback[] = [];
 
   get appState(): AppState { return this._appState; }
   get sdkSubState(): SdkSubState { return this._sdkSubState; }
   get currentToolName(): string | null { return this._currentToolName; }
+  get speaking(): boolean { return this._speaking; }
 
   transition(newState: AppState): void {
     const allowed = VALID_TRANSITIONS[this._appState];
@@ -44,7 +47,7 @@ export class ShrewStore {
     // completed 是瞬态（2-3s），自动转回 idle
     if (newState === 'completed') {
       this._completedTimer = setTimeout(() => {
-        if (this._appState === 'completed') {
+        if (this._appState === 'completed' && !this._speaking) {
           this.transition('idle');
         }
       }, 2500);
@@ -76,6 +79,11 @@ export class ShrewStore {
     }
   }
 
+  setSpeaking(value: boolean): void {
+    this._speaking = value;
+    this.notify();
+  }
+
   get dotColor(): DotColor {
     if (this._appState === 'thinking') return 'blue';
     if (this._appState === 'executing') {
@@ -92,6 +100,7 @@ export class ShrewStore {
   }
 
   getRightCommandAction(): RightCommandAction {
+    if (this._speaking) return 'stop-speaking';
     switch (this._appState) {
       case 'idle':
       case 'completed': return 'start-recording';

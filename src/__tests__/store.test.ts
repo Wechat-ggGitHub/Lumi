@@ -114,3 +114,53 @@ test('transcribing can transition to idle (empty transcription scenario)', () =>
   store.transition('recording');
   expect(store.appState).toBe('recording');
 });
+
+test('speaking flag defaults to false', () => {
+  const store = new ShrewStore();
+  expect(store.speaking).toBe(false);
+});
+
+test('setSpeaking updates the flag and notifies listeners', () => {
+  const store = new ShrewStore();
+  const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
+  store.onChange((state) => changes.push({ ...state }));
+
+  store.setSpeaking(true);
+  expect(store.speaking).toBe(true);
+  expect(changes.length).toBe(1);
+
+  store.setSpeaking(false);
+  expect(store.speaking).toBe(false);
+  expect(changes.length).toBe(2);
+});
+
+test('getRightCommandAction returns stop-speaking when speaking is true', () => {
+  const store = new ShrewStore();
+  store.setSpeaking(true);
+  expect(store.getRightCommandAction()).toBe('stop-speaking');
+});
+
+test('getRightCommandAction returns start-recording when idle and not speaking', () => {
+  const store = new ShrewStore();
+  expect(store.getRightCommandAction()).toBe('start-recording');
+});
+
+test('completed timer does not transition to idle while speaking', () => {
+  jest.useFakeTimers();
+  const store = new ShrewStore();
+  store.transition('thinking');
+  store.transition('executing');
+  store.transition('completed');
+  store.setSpeaking(true);
+
+  jest.advanceTimersByTime(3000);
+  expect(store.appState).toBe('completed');
+
+  store.setSpeaking(false);
+  // Now manually transition since the timer already fired
+  if (store.appState === 'completed') {
+    store.transition('idle');
+  }
+  expect(store.appState).toBe('idle');
+  jest.useRealTimers();
+});
