@@ -117,6 +117,50 @@ export function removeAvatarFile(shrewDir: string): void {
   }
 }
 
+// --- Name sync: keep persona.md name references consistent with profile.json ---
+
+// 匹配 persona.md 中常见的名称引用模式
+// 名称部分：1-20 个中文字符、英文字母、数字、下划线、短横线
+const NAME_CHAR = '[\\u4e00-\\u9fff\\w-]{1,20}';
+const NAME_PATTERNS = [
+  new RegExp(`你的名字[叫是]${NAME_CHAR}`, 'g'),
+  new RegExp(`我叫${NAME_CHAR}`, 'g'),
+  new RegExp(`你的名称[叫是]${NAME_CHAR}`, 'g'),
+  new RegExp(`名字[：:]\\s*${NAME_CHAR}`, 'g'),
+];
+
+export function syncNameToMarkdown(shrewDir: string): boolean {
+  const profile = readProfile(shrewDir);
+  if (!profile.name) return false;
+
+  const mdPath = markdownPath(shrewDir);
+  if (!fs.existsSync(mdPath)) return false;
+
+  let content = fs.readFileSync(mdPath, 'utf-8');
+  let changed = false;
+
+  for (const pattern of NAME_PATTERNS) {
+    const updated = content.replace(pattern, (match) => {
+      // 提取前缀（如"你的名字叫"）和旧名称
+      const prefixMatch = match.match(/^(.+?)[叫是：:]\s*/);
+      if (!prefixMatch) return match;
+      const prefix = prefixMatch[1];
+      const sep = match.includes('：') ? '：' : match.includes(':') ? ':' : match.includes('叫') ? '叫' : '是';
+      const newName = match.includes('：') || match.includes(':')
+        ? `${prefix}${sep} ${profile.name}`
+        : `${prefix}${sep}${profile.name}`;
+      if (newName !== match) changed = true;
+      return newName;
+    });
+    content = updated;
+  }
+
+  if (changed) {
+    writePersonaMarkdown(shrewDir, content);
+  }
+  return changed;
+}
+
 // --- Full context for Claude (used by executePrompt) ---
 
 export function buildPersonaContext(shrewDir: string): string {
