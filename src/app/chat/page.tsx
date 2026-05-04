@@ -12,6 +12,8 @@ export default function ChatPage() {
   const [appState, setAppState] = useState<AppState>('idle');
   const [sdkSubState, setSdkSubState] = useState<SdkSubState>(null);
   const [currentToolName, setCurrentToolName] = useState<string | undefined>();
+  const [personaName, setPersonaName] = useState<string>('');
+  const [personaAvatar, setPersonaAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     const ipcRenderer = getIpcRenderer();
@@ -72,6 +74,11 @@ export default function ChatPage() {
     };
     ipcRenderer.on('chat:execution-complete', completeHandler);
 
+    ipcRenderer.invoke('persona:load').then((data: { name: string; avatar: string | null; content: string }) => {
+      setPersonaName(data.name);
+      setPersonaAvatar(data.avatar);
+    });
+
     ipcRenderer.send('chat:ready');
 
     return () => {
@@ -99,6 +106,8 @@ export default function ChatPage() {
         appState={appState}
         sdkSubState={sdkSubState}
         currentToolName={currentToolName}
+        personaName={personaName}
+        personaAvatar={personaAvatar}
       />
       <ChatStream messages={messages} isStreaming={isStreaming} />
       <ChatInput
