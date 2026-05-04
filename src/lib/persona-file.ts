@@ -125,6 +125,21 @@ export function buildPersonaContext(shrewDir: string): string {
   const parts: string[] = [];
   if (profile.name) parts.push(`你的名称是${profile.name}。`);
   if (markdown.trim()) parts.push(markdown.trim());
+
+  const personaDir = getPersonaDir(shrewDir);
+  parts.push(`## 自我更新权限
+
+你可以通过写入文件来更新自己的名称和性格设定。
+
+更新规则：
+- 仅在用户直接描述希望你的行为方式时更新（如语气、风格、态度等）
+- 用户的技术偏好、编码习惯、个人信息 → 这些属于记忆，不要写入 persona
+- 更新后简短告知用户你做了什么修改
+
+操作方式：
+- 更新名称：将完整 JSON 写入 ${path.join(personaDir, 'profile.json')}，格式 {"name":"新名称","avatar":"原值"}，必须保留 avatar 字段不变
+- 更新性格/语气/态度/风格：将完整的 markdown 内容写入 ${path.join(personaDir, 'persona.md')}`);
+
   return parts.join('\n\n');
 }
 
