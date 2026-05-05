@@ -587,24 +587,29 @@ async function speakResult(summary: string): Promise<void> {
   updateTrayDot();
 
   try {
-    const result = await ttsService.synthesize({
-      appId: creds.appId,
-      accessToken: creds.accessToken,
-      text: summary,
-      signal: ttsAbortController.signal,
-    });
+    // Start TTS synthesis and window preparation in parallel
+    const trayBounds = tray.getBounds();
+    const profile = readProfile(shrewDir);
 
-    if (!result) {
+    const [ttsResult] = await Promise.all([
+      ttsService.synthesize({
+        appId: creds.appId,
+        accessToken: creds.accessToken,
+        text: summary,
+        signal: ttsAbortController.signal,
+      }),
+      subtitlePopup.prepare(trayBounds),
+    ]);
+
+    if (!ttsResult) {
       log.info('TTS: 合成失败或被中断，跳过播放');
       return;
     }
 
-    const sentences = result.sentences.length > 0 ? result.sentences : null;
-    const words = result.words.length > 0 ? result.words : null;
-    const audioBuffer = fs.readFileSync(result.audioPath);
-    const profile = readProfile(shrewDir);
+    const sentences = ttsResult.sentences.length > 0 ? ttsResult.sentences : null;
+    const words = ttsResult.words.length > 0 ? ttsResult.words : null;
+    const audioBuffer = fs.readFileSync(ttsResult.audioPath);
 
-    const trayBounds = tray.getBounds();
     subtitlePopup.show(trayBounds, {
       audio: audioBuffer,
       sentences,
