@@ -71,10 +71,9 @@ export class SubtitlePopup {
 
     if (!this.win) return Promise.reject(new Error('Failed to create subtitle window'));
 
-    // If window is already showing with a loaded page, just ensure it's positioned
-    if (!this.win.isVisible()) {
+    // If page is still loading, wait for it
+    if (this.win.webContents.isLoading()) {
       return new Promise<void>((resolve) => {
-        this.win!.once('ready-to-show', () => resolve());
         this.win!.webContents.once('did-finish-load', () => resolve());
       });
     }
