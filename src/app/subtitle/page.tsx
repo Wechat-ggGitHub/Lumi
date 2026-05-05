@@ -220,19 +220,6 @@ function SubtitleContent() {
               );
             })
           : '...'}
-        {isPlaying && currentIndex >= 0 && currentIndex < words.length - 1 && (
-          <span
-            style={{
-              display: 'inline-block',
-              width: '2px',
-              height: '13px',
-              background: '#4CAF50',
-              marginLeft: '1px',
-              verticalAlign: 'middle',
-              animation: 'blink 0.6s ease-in-out infinite',
-            }}
-          />
-        )}
       </div>
     </div>
   );
