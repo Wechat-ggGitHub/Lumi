@@ -79,19 +79,35 @@ visible: boolean          — 淡入控制
   检查是否所有句子播完 → 延迟 500ms 后通知主进程
 ```
 
-**视觉设计（居中歌词式）：**
-- 当前句子：白色 (#ffffff)，fontWeight 500
-- 已读句子：灰色 (#666666)，向顶部滚出时渐隐
-- 未读句子：浅灰 (#c0c0c0)
-- 顶部 24px 渐变遮罩：`linear-gradient(rgba(30,30,40,0.8), transparent)`
-- 底部 24px 渐变遮罩：`linear-gradient(transparent, rgba(30,30,40,0.8))`
+**视觉设计（毛玻璃歌词式）：**
+
+窗口整体：
+- 毛玻璃背景：`rgba(40,40,55,0.75)` + `backdrop-filter: blur(24px)`
+- 圆角 14px，边框 `rgba(255,255,255,0.12)`
+- 阴影 `0 4px 24px rgba(0,0,0,0.3)`
+
+头部区域（纯视觉，无文字）：
+- Agent 头像：22x22px 圆角矩形，渐变背景 `linear-gradient(135deg,#667eea,#764ba2)`，显示名称首字母
+- 音频波形动画：5 条绿色竖条 (#4CAF50)，高度 4-14px 交替动画，模拟声波
+- 无任何文字标签
+
+歌词区域：
+- 当前句子：白色 (#ffffff)，fontWeight 500，带绿色光晕 `text-shadow: 0 0 12px rgba(76,175,80,0.3)`
+- 已读句子：`rgba(255,255,255,0.25)`，极度淡化
+- 未读句子：`rgba(255,255,255,0.5~0.7)`，由近到远递减
+- 顶部 28px 渐变遮罩：`linear-gradient(rgba(40,40,55,0.9), transparent)`
+- 底部 28px 渐变遮罩：`linear-gradient(transparent, rgba(40,40,55,0.9))`
 - 当前句子滚动定位到容器高度的 1/3 处（视觉居中偏上）
+
+头像数据来源：
+- 主进程在发送音频数据时一并传 `personaName`（从 `readProfile(shrewDir).name` 获取）
+- 字幕页用名称首字母渲染头像
 
 ### IPC 协议
 
 | 方向 | 事件名 | 数据 | 说明 |
 |------|--------|------|------|
-| main → subtitle | `tts-audio-data` | `{ audio: Uint8Array, sentences: TtsSentence[] }` | 传输音频和字幕数据 |
+| main → subtitle | `tts-audio-data` | `{ audio: Uint8Array, sentences: TtsSentence[], personaName: string }` | 传输音频、字幕和 Agent 名称 |
 | subtitle → main | `tts-playback-done` | 无 | 播放自然结束 |
 | subtitle → main | `tts-stop-requested` | 无 | 用户点击关闭 |
 
