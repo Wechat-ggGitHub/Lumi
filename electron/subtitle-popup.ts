@@ -1,6 +1,12 @@
 import { BrowserWindow } from 'electron';
 import { log } from '../src/lib/logger';
 
+export interface SubtitlePayload {
+  sentences: { text: string; startTime: number; endTime: number }[] | null;
+  audio: Buffer;
+  personaName: string;
+}
+
 export class SubtitlePopup {
   private win: BrowserWindow | null = null;
   private serverPort: number;
@@ -10,10 +16,8 @@ export class SubtitlePopup {
   }
 
   show(
-    text: string,
     trayBounds: { x: number; y: number; width: number; height: number },
-    duration: number,
-    sentences?: { text: string; startTime: number; endTime: number }[] | null,
+    payload: SubtitlePayload,
   ): void {
     this.close();
 
@@ -43,15 +47,17 @@ export class SubtitlePopup {
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-    const params = new URLSearchParams({
-      text,
-      duration: String(duration),
-    });
-    if (sentences && sentences.length > 0) {
-      params.set('sentences', encodeURIComponent(JSON.stringify(sentences)));
-    }
+    // Convert Buffer to Uint8Array for IPC transfer
+    const audioUint8 = new Uint8Array(payload.audio);
 
-    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle?${params.toString()}`);
+    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle`);
+    this.win.webContents.once('did-finish-load', () => {
+      this.win?.webContents.send('tts-audio-data', {
+        audio: audioUint8,
+        sentences: payload.sentences,
+        personaName: payload.personaName,
+      });
+    });
     this.win.once('ready-to-show', () => {
       this.win?.show();
       log.info('字幕弹窗: 已显示');
