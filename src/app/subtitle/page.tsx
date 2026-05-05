@@ -145,12 +145,7 @@ function SubtitleContent() {
         display: 'flex',
         flexDirection: 'column',
         padding: '14px 18px',
-        background: 'rgba(40, 40, 55, 0.75)',
-        borderRadius: '14px',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+        background: 'transparent',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',
         minHeight: '80px',
@@ -231,6 +226,8 @@ function SubtitleContent() {
           wordBreak: 'break-word',
           overflow: 'hidden',
           height: '90px',
+          maskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)',
         }}
       >
         <div style={{ position: 'relative' }}>
@@ -255,30 +252,6 @@ function SubtitleContent() {
               ))
             : '...'}
         </div>
-        {/* Top gradient mask */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '28px',
-            background: 'linear-gradient(to bottom, rgba(40, 40, 55, 0.9), transparent)',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Bottom gradient mask */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '28px',
-            background: 'linear-gradient(to top, rgba(40, 40, 55, 0.9), transparent)',
-            pointerEvents: 'none',
-          }}
-        />
       </div>
     </div>
   );
