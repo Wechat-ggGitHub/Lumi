@@ -25,29 +25,93 @@ function SubtitleContent() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const startTimeRef = useRef<number>(0);
-  const rafRef = useRef<number>(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollRef = useRef(true);
+  const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const tick = useCallback(() => {
-    const ctx = audioCtxRef.current;
-    if (!ctx || startTimeRef.current === 0 || words.length === 0) return;
+  const stopTick = useCallback(() => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
-    const elapsed = ctx.currentTime - startTimeRef.current;
+  const startTick = useCallback(() => {
+    stopTick();
+    intervalRef.current = setInterval(() => {
+      const ctx = audioCtxRef.current;
+      if (!ctx || startTimeRef.current === 0) return;
 
-    let idx = -1;
-    for (let i = words.length - 1; i >= 0; i--) {
-      if (elapsed >= words[i].startTime) {
-        idx = i;
-        break;
+      const elapsed = ctx.currentTime - startTimeRef.current;
+      const currentWords = words;
+      if (currentWords.length === 0) return;
+
+      let idx = -1;
+      for (let i = currentWords.length - 1; i >= 0; i--) {
+        if (elapsed >= currentWords[i].startTime) {
+          idx = i;
+          break;
+        }
       }
-    }
 
-    setCurrentIndex((prev) => (prev === idx ? prev : idx));
+      setCurrentIndex(idx);
 
-    const lastEnd = words[words.length - 1].endTime;
-    if (elapsed < lastEnd + 0.5) {
-      rafRef.current = requestAnimationFrame(tick);
+      // Auto-scroll to current word
+      if (idx >= 0 && autoScrollRef.current && wordRefs.current[idx]) {
+        wordRefs.current[idx]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+
+      const lastEnd = currentWords[currentWords.length - 1].endTime;
+      if (elapsed >= lastEnd + 0.5) {
+        stopTick();
+      }
+    }, 50);
+  }, [words, stopTick]);
+
+  // Start tick loop when words are loaded and visible
+  useEffect(() => {
+    if (visible && words.length > 0) {
+      startTick();
     }
-  }, [words]);
+    return () => stopTick();
+  }, [startTick, visible, words]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopTick();
+      sourceRef.current?.stop();
+      audioCtxRef.current?.close();
+      if (manualScrollTimerRef.current) clearTimeout(manualScrollTimerRef.current);
+    };
+  }, [stopTick]);
+
+  // Measure text height and notify main process
+  useEffect(() => {
+    if (!textContainerRef.current || !visible) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = entry.contentRect.height;
+        getIpcRenderer()?.send('tts-content-height', height);
+      }
+    });
+
+    observer.observe(textContainerRef.current);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  // Manual scroll override handler
+  const handleScroll = useCallback(() => {
+    autoScrollRef.current = false;
+    if (manualScrollTimerRef.current) clearTimeout(manualScrollTimerRef.current);
+    manualScrollTimerRef.current = setTimeout(() => {
+      autoScrollRef.current = true;
+    }, 2000);
+  }, []);
 
   useEffect(() => {
     const ipc = getIpcRenderer();
@@ -57,6 +121,8 @@ function SubtitleContent() {
 
     const handler = async (_event: any, payload: TtsAudioPayload) => {
       setPersonaName(payload.personaName?.charAt(0).toUpperCase() || 'S');
+      setCurrentIndex(-1);
+      wordRefs.current = [];
 
       let ctx: AudioContext;
       try {
@@ -75,6 +141,7 @@ function SubtitleContent() {
 
         source.onended = () => {
           setIsPlaying(false);
+          stopTick();
           getIpcRenderer()?.send('tts-playback-done');
         };
 
@@ -97,25 +164,10 @@ function SubtitleContent() {
     return () => {
       ipc.removeListener('tts-audio-data', handler);
     };
-  }, []);
-
-  useEffect(() => {
-    if (visible && words.length > 0) {
-      rafRef.current = requestAnimationFrame(tick);
-    }
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [tick, visible, words]);
-
-  useEffect(() => {
-    return () => {
-      sourceRef.current?.stop();
-      audioCtxRef.current?.close();
-    };
-  }, []);
+  }, [stopTick]);
 
   const handleClose = () => {
+    stopTick();
     sourceRef.current?.stop();
     getIpcRenderer()?.send('tts-stop-requested');
   };
@@ -133,6 +185,7 @@ function SubtitleContent() {
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',
         minHeight: '80px',
+        maxHeight: '400px',
         color: '#e0e0e0',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
       }}
@@ -155,6 +208,7 @@ function SubtitleContent() {
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'background 0.15s',
+          zIndex: 10,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
@@ -169,7 +223,7 @@ function SubtitleContent() {
       </button>
 
       {/* Header: avatar + waveform */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexShrink: 0 }}>
         <div
           style={{
             width: '22px',
@@ -200,26 +254,39 @@ function SubtitleContent() {
         </div>
       </div>
 
-      {/* Streaming text area */}
+      {/* Scrollable text area */}
       <div
+        ref={(el) => {
+          scrollContainerRef.current = el;
+        }}
+        onScroll={handleScroll}
         style={{
           fontSize: '13px',
           lineHeight: '1.8',
           wordBreak: 'break-word',
+          overflowY: 'auto',
+          maxHeight: 'calc(400px - 42px - 28px)',
+          paddingRight: '4px',
         }}
       >
-        {words.length > 0
-          ? words.map((w, i) => {
-              let color = 'transparent';
-              if (i < currentIndex) color = 'rgba(255, 255, 255, 0.5)';
-              else if (i === currentIndex) color = '#ffffff';
-              return (
-                <span key={i} style={{ color, transition: 'color 0.1s ease' }}>
-                  {w.word}
-                </span>
-              );
-            })
-          : '...'}
+        <div ref={(el) => { textContainerRef.current = el; }}>
+          {words.length > 0
+            ? words.map((w, i) => {
+                let color = 'transparent';
+                if (i < currentIndex) color = 'rgba(255, 255, 255, 0.5)';
+                else if (i === currentIndex) color = '#ffffff';
+                return (
+                  <span
+                    key={i}
+                    ref={(el) => { wordRefs.current[i] = el; }}
+                    style={{ color, transition: 'color 0.1s ease' }}
+                  >
+                    {w.word}
+                  </span>
+                );
+              })
+            : '...'}
+        </div>
       </div>
     </div>
   );
@@ -230,7 +297,11 @@ export default function SubtitlePage() {
     <>
       <style>{`html, body { background: transparent !important; overflow: hidden !important; }
 @keyframes waveBar { from { height: 4px; } to { height: 14px; } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }`}</style>
       <Suspense fallback={null}>
         <SubtitleContent />
       </Suspense>
