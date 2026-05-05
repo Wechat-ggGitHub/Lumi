@@ -3,71 +3,56 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 
-interface TtsSentence {
-  text: string;
+interface TtsWord {
+  word: string;
   startTime: number;
   endTime: number;
 }
 
 interface TtsAudioPayload {
   audio: Uint8Array;
-  sentences: TtsSentence[] | null;
+  words: TtsWord[] | null;
   personaName: string;
 }
 
 function SubtitleContent() {
-  const [sentences, setSentences] = useState<TtsSentence[] | null>(null);
-  const [personaName, setPersonaName] = useState('S');
-  const [activeIndex, setActiveIndex] = useState(-1);
+  const [words, setWords] = useState<TtsWord[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [personaName, setPersonaName] = useState('S');
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const startTimeRef = useRef<number>(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const sentenceRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef = useRef<number>(0);
 
   const tick = useCallback(() => {
     const ctx = audioCtxRef.current;
-    if (!ctx || startTimeRef.current === 0) return;
+    if (!ctx || startTimeRef.current === 0 || words.length === 0) return;
 
     const elapsed = ctx.currentTime - startTimeRef.current;
 
-    if (sentences && sentences.length > 0) {
-      let currentIdx = -1;
-      for (let i = 0; i < sentences.length; i++) {
-        if (elapsed >= sentences[i].startTime && elapsed < sentences[i].endTime) {
-          currentIdx = i;
-          break;
-        }
-      }
-      if (currentIdx === -1 && elapsed >= sentences[sentences.length - 1].startTime) {
-        currentIdx = sentences.length - 1;
-      }
-
-      if (currentIdx !== activeIndex) {
-        setActiveIndex(currentIdx);
-      }
-
-      if (currentIdx >= 0 && sentenceRefs.current[currentIdx] && scrollRef.current) {
-        const el = sentenceRefs.current[currentIdx]!;
-        const containerHeight = scrollRef.current.clientHeight;
-        scrollRef.current.scrollTop = Math.max(0, el.offsetTop - containerHeight / 3);
-      }
-
-      const totalDuration = sentences[sentences.length - 1].endTime;
-      if (elapsed < totalDuration + 0.5) {
-        rafRef.current = requestAnimationFrame(tick);
+    let idx = -1;
+    for (let i = words.length - 1; i >= 0; i--) {
+      if (elapsed >= words[i].startTime) {
+        idx = i;
+        break;
       }
     }
-  }, [sentences, activeIndex]);
+
+    setCurrentIndex(idx);
+
+    const lastEnd = words[words.length - 1].endTime;
+    if (elapsed < lastEnd + 0.5) {
+      rafRef.current = requestAnimationFrame(tick);
+    }
+  }, [words]);
 
   useEffect(() => {
     const ipc = getIpcRenderer();
     if (!ipc) return;
 
-    // Signal readiness so main process sends audio data
     ipc.send('tts-page-ready');
 
     const handler = async (_event: any, payload: TtsAudioPayload) => {
@@ -89,6 +74,7 @@ function SubtitleContent() {
         source.connect(ctx.destination);
 
         source.onended = () => {
+          setIsPlaying(false);
           getIpcRenderer()?.send('tts-playback-done');
         };
 
@@ -100,7 +86,10 @@ function SubtitleContent() {
         return;
       }
 
-      setSentences(payload.sentences);
+      if (payload.words && payload.words.length > 0) {
+        setWords(payload.words);
+      }
+      setIsPlaying(true);
       requestAnimationFrame(() => setVisible(true));
     };
 
@@ -111,13 +100,13 @@ function SubtitleContent() {
   }, []);
 
   useEffect(() => {
-    if (visible && sentences && sentences.length > 0) {
+    if (visible && words.length > 0) {
       rafRef.current = requestAnimationFrame(tick);
     }
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [tick, visible, sentences]);
+  }, [tick, visible, words]);
 
   useEffect(() => {
     return () => {
@@ -129,13 +118,6 @@ function SubtitleContent() {
   const handleClose = () => {
     sourceRef.current?.stop();
     getIpcRenderer()?.send('tts-stop-requested');
-  };
-
-  const getSentenceColor = (index: number) => {
-    if (index === activeIndex) return '#ffffff';
-    if (index < activeIndex) return 'rgba(255, 255, 255, 0.25)';
-    const distance = index - activeIndex;
-    return `rgba(255, 255, 255, ${Math.max(0.35, 0.7 - distance * 0.12)})`;
   };
 
   return (
@@ -186,7 +168,7 @@ function SubtitleContent() {
         </svg>
       </button>
 
-      {/* Header: avatar + waveform (no text) */}
+      {/* Header: avatar + waveform */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <div
           style={{
@@ -211,49 +193,46 @@ function SubtitleContent() {
                 height: `${h}px`,
                 background: '#4CAF50',
                 borderRadius: '1px',
-                animation: `waveBar 0.5s ease-in-out ${i * 0.1}s infinite alternate`,
+                animation: isPlaying ? `waveBar 0.5s ease-in-out ${i * 0.1}s infinite alternate` : 'none',
               }}
             />
           ))}
         </div>
       </div>
 
-      {/* Lyric area */}
+      {/* Streaming text area */}
       <div
-        ref={scrollRef}
         style={{
-          position: 'relative',
           fontSize: '13px',
           lineHeight: '1.8',
           wordBreak: 'break-word',
-          overflow: 'hidden',
-          height: '90px',
-          maskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 20px, black calc(100% - 20px), transparent)',
         }}
       >
-        <div style={{ position: 'relative' }}>
-          {sentences && sentences.length > 0
-            ? sentences.map((s, i) => (
-                <div
-                  key={i}
-                  ref={(el) => {
-                    sentenceRefs.current[i] = el;
-                  }}
-                  style={{
-                    color: getSentenceColor(i),
-                    fontWeight: i === activeIndex ? 500 : 400,
-                    textShadow:
-                      i === activeIndex ? '0 0 12px rgba(76, 175, 80, 0.3)' : 'none',
-                    transition: 'color 0.2s ease',
-                    padding: '2px 0',
-                  }}
-                >
-                  {s.text}
-                </div>
-              ))
-            : '...'}
-        </div>
+        {words.length > 0
+          ? words.map((w, i) => {
+              let color = 'transparent';
+              if (i < currentIndex) color = 'rgba(255, 255, 255, 0.5)';
+              else if (i === currentIndex) color = '#ffffff';
+              return (
+                <span key={i} style={{ color, transition: 'color 0.1s ease' }}>
+                  {w.word}
+                </span>
+              );
+            })
+          : '...'}
+        {isPlaying && currentIndex >= 0 && currentIndex < words.length - 1 && (
+          <span
+            style={{
+              display: 'inline-block',
+              width: '2px',
+              height: '13px',
+              background: '#4CAF50',
+              marginLeft: '1px',
+              verticalAlign: 'middle',
+              animation: 'blink 0.6s ease-in-out infinite',
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -263,7 +242,8 @@ export default function SubtitlePage() {
   return (
     <>
       <style>{`html, body { background: transparent !important; overflow: hidden !important; }
-@keyframes waveBar { from { height: 4px; } to { height: 14px; } }`}</style>
+@keyframes waveBar { from { height: 4px; } to { height: 14px; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
       <Suspense fallback={null}>
         <SubtitleContent />
       </Suspense>
