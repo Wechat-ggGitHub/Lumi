@@ -3,7 +3,7 @@ import zlib from 'zlib';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawn, ChildProcess } from 'child_process';
+
 import { log } from '../src/lib/logger';
 
 const WS_URL = 'wss://openspeech.bytedance.com/api/v3/tts/bidirection';
@@ -88,7 +88,6 @@ function buildEventMessage(eventCode: number, sessionId: string | null, payload:
 }
 
 export class TtsService {
-  private playProcess: ChildProcess | null = null;
   private tempFile: string | null = null;
 
   async synthesize(options: TtsOptions): Promise<TtsResult | null> {
@@ -364,26 +363,7 @@ export class TtsService {
     });
   }
 
-  play(audioPath: string): Promise<void> {
-    return new Promise((resolve) => {
-      this.playProcess = spawn('afplay', [audioPath]);
-      this.playProcess.on('close', () => {
-        this.playProcess = null;
-        resolve();
-      });
-      this.playProcess.on('error', (err) => {
-        log.error('TTS: afplay 错误:', err.message);
-        this.playProcess = null;
-        resolve();
-      });
-    });
-  }
-
   stop(): void {
-    if (this.playProcess) {
-      this.playProcess.kill('SIGTERM');
-      this.playProcess = null;
-    }
     this.cleanup();
   }
 
@@ -392,9 +372,5 @@ export class TtsService {
       try { fs.unlinkSync(this.tempFile); } catch {}
       this.tempFile = null;
     }
-  }
-
-  get isPlaying(): boolean {
-    return this.playProcess !== null;
   }
 }

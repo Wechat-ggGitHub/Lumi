@@ -599,20 +599,30 @@ async function speakResult(summary: string): Promise<void> {
       return;
     }
 
-    // 计算总时长：优先从 sentences 累加，降级用文件大小估算
-    let duration: number;
     const sentences = result.sentences.length > 0 ? result.sentences : null;
-    if (sentences) {
-      duration = sentences[sentences.length - 1].endTime;
-    } else {
-      const stat = fs.statSync(result.audioPath);
-      duration = stat.size / 3000;
-    }
+    const audioBuffer = fs.readFileSync(result.audioPath);
+    const profile = readProfile(shrewDir);
 
     const trayBounds = tray.getBounds();
-    subtitlePopup.show(summary, trayBounds, duration, sentences);
+    subtitlePopup.show(trayBounds, {
+      audio: audioBuffer,
+      sentences,
+      personaName: profile.name,
+    });
 
-    await ttsService.play(result.audioPath);
+    // Wait for subtitle renderer to finish playing or user to stop
+    await new Promise<void>((resolve) => {
+      const onDone = () => {
+        ipcMain.removeListener('tts-stop-requested', onStop);
+        resolve();
+      };
+      const onStop = () => {
+        ipcMain.removeListener('tts-playback-done', onDone);
+        resolve();
+      };
+      ipcMain.once('tts-playback-done', onDone);
+      ipcMain.once('tts-stop-requested', onStop);
+    });
   } catch (err) {
     log.error('TTS: 语音播报异常:', err);
   } finally {
@@ -621,7 +631,6 @@ async function speakResult(summary: string): Promise<void> {
     subtitlePopup.close();
     ttsService.stop();
     updateTrayDot();
-    // If still in completed state after speaking, transition to idle
     if (store.appState === 'completed') {
       store.transition('idle');
     }
