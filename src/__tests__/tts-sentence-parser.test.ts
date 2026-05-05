@@ -42,4 +42,23 @@ describe('parseSentenceFromPayload', () => {
     expect(result!.text).toBe('fallback text');
     expect(result!.duration).toBe(2.5);
   });
+
+  it('passes through words array from payload', () => {
+    const payload = {
+      phonemes: [],
+      text: '哈哈',
+      words: [
+        { startTime: 0.435, endTime: 0.625, word: '哈', confidence: 0.86 },
+        { startTime: 0.625, endTime: 0.715, word: '哈', confidence: 0.71 },
+      ],
+    };
+
+    const result = parseSentenceFromPayload(payload);
+
+    expect(result).not.toBeNull();
+    expect(result!.words).toEqual([
+      { startTime: 0.435, endTime: 0.625, word: '哈', confidence: 0.86 },
+      { startTime: 0.625, endTime: 0.715, word: '哈', confidence: 0.71 },
+    ]);
+  });
 });

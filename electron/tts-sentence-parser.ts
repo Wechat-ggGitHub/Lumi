@@ -3,6 +3,7 @@
 export interface ParsedSentence {
   text: string;
   duration: number;
+  words?: Array<{ word: string; startTime: number; endTime: number; [key: string]: any }>;
 }
 
 export function parseSentenceFromPayload(payload: any): ParsedSentence | null {
@@ -27,7 +28,7 @@ export function parseSentenceFromPayload(payload: any): ParsedSentence | null {
   }
 
   if (duration > 0 && sentenceText) {
-    return { text: sentenceText, duration };
+    return { text: sentenceText, duration, words: Array.isArray(payload?.words) && payload.words.length > 0 ? payload.words : undefined };
   }
 
   return null;
