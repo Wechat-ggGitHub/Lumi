@@ -503,8 +503,24 @@ async function executePrompt(prompt: string): Promise<void> {
     sendToMainWindow('chat:execution-complete', { executionId });
 
     // 语音播报结果
+    log.info('TTS 检查: status=', result.status, 'summary长度=', result.summary?.length ?? 0);
     if (result.status === 'completed' && result.summary) {
+      log.info('TTS: 开始语音播报, summary:', result.summary.slice(0, 100));
       speakResult(result.summary);
+    } else if (result.status === 'completed') {
+      // summary 为空时，使用 assistant 消息作为 fallback
+      const assistantText = conversationMessages
+        .filter(m => m.role === 'assistant')
+        .map(m => m.content)
+        .join('\n')
+        .trim();
+      if (assistantText) {
+        const fallback = assistantText.length > 500 ? assistantText.slice(-500) : assistantText;
+        log.info('TTS: summary 为空，使用 assistant 消息 fallback, 长度:', fallback.length);
+        speakResult(fallback);
+      } else {
+        log.info('TTS: 无可播报内容');
+      }
     }
 
     // 异步触发 Memory 提炼（不阻塞主流程）
@@ -583,8 +599,12 @@ async function speakResult(summary: string): Promise<void> {
       return;
     }
 
+    // 根据文件大小估算音频时长（~24kbps mp3）
+    const stat = fs.statSync(audioPath);
+    const duration = stat.size / 3000;
+
     const trayBounds = tray.getBounds();
-    subtitlePopup.show(summary, trayBounds);
+    subtitlePopup.show(summary, trayBounds, duration);
 
     await ttsService.play(audioPath);
   } catch (err) {
