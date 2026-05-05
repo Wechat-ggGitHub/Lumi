@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { log } from '../src/lib/logger';
 
 export interface SubtitlePayload {
@@ -51,7 +51,9 @@ export class SubtitlePopup {
     const audioUint8 = new Uint8Array(payload.audio);
 
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle`);
-    this.win.webContents.once('did-finish-load', () => {
+    // Wait for subtitle page to signal readiness (React mounted) before sending data
+    // to avoid race condition with IPC listener registration
+    ipcMain.once('tts-page-ready', () => {
       this.win?.webContents.send('tts-audio-data', {
         audio: audioUint8,
         sentences: payload.sentences,

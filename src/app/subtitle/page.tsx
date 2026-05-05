@@ -67,6 +67,9 @@ function SubtitleContent() {
     const ipc = getIpcRenderer();
     if (!ipc) return;
 
+    // Signal readiness so main process sends audio data
+    ipc.send('tts-page-ready');
+
     const handler = async (_event: any, payload: TtsAudioPayload) => {
       setPersonaName(payload.personaName?.charAt(0).toUpperCase() || 'S');
 
