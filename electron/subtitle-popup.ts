@@ -9,7 +9,12 @@ export class SubtitlePopup {
     this.serverPort = serverPort;
   }
 
-  show(text: string, trayBounds: { x: number; y: number; width: number; height: number }, duration: number): void {
+  show(
+    text: string,
+    trayBounds: { x: number; y: number; width: number; height: number },
+    duration: number,
+    sentences?: { text: string; startTime: number; endTime: number }[] | null,
+  ): void {
     this.close();
 
     const { x: trayX, y: trayY, width: trayWidth } = trayBounds;
@@ -29,7 +34,7 @@ export class SubtitlePopup {
       skipTaskbar: true,
       hasShadow: false,
       show: false,
-      focusable: false,
+      focusable: true,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -37,7 +42,16 @@ export class SubtitlePopup {
     });
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle?text=${encodeURIComponent(text)}&duration=${duration}`);
+
+    const params = new URLSearchParams({
+      text,
+      duration: String(duration),
+    });
+    if (sentences && sentences.length > 0) {
+      params.set('sentences', encodeURIComponent(JSON.stringify(sentences)));
+    }
+
+    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle?${params.toString()}`);
     this.win.once('ready-to-show', () => {
       this.win?.show();
       log.info('字幕弹窗: 已显示');
