@@ -3,6 +3,7 @@ import { log } from '../src/lib/logger';
 
 export interface SubtitlePayload {
   sentences: { text: string; startTime: number; endTime: number }[] | null;
+  words: { word: string; startTime: number; endTime: number }[] | null;
   audio: Buffer;
   personaName: string;
 }
@@ -57,6 +58,7 @@ export class SubtitlePopup {
       this.win?.webContents.send('tts-audio-data', {
         audio: audioUint8,
         sentences: payload.sentences,
+        words: payload.words,
         personaName: payload.personaName,
       });
     });

@@ -600,6 +600,7 @@ async function speakResult(summary: string): Promise<void> {
     }
 
     const sentences = result.sentences.length > 0 ? result.sentences : null;
+    const words = result.words.length > 0 ? result.words : null;
     const audioBuffer = fs.readFileSync(result.audioPath);
     const profile = readProfile(shrewDir);
 
@@ -607,6 +608,7 @@ async function speakResult(summary: string): Promise<void> {
     subtitlePopup.show(trayBounds, {
       audio: audioBuffer,
       sentences,
+      words,
       personaName: profile.name,
     });
 
