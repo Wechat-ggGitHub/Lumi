@@ -1,8 +1,7 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
-import { ipcRenderer } from 'electron';
+import { getIpcRenderer } from '@/lib/electron-ipc';
 
 interface TtsSentence {
   text: string;
@@ -10,105 +9,130 @@ interface TtsSentence {
   endTime: number;
 }
 
+interface TtsAudioPayload {
+  audio: Uint8Array;
+  sentences: TtsSentence[] | null;
+  personaName: string;
+}
+
 function SubtitleContent() {
-  const searchParams = useSearchParams();
-  const text = searchParams.get('text') || '';
-  const duration = parseFloat(searchParams.get('duration') || '0');
-  const sentencesParam = searchParams.get('sentences');
-
-  const sentences: TtsSentence[] | null = sentencesParam
-    ? JSON.parse(decodeURIComponent(sentencesParam))
-    : null;
-
-  const [visible, setVisible] = useState(false);
+  const [sentences, setSentences] = useState<TtsSentence[] | null>(null);
+  const [personaName, setPersonaName] = useState('S');
   const [activeIndex, setActiveIndex] = useState(-1);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const sentenceRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const [visible, setVisible] = useState(false);
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const startTimeRef = useRef<number>(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentenceRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef = useRef<number>(0);
 
-  // 均匀滚动（降级模式）
-  const tickLinear = useCallback(() => {
-    if (!scrollRef.current || !contentRef.current || duration <= 0) return;
+  const tick = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx || startTimeRef.current === 0) return;
 
-    if (startTimeRef.current === 0) {
-      startTimeRef.current = performance.now();
-    }
+    const elapsed = ctx.currentTime - startTimeRef.current;
 
-    const elapsed = (performance.now() - startTimeRef.current) / 1000;
-    const progress = Math.min(elapsed / duration, 1);
-    const maxScroll = contentRef.current.scrollHeight - scrollRef.current.clientHeight;
-
-    if (maxScroll > 0) {
-      scrollRef.current.scrollTop = maxScroll * progress;
-    }
-
-    if (progress < 1) {
-      rafRef.current = requestAnimationFrame(tickLinear);
-    }
-  }, [duration]);
-
-  // 句级别同步滚动
-  const tickSynced = useCallback(() => {
-    if (!scrollRef.current || !sentences || sentences.length === 0) return;
-
-    if (startTimeRef.current === 0) {
-      startTimeRef.current = performance.now();
-    }
-
-    const elapsed = (performance.now() - startTimeRef.current) / 1000;
-    const totalDuration = sentences[sentences.length - 1].endTime;
-
-    // 查找当前句子
-    let currentIdx = -1;
-    for (let i = 0; i < sentences.length; i++) {
-      if (elapsed >= sentences[i].startTime && elapsed < sentences[i].endTime) {
-        currentIdx = i;
-        break;
+    if (sentences && sentences.length > 0) {
+      let currentIdx = -1;
+      for (let i = 0; i < sentences.length; i++) {
+        if (elapsed >= sentences[i].startTime && elapsed < sentences[i].endTime) {
+          currentIdx = i;
+          break;
+        }
       }
-    }
-    // 如果超出最后一句话的 endTime，标记为最后一句
-    if (currentIdx === -1 && elapsed >= sentences[sentences.length - 1].startTime) {
-      currentIdx = sentences.length - 1;
-    }
+      if (currentIdx === -1 && elapsed >= sentences[sentences.length - 1].startTime) {
+        currentIdx = sentences.length - 1;
+      }
 
-    if (currentIdx !== activeIndex) {
-      setActiveIndex(currentIdx);
-    }
+      if (currentIdx !== activeIndex) {
+        setActiveIndex(currentIdx);
+      }
 
-    // 滚动到当前句子
-    if (currentIdx >= 0) {
-      const el = sentenceRefs.current[currentIdx];
-      if (el && scrollRef.current) {
+      if (currentIdx >= 0 && sentenceRefs.current[currentIdx] && scrollRef.current) {
+        const el = sentenceRefs.current[currentIdx]!;
         const containerHeight = scrollRef.current.clientHeight;
-        const targetScroll = el.offsetTop - containerHeight / 3;
-        scrollRef.current.scrollTop = Math.max(0, targetScroll);
+        scrollRef.current.scrollTop = Math.max(0, el.offsetTop - containerHeight / 3);
       }
-    }
 
-    if (elapsed < totalDuration + 0.5) {
-      rafRef.current = requestAnimationFrame(tickSynced);
+      const totalDuration = sentences[sentences.length - 1].endTime;
+      if (elapsed < totalDuration + 0.5) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     }
   }, [sentences, activeIndex]);
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
+    const ipc = getIpcRenderer();
+    if (!ipc) return;
+
+    const handler = async (_event: any, payload: TtsAudioPayload) => {
+      setPersonaName(payload.personaName?.charAt(0).toUpperCase() || 'S');
+
+      let ctx: AudioContext;
+      try {
+        ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+      } catch {
+        getIpcRenderer()?.send('tts-playback-done');
+        return;
+      }
+
+      try {
+        const audioBuffer = await ctx.decodeAudioData(payload.audio.buffer.slice(0) as ArrayBuffer);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+
+        source.onended = () => {
+          getIpcRenderer()?.send('tts-playback-done');
+        };
+
+        startTimeRef.current = ctx.currentTime;
+        source.start(0);
+        sourceRef.current = source;
+      } catch {
+        getIpcRenderer()?.send('tts-playback-done');
+        return;
+      }
+
+      setSentences(payload.sentences);
+      requestAnimationFrame(() => setVisible(true));
+    };
+
+    ipc.on('tts-audio-data', handler);
+    return () => {
+      ipc.removeListener('tts-audio-data', handler);
+    };
   }, []);
 
   useEffect(() => {
-    if (sentences && sentences.length > 0) {
-      rafRef.current = requestAnimationFrame(tickSynced);
-    } else if (duration > 0) {
-      rafRef.current = requestAnimationFrame(tickLinear);
+    if (visible && sentences && sentences.length > 0) {
+      rafRef.current = requestAnimationFrame(tick);
     }
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [tickSynced, tickLinear, sentences, duration]);
+  }, [tick, visible, sentences]);
+
+  useEffect(() => {
+    return () => {
+      sourceRef.current?.stop();
+      audioCtxRef.current?.close();
+    };
+  }, []);
 
   const handleClose = () => {
-    ipcRenderer.send('stop-speaking');
+    sourceRef.current?.stop();
+    getIpcRenderer()?.send('tts-stop-requested');
+  };
+
+  const getSentenceColor = (index: number) => {
+    if (index === activeIndex) return '#ffffff';
+    if (index < activeIndex) return 'rgba(255, 255, 255, 0.25)';
+    const distance = index - activeIndex;
+    return `rgba(255, 255, 255, ${Math.max(0.35, 0.7 - distance * 0.12)})`;
   };
 
   return (
@@ -117,12 +141,13 @@ function SubtitleContent() {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        padding: '12px 16px',
-        background: 'rgba(30, 30, 40, 0.92)',
-        borderRadius: '10px',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        padding: '14px 18px',
+        background: 'rgba(40, 40, 55, 0.75)',
+        borderRadius: '14px',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',
         minHeight: '80px',
@@ -130,7 +155,7 @@ function SubtitleContent() {
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
       }}
     >
-      {/* 关闭按钮 */}
+      {/* Close button */}
       <button
         onClick={handleClose}
         style={{
@@ -141,85 +166,113 @@ function SubtitleContent() {
           height: '18px',
           borderRadius: '50%',
           border: 'none',
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: 'rgba(255, 255, 255, 0.5)',
-          fontSize: '10px',
-          lineHeight: '18px',
-          textAlign: 'center',
+          background: 'rgba(255, 255, 255, 0.08)',
           cursor: 'pointer',
           padding: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'background 0.15s, color 0.15s',
+          transition: 'background 0.15s',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-          e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-          e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
         }}
       >
-        ✕
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+          <path d="M1 1L7 7M7 1L1 7" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+      {/* Header: avatar + waveform (no text) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <div
           style={{
-            width: '12px',
-            height: '12px',
-            background: '#4CAF50',
-            borderRadius: '50%',
+            width: '22px',
+            height: '22px',
+            borderRadius: '6px',
+            background: 'linear-gradient(135deg, #667eea, #764ba2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: '6px', color: 'white' }}>▶</span>
+          <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>{personaName}</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#888' }}>Shrew 正在朗读...</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', height: '14px' }}>
+          {[6, 10, 14, 8, 12].map((h, i) => (
+            <div
+              key={i}
+              style={{
+                width: '2px',
+                height: `${h}px`,
+                background: '#4CAF50',
+                borderRadius: '1px',
+                animation: `waveBar 0.5s ease-in-out ${i * 0.1}s infinite alternate`,
+              }}
+            />
+          ))}
+        </div>
       </div>
+
+      {/* Lyric area */}
       <div
         ref={scrollRef}
         style={{
           position: 'relative',
           fontSize: '13px',
-          lineHeight: '1.6',
+          lineHeight: '1.8',
           wordBreak: 'break-word',
           overflow: 'hidden',
           height: '90px',
         }}
       >
-        <div ref={contentRef} style={{ position: 'relative' }}>
-          {sentences && sentences.length > 0 ? (
-            sentences.map((s, i) => (
-              <span
-                key={i}
-                ref={(el) => { sentenceRefs.current[i] = el; }}
-                style={{
-                  color: i === activeIndex ? '#ffffff' : i < activeIndex ? '#a0a0a0' : '#e0e0e0',
-                  fontWeight: i === activeIndex ? 500 : 400,
-                  transition: 'color 0.2s ease, font-weight 0.2s ease',
-                }}
-              >
-                {s.text}
-              </span>
-            ))
-          ) : (
-            text
-          )}
+        <div style={{ position: 'relative' }}>
+          {sentences && sentences.length > 0
+            ? sentences.map((s, i) => (
+                <div
+                  key={i}
+                  ref={(el) => {
+                    sentenceRefs.current[i] = el;
+                  }}
+                  style={{
+                    color: getSentenceColor(i),
+                    fontWeight: i === activeIndex ? 500 : 400,
+                    textShadow:
+                      i === activeIndex ? '0 0 12px rgba(76, 175, 80, 0.3)' : 'none',
+                    transition: 'color 0.2s ease',
+                    padding: '2px 0',
+                  }}
+                >
+                  {s.text}
+                </div>
+              ))
+            : '...'}
         </div>
-        {/* 渐变遮罩：顶部已读区域变暗 */}
+        {/* Top gradient mask */}
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: '24px',
-            background: 'linear-gradient(to bottom, rgba(30, 30, 40, 0.6), transparent)',
+            height: '28px',
+            background: 'linear-gradient(to bottom, rgba(40, 40, 55, 0.9), transparent)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Bottom gradient mask */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '28px',
+            background: 'linear-gradient(to top, rgba(40, 40, 55, 0.9), transparent)',
             pointerEvents: 'none',
           }}
         />
@@ -231,7 +284,8 @@ function SubtitleContent() {
 export default function SubtitlePage() {
   return (
     <>
-      <style>{`html, body { background: transparent !important; overflow: hidden !important; }`}</style>
+      <style>{`html, body { background: transparent !important; overflow: hidden !important; }
+@keyframes waveBar { from { height: 4px; } to { height: 14px; } }`}</style>
       <Suspense fallback={null}>
         <SubtitleContent />
       </Suspense>
