@@ -25,9 +25,16 @@ export interface TtsSentence {
   endTime: number;
 }
 
+export interface TtsWord {
+  word: string;
+  startTime: number;
+  endTime: number;
+}
+
 export interface TtsResult {
   audioPath: string;
   sentences: TtsSentence[];
+  words: TtsWord[];
 }
 
 // V3 binary protocol header
@@ -107,6 +114,7 @@ export class TtsService {
       let settled = false;
       const audioChunks: Buffer[] = [];
       const sentences: TtsSentence[] = [];
+      const allWords: TtsWord[] = [];
       let cumulativeTime = 0;
       let sessionId: string | null = null;
 
@@ -305,6 +313,15 @@ export class TtsService {
                     startTime: cumulativeTime,
                     endTime: cumulativeTime + parsed.duration,
                   });
+                  if (parsed.words && parsed.words.length > 0) {
+                    for (const w of parsed.words) {
+                      allWords.push({
+                        word: w.word,
+                        startTime: cumulativeTime + w.startTime,
+                        endTime: cumulativeTime + w.endTime,
+                      });
+                    }
+                  }
                   cumulativeTime += parsed.duration;
                 }
               }
@@ -322,7 +339,7 @@ export class TtsService {
               fs.writeFileSync(tempFile, fullAudio);
               log.info('TTS: 音频写入完成, 大小:', fullAudio.length, '路径:', tempFile, '句子数:', sentences.length);
               ws.send(buildEventMessage(EVENT_FINISH_CONNECTION, null, {}));
-              done({ audioPath: tempFile, sentences });
+              done({ audioPath: tempFile, sentences, words: allWords });
               break;
 
             case 51: // ConnectionFailed
