@@ -5,6 +5,7 @@ import path from 'path';
 import os from 'os';
 
 import { log } from '../src/lib/logger';
+import { parseSentenceFromPayload } from './tts-sentence-parser';
 
 const WS_URL = 'wss://openspeech.bytedance.com/api/v3/tts/bidirection';
 const RESOURCE_ID = 'volc.service_type.10029';
@@ -297,15 +298,14 @@ export class TtsService {
             case EVENT_TTS_SENTENCE_END:
               log.info('TTS: SentenceEnd payload:', JSON.stringify(payload));
               {
-                const duration = payload?.res_params?.duration ?? payload?.payload?.duration ?? 0;
-                const sentenceText = payload?.res_params?.text ?? payload?.payload?.text ?? payload?.sentence?.text ?? '';
-                if (duration > 0 && sentenceText) {
+                const parsed = parseSentenceFromPayload(payload);
+                if (parsed) {
                   sentences.push({
-                    text: sentenceText,
+                    text: parsed.text,
                     startTime: cumulativeTime,
-                    endTime: cumulativeTime + duration,
+                    endTime: cumulativeTime + parsed.duration,
                   });
-                  cumulativeTime += duration;
+                  cumulativeTime += parsed.duration;
                 }
               }
               break;
