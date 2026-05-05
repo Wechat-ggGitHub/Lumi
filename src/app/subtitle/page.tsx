@@ -41,7 +41,7 @@ function SubtitleContent() {
       }
     }
 
-    setCurrentIndex(idx);
+    setCurrentIndex((prev) => (prev === idx ? prev : idx));
 
     const lastEnd = words[words.length - 1].endTime;
     if (elapsed < lastEnd + 0.5) {
