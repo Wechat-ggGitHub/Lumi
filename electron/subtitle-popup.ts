@@ -11,21 +11,22 @@ export interface SubtitlePayload {
 export class SubtitlePopup {
   private win: BrowserWindow | null = null;
   private serverPort: number;
+  private readyResolve: (() => void) | null = null;
 
   constructor(serverPort: number) {
     this.serverPort = serverPort;
   }
 
-  show(
-    trayBounds: { x: number; y: number; width: number; height: number },
-    payload: SubtitlePayload,
-  ): void {
-    this.close();
-
-    const { x: trayX, y: trayY, width: trayWidth } = trayBounds;
+  private ensureWindow(trayBounds: { x: number; y: number; width: number; height: number }): void {
     const popupWidth = 340;
-    const popupX = Math.round(trayX + trayWidth / 2 - popupWidth / 2);
-    const popupY = trayY + 8;
+    const popupX = Math.round(trayBounds.x + trayBounds.width / 2 - popupWidth / 2);
+    const popupY = trayBounds.y + 8;
+
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.setPosition(popupX, popupY);
+      this.win.setSize(popupWidth, 140);
+      return;
+    }
 
     this.win = new BrowserWindow({
       width: popupWidth,
@@ -43,17 +44,58 @@ export class SubtitlePopup {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
+        backgroundThrottling: false,
       },
     });
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle`);
 
-    // Convert Buffer to Uint8Array for IPC transfer
+    this.win.on('closed', () => {
+      this.win = null;
+      this.readyResolve = null;
+    });
+
+    // Listen for dynamic height changes from renderer
+    this.win.webContents.on('ipc-message', (_event, channel, args) => {
+      if (channel === 'tts-content-height' && typeof args === 'number') {
+        const contentHeight = args;
+        const winHeight = Math.max(140, Math.min(400, 42 + contentHeight + 28));
+        this.win?.setSize(340, winHeight);
+      }
+    });
+  }
+
+  prepare(trayBounds: { x: number; y: number; width: number; height: number }): Promise<void> {
+    this.ensureWindow(trayBounds);
+
+    if (!this.win) return Promise.reject(new Error('Failed to create subtitle window'));
+
+    // If window is already showing with a loaded page, just ensure it's positioned
+    if (!this.win.isVisible()) {
+      return new Promise<void>((resolve) => {
+        this.win!.once('ready-to-show', () => resolve());
+        this.win!.webContents.once('did-finish-load', () => resolve());
+      });
+    }
+
+    return Promise.resolve();
+  }
+
+  show(
+    trayBounds: { x: number; y: number; width: number; height: number },
+    payload: SubtitlePayload,
+  ): void {
+    this.ensureWindow(trayBounds);
+
+    if (!this.win) return;
+
     const audioUint8 = new Uint8Array(payload.audio);
 
-    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle`);
-    // Wait for subtitle page to signal readiness (React mounted) before sending data
-    // to avoid race condition with IPC listener registration
+    // Reload page to reset state
+    this.win.webContents.reload();
+
+    ipcMain.removeAllListeners('tts-page-ready');
     ipcMain.once('tts-page-ready', () => {
       this.win?.webContents.send('tts-audio-data', {
         audio: audioUint8,
@@ -62,21 +104,24 @@ export class SubtitlePopup {
         personaName: payload.personaName,
       });
     });
-    this.win.once('ready-to-show', () => {
-      this.win?.show();
-      log.info('字幕弹窗: 已显示');
-    });
+
+    this.win.show();
+    log.info('字幕弹窗: 已显示');
   }
 
   close(): void {
-    if (this.win && !this.win.isDestroyed()) {
-      this.win.close();
-      this.win = null;
-      log.info('字幕弹窗: 已关闭');
+    if (this.win && !this.win.isDestroyed() && this.win.isVisible()) {
+      this.win.hide();
+      log.info('字幕弹窗: 已隐藏');
     }
   }
 
   destroy(): void {
-    this.close();
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.close();
+      this.win = null;
+    }
+    ipcMain.removeAllListeners('tts-page-ready');
+    log.info('字幕弹窗: 已销毁');
   }
 }
