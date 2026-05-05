@@ -7,7 +7,7 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
-import { TtsService } from './tts';
+import { TtsService, TtsResult } from './tts';
 import { SubtitlePopup } from './subtitle-popup';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
@@ -587,26 +587,32 @@ async function speakResult(summary: string): Promise<void> {
   updateTrayDot();
 
   try {
-    const audioPath = await ttsService.synthesize({
+    const result = await ttsService.synthesize({
       appId: creds.appId,
       accessToken: creds.accessToken,
       text: summary,
       signal: ttsAbortController.signal,
     });
 
-    if (!audioPath) {
+    if (!result) {
       log.info('TTS: 合成失败或被中断，跳过播放');
       return;
     }
 
-    // 根据文件大小估算音频时长（~24kbps mp3）
-    const stat = fs.statSync(audioPath);
-    const duration = stat.size / 3000;
+    // 计算总时长：优先从 sentences 累加，降级用文件大小估算
+    let duration: number;
+    const sentences = result.sentences.length > 0 ? result.sentences : null;
+    if (sentences) {
+      duration = sentences[sentences.length - 1].endTime;
+    } else {
+      const stat = fs.statSync(result.audioPath);
+      duration = stat.size / 3000;
+    }
 
     const trayBounds = tray.getBounds();
-    subtitlePopup.show(summary, trayBounds, duration);
+    subtitlePopup.show(summary, trayBounds, duration, sentences);
 
-    await ttsService.play(audioPath);
+    await ttsService.play(result.audioPath);
   } catch (err) {
     log.error('TTS: 语音播报异常:', err);
   } finally {
