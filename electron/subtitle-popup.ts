@@ -9,17 +9,17 @@ export class SubtitlePopup {
     this.serverPort = serverPort;
   }
 
-  show(text: string, trayBounds: { x: number; y: number; width: number; height: number }): void {
+  show(text: string, trayBounds: { x: number; y: number; width: number; height: number }, duration: number): void {
     this.close();
 
     const { x: trayX, y: trayY, width: trayWidth } = trayBounds;
-    const popupWidth = 300;
+    const popupWidth = 340;
     const popupX = Math.round(trayX + trayWidth / 2 - popupWidth / 2);
     const popupY = trayY + 8;
 
     this.win = new BrowserWindow({
       width: popupWidth,
-      height: 120,
+      height: 140,
       x: popupX,
       y: popupY,
       frame: false,
@@ -37,7 +37,7 @@ export class SubtitlePopup {
     });
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle?text=${encodeURIComponent(text)}`);
+    this.win.loadURL(`http://127.0.0.1:${this.serverPort}/subtitle?text=${encodeURIComponent(text)}&duration=${duration}`);
     this.win.once('ready-to-show', () => {
       this.win?.show();
       log.info('字幕弹窗: 已显示');
