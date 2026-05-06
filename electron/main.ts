@@ -290,7 +290,7 @@ function handleRightCommand(): void {
         ttsAbortController = null;
       }
       ttsService.stop();
-      subtitlePopup.close();
+      subtitlePopup.stop();
       store.setSpeaking(false);
       updateTrayDot();
       break;
@@ -582,24 +582,44 @@ async function speakResult(summary: string): Promise<void> {
     return;
   }
 
+  if (store.speaking) {
+    log.info('TTS: 正在播报中，跳过重复调用');
+    return;
+  }
+
   ttsAbortController = new AbortController();
   store.setSpeaking(true);
   updateTrayDot();
 
   try {
-    // Start TTS synthesis and window preparation in parallel
     const trayBounds = tray.getBounds();
     const profile = readProfile(shrewDir);
+    const controller = ttsAbortController;
 
-    const [ttsResult] = await Promise.all([
-      ttsService.synthesize({
+    // Prepare subtitle popup while synthesizing
+    const preparePromise = subtitlePopup.prepare(trayBounds);
+
+    let ttsResult = await ttsService.synthesize({
+      appId: creds.appId,
+      accessToken: creds.accessToken,
+      text: summary,
+      signal: controller.signal,
+    });
+
+    // Retry once if synthesis failed completely
+    if (!ttsResult && !controller.signal.aborted) {
+      log.info('TTS: 首次合成失败，1秒后重试');
+      await new Promise(r => setTimeout(r, 1000));
+      if (controller.signal.aborted) return;
+      ttsResult = await ttsService.synthesize({
         appId: creds.appId,
         accessToken: creds.accessToken,
         text: summary,
-        signal: ttsAbortController.signal,
-      }),
-      subtitlePopup.prepare(trayBounds),
-    ]);
+        signal: controller.signal,
+      });
+    }
+
+    await preparePromise;
 
     if (!ttsResult) {
       log.info('TTS: 合成失败或被中断，跳过播放');

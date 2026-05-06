@@ -158,10 +158,17 @@ export class TtsService {
         done(null);
       });
 
-      ws.on('close', () => {
+      ws.on('close', (code: number, reason: Buffer) => {
         if (!settled) {
-          log.warn('TTS: WebSocket 意外关闭');
-          done(null);
+          log.warn('TTS: WebSocket 意外关闭, code:', code, 'reason:', reason?.toString('utf-8'));
+          if (audioChunks.length > 0) {
+            const fullAudio = Buffer.concat(audioChunks);
+            fs.writeFileSync(tempFile, fullAudio);
+            log.info('TTS: 使用部分音频, 大小:', fullAudio.length, '句子数:', sentences.length);
+            done({ audioPath: tempFile, sentences, words: allWords });
+          } else {
+            done(null);
+          }
         }
       });
 
@@ -308,21 +315,29 @@ export class TtsService {
               {
                 const parsed = parseSentenceFromPayload(payload);
                 if (parsed) {
-                  sentences.push({
-                    text: parsed.text,
-                    startTime: cumulativeTime,
-                    endTime: cumulativeTime + parsed.duration,
-                  });
                   if (parsed.words && parsed.words.length > 0) {
                     for (const w of parsed.words) {
                       allWords.push({
                         word: w.word,
-                        startTime: cumulativeTime + w.startTime,
-                        endTime: cumulativeTime + w.endTime,
+                        startTime: w.startTime,
+                        endTime: w.endTime,
                       });
                     }
+                    const lastWord = parsed.words[parsed.words.length - 1];
+                    sentences.push({
+                      text: parsed.text,
+                      startTime: parsed.words[0].startTime,
+                      endTime: lastWord.endTime,
+                    });
+                    cumulativeTime = lastWord.endTime;
+                  } else {
+                    sentences.push({
+                      text: parsed.text,
+                      startTime: cumulativeTime,
+                      endTime: cumulativeTime + parsed.duration,
+                    });
+                    cumulativeTime += parsed.duration;
                   }
-                  cumulativeTime += parsed.duration;
                 }
               }
               break;
