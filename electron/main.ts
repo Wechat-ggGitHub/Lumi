@@ -9,15 +9,16 @@ import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { TtsService, TtsResult } from './tts';
 import { SubtitlePopup } from './subtitle-popup';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, listMemories, addMemory, updateMemory, deleteMemory, toggleMemoryStatus, toggleMemoryPin } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
-import { buildShrewContext, getActiveMemories } from '../src/lib/shrew-context';
-import { extractMemories } from '../src/lib/memory-extractor';
+import { buildShrewContext } from '../src/lib/shrew-context';
+import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
+import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 import { log, initLogger } from '../src/lib/logger';
 import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, SdkSubState, ToolCallRecord } from '../src/types';
 
@@ -377,10 +378,9 @@ async function executePrompt(prompt: string): Promise<void> {
   // 流式 assistant 消息的 ID（首次创建后持续追加）
   let assistantMessageId: string | null = null;
 
-  // 构建 persona + memory 上下文
+  // 构建 persona + 每日记忆上下文
   const personaContent = buildPersonaContext(shrewDir);
-  const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(personaContent, memoryLines);
+  const shrewContext = buildShrewContext(shrewDir, personaContent);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
@@ -524,18 +524,16 @@ async function executePrompt(prompt: string): Promise<void> {
       }
     }
 
-    // 异步触发 Memory 提炼（不阻塞主流程）
+    // 异步写入每日记忆（不阻塞主流程）
     if (result.status === 'completed') {
-      const segment = getActiveSegment(db);
-      const settings = loadSettings();
       const ak = loadApiKey();
       if (ak) {
         const assistantContent = conversationMessages
           .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
-        extractMemories(
-          db, prompt, result.summary || assistantContent,
-          ak, settings.provider || 'glm-cn', executionId
-        ).catch(err => log.error('Memory 提炼异常:', err));
+        evaluateAndWriteDailyMemory(
+          shrewDir, prompt, result.summary || assistantContent,
+          ak, providerKey,
+        ).catch(err => log.error('每日记忆写入异常:', err));
       }
     }
 
@@ -631,11 +629,22 @@ async function speakResult(summary: string): Promise<void> {
     const words = ttsResult.words.length > 0 ? ttsResult.words : null;
     const audioBuffer = fs.readFileSync(ttsResult.audioPath);
 
+    // Read avatar as base64 data URL
+    const avatarPath = getAvatarPath(shrewDir);
+    let personaAvatar: string | null = null;
+    if (avatarPath && fs.existsSync(avatarPath)) {
+      const data = fs.readFileSync(avatarPath);
+      const ext = path.extname(avatarPath).slice(1);
+      const mime = ext === 'jpg' ? 'jpeg' : ext;
+      personaAvatar = `data:image/${mime};base64,${data.toString('base64')}`;
+    }
+
     subtitlePopup.show(trayBounds, {
       audio: audioBuffer,
       sentences,
       words,
       personaName: profile.name,
+      personaAvatar,
     });
 
     // Wait for subtitle renderer to finish playing or user to stop
@@ -966,33 +975,36 @@ function registerIpcHandlers(): void {
     }
   });
 
-  // memory
-  ipcMain.handle('memory:list', () => {
-    return listMemories(db);
+  // memory (file-based)
+  ipcMain.handle('memory:list-core', () => {
+    const memoriesDir = path.join(shrewDir, 'memories');
+    if (!fs.existsSync(memoriesDir)) return [];
+    const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
+    return files.map(f => {
+      const content = fs.readFileSync(path.join(memoriesDir, f), 'utf-8');
+      return { filename: f, content };
+    });
   });
 
-  ipcMain.handle('memory:add', (_, { type, content, source }) => {
-    return addMemory(db, { type, content, source });
+  ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
+    const filePath = path.join(shrewDir, 'memories', filename);
+    if (!fs.existsSync(filePath)) return false;
+    fs.writeFileSync(filePath, content);
+    return true;
   });
 
-  ipcMain.handle('memory:update', (_, { id, content }) => {
-    updateMemory(db, id, content);
-    return listMemories(db);
+  ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
+    const filePath = path.join(shrewDir, 'memories', filename);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return true;
   });
 
-  ipcMain.handle('memory:delete', (_, { id }) => {
-    deleteMemory(db, id);
-    return listMemories(db);
+  ipcMain.handle('memory:list-daily', () => {
+    return listDailyMemoryDates(shrewDir);
   });
 
-  ipcMain.handle('memory:toggle-status', (_, { id }) => {
-    toggleMemoryStatus(db, id);
-    return listMemories(db);
-  });
-
-  ipcMain.handle('memory:toggle-pin', (_, { id }) => {
-    toggleMemoryPin(db, id);
-    return listMemories(db);
+  ipcMain.handle('memory:read-daily', (_, { date }: { date: string }) => {
+    return readDailyMemory(shrewDir, date);
   });
 
   // navigation

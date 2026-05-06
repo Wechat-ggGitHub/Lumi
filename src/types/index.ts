@@ -111,19 +111,6 @@ export interface McpServerConfig {
   enabled: boolean;
 }
 
-// 记忆条目
-export interface MemoryItem {
-  id: string;
-  type: string;
-  content: string;
-  source: string;
-  status: string;
-  pinned: number;
-  execution_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 // IPC 消息类型
 export interface IpcMessages {
   // voice-bar -> main
@@ -206,10 +193,9 @@ export interface IpcMessages {
   'services:test': { id: string };
 
   // memory: invoke
-  'memory:list': void;
-  'memory:add': { type: string; content: string; source?: string };
-  'memory:update': { id: string; content: string };
-  'memory:delete': { id: string };
-  'memory:toggle-status': { id: string };
-  'memory:toggle-pin': { id: string };
+  'memory:list-core': void;
+  'memory:update-core': { filename: string; content: string };
+  'memory:delete-core': { filename: string };
+  'memory:list-daily': void;
+  'memory:read-daily': { date: string };
 }
