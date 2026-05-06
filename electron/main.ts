@@ -1213,7 +1213,7 @@ function createMainWindow(): void {
     minHeight: 620,
     show: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#faf9f5',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111110' : '#faf9f5',
     trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       nodeIntegration: true,
@@ -1230,6 +1230,14 @@ function createMainWindow(): void {
   });
 }
 
+nativeTheme.on('updated', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setBackgroundColor(
+      nativeTheme.shouldUseDarkColors ? '#111110' : '#faf9f5'
+    );
+  }
+});
+
 function createOnboardingWindow(): void {
   mainWindow = new BrowserWindow({
     width: 600,
@@ -1237,7 +1245,7 @@ function createOnboardingWindow(): void {
     show: false,
     resizable: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#faf9f5',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#111110' : '#faf9f5',
     trafficLightPosition: { x: 16, y: 18 },
     webPreferences: {
       nodeIntegration: true,
