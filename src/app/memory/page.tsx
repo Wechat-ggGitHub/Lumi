@@ -69,6 +69,7 @@ export default function MemoryPage() {
   }, [ipcRenderer, editingFile, editContent, loadCoreMemories]);
 
   const handleDelete = useCallback((filename: string) => {
+    if (!confirm('确定要删除这条记忆吗？此操作不可撤销。')) return;
     ipcRenderer?.invoke('memory:delete-core', { filename }).then(() => {
       loadCoreMemories();
     });

@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
+export function toLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function getDailyMemoryDir(shrewDir: string): string {
   return path.join(shrewDir, 'daily');
 }
@@ -29,7 +33,7 @@ export function readRecentDailyMemories(shrewDir: string, days: number): Map<str
   for (let i = 0; i < days; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = toLocalDate(d);
     const content = readDailyMemory(shrewDir, dateStr);
     if (content) {
       result.set(dateStr, content);

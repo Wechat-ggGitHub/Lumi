@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getProvider, resolveModel } from './provider-config';
-import { getDailyMemoryDir } from './daily-memory-reader';
+import { getDailyMemoryDir, toLocalDate } from './daily-memory-reader';
 import { log } from './logger';
 
 const EVAL_PROMPT = `你是一个日记助手。根据用户和助手的对话，判断这次对话是否有值得记录的内容。
@@ -59,7 +59,9 @@ export async function evaluateAndWriteDailyMemory(
     const headers: Record<string, string> = {
       'content-type': 'application/json',
       'anthropic-version': '2023-06-01',
-      'x-api-key': apiKey,
+      ...(provider.authStyle === 'auth_token'
+        ? { 'authorization': `Bearer ${apiKey}` }
+        : { 'x-api-key': apiKey }),
     };
 
     const baseUrl = provider.baseUrl || 'https://api.anthropic.com';
@@ -94,7 +96,7 @@ export async function evaluateAndWriteDailyMemory(
     if (!result.shouldRecord) return;
 
     const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10);
+    const dateStr = toLocalDate(now);
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     appendDailyMemory(shrewDir, dateStr, timeStr, result.title, result.summary);

@@ -987,15 +987,20 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
-    const filePath = path.join(shrewDir, 'memories', filename);
-    if (!fs.existsSync(filePath)) return false;
+    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
+    const memoriesDir = path.join(shrewDir, 'memories');
+    const filePath = path.join(memoriesDir, filename);
+    if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
     fs.writeFileSync(filePath, content);
     return true;
   });
 
   ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
-    const filePath = path.join(shrewDir, 'memories', filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
+    const memoriesDir = path.join(shrewDir, 'memories');
+    const filePath = path.join(memoriesDir, filename);
+    if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
+    fs.unlinkSync(filePath);
     return true;
   });
 
@@ -1004,6 +1009,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('memory:read-daily', (_, { date }: { date: string }) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
     return readDailyMemory(shrewDir, date);
   });
 
