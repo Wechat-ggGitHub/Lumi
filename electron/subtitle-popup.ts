@@ -12,6 +12,7 @@ export class SubtitlePopup {
   private win: BrowserWindow | null = null;
   private serverPort: number;
   private readyResolve: (() => void) | null = null;
+  private pageReadyHandler: (() => void) | null = null;
 
   constructor(serverPort: number) {
     this.serverPort = serverPort;
@@ -24,13 +25,13 @@ export class SubtitlePopup {
 
     if (this.win && !this.win.isDestroyed()) {
       this.win.setPosition(popupX, popupY);
-      this.win.setSize(popupWidth, 140);
+      this.win.setSize(popupWidth, 150);
       return;
     }
 
     this.win = new BrowserWindow({
       width: popupWidth,
-      height: 140,
+      height: 150,
       x: popupX,
       y: popupY,
       frame: false,
@@ -54,15 +55,6 @@ export class SubtitlePopup {
     this.win.on('closed', () => {
       this.win = null;
       this.readyResolve = null;
-    });
-
-    // Listen for dynamic height changes from renderer
-    this.win.webContents.on('ipc-message', (_event, channel, args) => {
-      if (channel === 'tts-content-height' && typeof args === 'number') {
-        const contentHeight = args;
-        const winHeight = Math.max(140, Math.min(400, 42 + contentHeight + 28));
-        this.win?.setSize(340, winHeight);
-      }
     });
   }
 
@@ -94,15 +86,18 @@ export class SubtitlePopup {
     // Reload page to reset state
     this.win.webContents.reload();
 
-    ipcMain.removeAllListeners('tts-page-ready');
-    ipcMain.once('tts-page-ready', () => {
+    if (this.pageReadyHandler) {
+      ipcMain.removeListener('tts-page-ready', this.pageReadyHandler);
+    }
+    this.pageReadyHandler = () => {
       this.win?.webContents.send('tts-audio-data', {
         audio: audioUint8,
         sentences: payload.sentences,
         words: payload.words,
         personaName: payload.personaName,
       });
-    });
+    };
+    ipcMain.once('tts-page-ready', this.pageReadyHandler);
 
     this.win.show();
     log.info('字幕弹窗: 已显示');
@@ -115,12 +110,22 @@ export class SubtitlePopup {
     }
   }
 
+  stop(): void {
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('tts-stop');
+    }
+    this.close();
+  }
+
   destroy(): void {
+    if (this.pageReadyHandler) {
+      ipcMain.removeListener('tts-page-ready', this.pageReadyHandler);
+      this.pageReadyHandler = null;
+    }
     if (this.win && !this.win.isDestroyed()) {
       this.win.close();
       this.win = null;
     }
-    ipcMain.removeAllListeners('tts-page-ready');
     log.info('字幕弹窗: 已销毁');
   }
 }
