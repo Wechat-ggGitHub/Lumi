@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, nativeTheme } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
@@ -43,6 +43,7 @@ let ttsService: TtsService;
 let subtitlePopup: SubtitlePopup;
 let ttsAbortController: AbortController | null = null;
 let personaWatcher: fs.FSWatcher | null = null;
+let isQuitting = false;
 
 function startPersonaWatcher(): void {
   const personaDir = getPersonaDir(shrewDir);
@@ -802,7 +803,10 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.on('onboarding:complete', () => {
-    mainWindow?.close();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.removeAllListeners('close');
+      mainWindow.close();
+    }
     createMainWindow();
   });
 
@@ -1192,8 +1196,11 @@ app.whenReady().then(async () => {
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
       createMainWindow();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
     }
   });
 });
@@ -1215,6 +1222,12 @@ function createMainWindow(): void {
   });
   mainWindow.loadURL(`http://127.0.0.1:${serverPort}/chat`);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow!.hide();
+  });
 }
 
 function createOnboardingWindow(): void {
@@ -1240,6 +1253,11 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.removeAllListeners('close');
+    mainWindow.close();
+  }
   personaWatcher?.close();
   shortcutManager?.stop();
   ttsService?.stop();
