@@ -1,5 +1,7 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment } from '@/types';
 
 const SCHEMA = `
@@ -250,4 +252,38 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
     `SELECT * FROM chat_message WHERE segment_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1`
   ).get(segmentId) as ChatMessage | undefined;
   return row ?? null;
+}
+
+export function migrateMemoryItems(db: Database.Database, shrewDir: string): void {
+  const tables = db.pragma('table_info(memory_item)') as { name: string }[];
+  if (tables.length === 0) return;
+
+  const memories = db.prepare(`SELECT * FROM memory_item WHERE status = '生效中'`).all() as Array<{ type: string; content: string }>;
+  if (memories.length === 0) {
+    db.exec('DROP TABLE IF EXISTS memory_item');
+    return;
+  }
+
+  const memoriesDir = path.join(shrewDir, 'memories');
+  fs.mkdirSync(memoriesDir, { recursive: true });
+
+  const indexLines: string[] = [];
+  for (const m of memories) {
+    const slug = m.type.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '-').slice(0, 20);
+    const filename = `${slug}-${Date.now()}.md`;
+    fs.writeFileSync(
+      path.join(memoriesDir, filename),
+      `---\nname: ${m.type}\ndescription: ${m.content.slice(0, 60)}\ntype: user\n---\n${m.content}\n`
+    );
+    indexLines.push(`- [${m.type}](${filename}) — ${m.content.slice(0, 50)}`);
+  }
+
+  const indexPath = path.join(memoriesDir, 'MEMORY.md');
+  if (fs.existsSync(indexPath)) {
+    fs.appendFileSync(indexPath, '\n' + indexLines.join('\n'));
+  } else {
+    fs.writeFileSync(indexPath, indexLines.join('\n') + '\n');
+  }
+
+  db.exec('DROP TABLE IF EXISTS memory_item');
 }

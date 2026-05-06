@@ -9,7 +9,7 @@ import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { TtsService, TtsResult } from './tts';
 import { SubtitlePopup } from './subtitle-popup';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage } from '../src/lib/db';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
@@ -1129,6 +1129,8 @@ app.whenReady().then(async () => {
   migratePersona(shrewDir, db);
 
   initDb(db);
+
+  migrateMemoryItems(db, shrewDir);
 
   startPersonaWatcher();
 
