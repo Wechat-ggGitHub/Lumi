@@ -13,6 +13,7 @@ interface TtsAudioPayload {
   audio: Uint8Array;
   words: TtsWord[] | null;
   personaName: string;
+  personaAvatar: string | null;
 }
 
 function SubtitleContent() {
@@ -21,6 +22,7 @@ function SubtitleContent() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [visible, setVisible] = useState(false);
   const [personaName, setPersonaName] = useState('S');
+  const [personaAvatar, setPersonaAvatar] = useState<string | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -105,10 +107,28 @@ function SubtitleContent() {
     const ipc = getIpcRenderer();
     if (!ipc) return;
 
-    ipc.send('tts-page-ready');
+    const resetHandler = () => {
+      stopTick();
+      sourceRef.current?.stop();
+      sourceRef.current = null;
+      setWords([]);
+      setCurrentIndex(-1);
+      lastIndexRef.current = -1;
+      wordRefs.current = [];
+      setVisible(false);
+      setIsPlaying(false);
+    };
+
+    ipc.on('tts-reset', resetHandler);
 
     const handler = async (_event: any, payload: TtsAudioPayload) => {
+      // Stop any previous playback
+      stopTick();
+      sourceRef.current?.stop();
+      sourceRef.current = null;
+
       setPersonaName(payload.personaName?.charAt(0).toUpperCase() || 'S');
+      setPersonaAvatar(payload.personaAvatar || null);
       setCurrentIndex(-1);
       lastIndexRef.current = -1;
       wordRefs.current = [];
@@ -161,6 +181,7 @@ function SubtitleContent() {
     ipc.on('tts-stop', stopHandler);
 
     return () => {
+      ipc.removeListener('tts-reset', resetHandler);
       ipc.removeListener('tts-audio-data', handler);
       ipc.removeListener('tts-stop', stopHandler);
     };
@@ -227,14 +248,19 @@ function SubtitleContent() {
             width: '22px',
             height: '22px',
             borderRadius: '6px',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
+            background: personaAvatar ? 'transparent' : 'linear-gradient(135deg, #667eea, #764ba2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            overflow: 'hidden',
           }}
         >
-          <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>{personaName}</span>
+          {personaAvatar ? (
+            <img src={personaAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontSize: '10px', color: 'white', fontWeight: 600 }}>{personaName}</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px', height: '14px' }}>
           {[6, 10, 14, 8, 12].map((h, i) => (

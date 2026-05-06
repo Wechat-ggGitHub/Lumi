@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow } from 'electron';
 import { log } from '../src/lib/logger';
 
 export interface SubtitlePayload {
@@ -6,13 +6,12 @@ export interface SubtitlePayload {
   words: { word: string; startTime: number; endTime: number }[] | null;
   audio: Buffer;
   personaName: string;
+  personaAvatar: string | null;
 }
 
 export class SubtitlePopup {
   private win: BrowserWindow | null = null;
   private serverPort: number;
-  private readyResolve: (() => void) | null = null;
-  private pageReadyHandler: (() => void) | null = null;
 
   constructor(serverPort: number) {
     this.serverPort = serverPort;
@@ -54,7 +53,6 @@ export class SubtitlePopup {
 
     this.win.on('closed', () => {
       this.win = null;
-      this.readyResolve = null;
     });
   }
 
@@ -83,21 +81,17 @@ export class SubtitlePopup {
 
     const audioUint8 = new Uint8Array(payload.audio);
 
-    // Reload page to reset state
-    this.win.webContents.reload();
+    // Send reset to clear old content before showing new data
+    this.win.webContents.send('tts-reset');
 
-    if (this.pageReadyHandler) {
-      ipcMain.removeListener('tts-page-ready', this.pageReadyHandler);
-    }
-    this.pageReadyHandler = () => {
-      this.win?.webContents.send('tts-audio-data', {
-        audio: audioUint8,
-        sentences: payload.sentences,
-        words: payload.words,
-        personaName: payload.personaName,
-      });
-    };
-    ipcMain.once('tts-page-ready', this.pageReadyHandler);
+    // Send audio data directly (no reload needed)
+    this.win.webContents.send('tts-audio-data', {
+      audio: audioUint8,
+      sentences: payload.sentences,
+      words: payload.words,
+      personaName: payload.personaName,
+      personaAvatar: payload.personaAvatar,
+    });
 
     this.win.show();
     log.info('字幕弹窗: 已显示');
@@ -118,10 +112,6 @@ export class SubtitlePopup {
   }
 
   destroy(): void {
-    if (this.pageReadyHandler) {
-      ipcMain.removeListener('tts-page-ready', this.pageReadyHandler);
-      this.pageReadyHandler = null;
-    }
     if (this.win && !this.win.isDestroyed()) {
       this.win.close();
       this.win = null;

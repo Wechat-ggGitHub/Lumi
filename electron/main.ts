@@ -303,7 +303,7 @@ function handleRightCommand(): void {
 }
 
 // 执行 Claude 命令
-async function executePrompt(prompt: string): Promise<void> {
+async function executePrompt(prompt: string, isVoice = false): Promise<void> {
   log.info('executePrompt 开始, prompt:', prompt.slice(0, 100));
   const settings = loadSettings();
   const apiKey = loadApiKey();
@@ -503,24 +503,26 @@ async function executePrompt(prompt: string): Promise<void> {
 
     sendToMainWindow('chat:execution-complete', { executionId });
 
-    // 语音播报结果
-    log.info('TTS 检查: status=', result.status, 'summary长度=', result.summary?.length ?? 0);
-    if (result.status === 'completed' && result.summary) {
-      log.info('TTS: 开始语音播报, summary:', result.summary.slice(0, 100));
-      speakResult(result.summary);
-    } else if (result.status === 'completed') {
-      // summary 为空时，使用 assistant 消息作为 fallback
-      const assistantText = conversationMessages
-        .filter(m => m.role === 'assistant')
-        .map(m => m.content)
-        .join('\n')
-        .trim();
-      if (assistantText) {
-        const fallback = assistantText.length > 500 ? assistantText.slice(-500) : assistantText;
-        log.info('TTS: summary 为空，使用 assistant 消息 fallback, 长度:', fallback.length);
-        speakResult(fallback);
-      } else {
-        log.info('TTS: 无可播报内容');
+    // 语音播报结果（仅语音输入触发）
+    if (isVoice) {
+      log.info('TTS 检查: status=', result.status, 'summary长度=', result.summary?.length ?? 0);
+      if (result.status === 'completed' && result.summary) {
+        log.info('TTS: 开始语音播报, summary:', result.summary.slice(0, 100));
+        speakResult(result.summary);
+      } else if (result.status === 'completed') {
+        // summary 为空时，使用 assistant 消息作为 fallback
+        const assistantText = conversationMessages
+          .filter(m => m.role === 'assistant')
+          .map(m => m.content)
+          .join('\n')
+          .trim();
+        if (assistantText) {
+          const fallback = assistantText.length > 500 ? assistantText.slice(-500) : assistantText;
+          log.info('TTS: summary 为空，使用 assistant 消息 fallback, 长度:', fallback.length);
+          speakResult(fallback);
+        } else {
+          log.info('TTS: 无可播报内容');
+        }
       }
     }
 
@@ -537,7 +539,11 @@ async function executePrompt(prompt: string): Promise<void> {
       }
     }
 
-    store.transition('completed');
+    // 语音输入：speakResult 负责在音频就绪时 transition to completed
+    // 非语音输入：直接 transition
+    if (!isVoice) {
+      store.transition('completed');
+    }
     store.setSdkSubState(result.status === 'completed' ? 'completed' :
                          result.status === 'cancelled' ? 'cancelled' : 'failed');
   } catch (err) {
@@ -569,15 +575,26 @@ async function executePrompt(prompt: string): Promise<void> {
   broadcastChatState();
 }
 
+// 语音输入路径：transition to completed 并更新 tray dot
+function finishVoiceExecution(): void {
+  if (store.appState !== 'completed') {
+    store.transition('completed');
+  }
+  updateTrayDot();
+  broadcastChatState();
+}
+
 async function speakResult(summary: string): Promise<void> {
   const creds = loadVolcengineCredentials();
   if (!creds) {
     log.info('TTS: 火山引擎凭证未配置，跳过语音播报');
+    finishVoiceExecution();
     return;
   }
 
   if (!summary || summary.trim().length === 0) {
     log.info('TTS: summary 为空，跳过语音播报');
+    finishVoiceExecution();
     return;
   }
 
@@ -587,8 +604,6 @@ async function speakResult(summary: string): Promise<void> {
   }
 
   ttsAbortController = new AbortController();
-  store.setSpeaking(true);
-  updateTrayDot();
 
   try {
     const trayBounds = tray.getBounds();
@@ -609,7 +624,10 @@ async function speakResult(summary: string): Promise<void> {
     if (!ttsResult && !controller.signal.aborted) {
       log.info('TTS: 首次合成失败，1秒后重试');
       await new Promise(r => setTimeout(r, 1000));
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        finishVoiceExecution();
+        return;
+      }
       ttsResult = await ttsService.synthesize({
         appId: creds.appId,
         accessToken: creds.accessToken,
@@ -622,6 +640,7 @@ async function speakResult(summary: string): Promise<void> {
 
     if (!ttsResult) {
       log.info('TTS: 合成失败或被中断，跳过播放');
+      finishVoiceExecution();
       return;
     }
 
@@ -638,6 +657,10 @@ async function speakResult(summary: string): Promise<void> {
       const mime = ext === 'jpg' ? 'jpeg' : ext;
       personaAvatar = `data:image/${mime};base64,${data.toString('base64')}`;
     }
+
+    // Audio ready — transition to completed (green dot) and start speaking
+    store.setSpeaking(true);
+    finishVoiceExecution();
 
     subtitlePopup.show(trayBounds, {
       audio: audioBuffer,
@@ -667,10 +690,12 @@ async function speakResult(summary: string): Promise<void> {
     ttsAbortController = null;
     subtitlePopup.close();
     ttsService.stop();
-    updateTrayDot();
     if (store.appState === 'completed') {
       store.transition('idle');
+    } else if (store.appState === 'executing') {
+      store.transition('completed');
     }
+    updateTrayDot();
   }
 }
 
@@ -678,7 +703,7 @@ async function speakResult(summary: string): Promise<void> {
 function registerIpcHandlers(): void {
   // voice-bar messages
   ipcMain.on('voice:send', (_, data: { text: string }) => {
-    executePrompt(data.text);
+    executePrompt(data.text, true);
   });
 
   ipcMain.on('voice:cancel', () => {
