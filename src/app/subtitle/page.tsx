@@ -30,7 +30,7 @@ function SubtitleContent() {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const autoScrollRef = useRef(true);
   const manualScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textContainerRef = useRef<HTMLDivElement | null>(null);
+  const lastIndexRef = useRef(-1);
 
   const stopTick = useCallback(() => {
     if (intervalRef.current !== null) {
@@ -57,7 +57,10 @@ function SubtitleContent() {
         }
       }
 
-      setCurrentIndex(idx);
+      if (idx !== lastIndexRef.current) {
+        lastIndexRef.current = idx;
+        setCurrentIndex(idx);
+      }
 
       // Auto-scroll to current word
       if (idx >= 0 && autoScrollRef.current && wordRefs.current[idx]) {
@@ -89,21 +92,6 @@ function SubtitleContent() {
     };
   }, [stopTick]);
 
-  // Measure text height and notify main process
-  useEffect(() => {
-    if (!textContainerRef.current || !visible) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const height = entry.contentRect.height;
-        getIpcRenderer()?.send('tts-content-height', height);
-      }
-    });
-
-    observer.observe(textContainerRef.current);
-    return () => observer.disconnect();
-  }, [visible]);
-
   // Manual scroll override handler
   const handleScroll = useCallback(() => {
     autoScrollRef.current = false;
@@ -122,6 +110,7 @@ function SubtitleContent() {
     const handler = async (_event: any, payload: TtsAudioPayload) => {
       setPersonaName(payload.personaName?.charAt(0).toUpperCase() || 'S');
       setCurrentIndex(-1);
+      lastIndexRef.current = -1;
       wordRefs.current = [];
 
       let ctx: AudioContext;
@@ -161,8 +150,19 @@ function SubtitleContent() {
     };
 
     ipc.on('tts-audio-data', handler);
+
+    const stopHandler = () => {
+      stopTick();
+      sourceRef.current?.stop();
+      sourceRef.current = null;
+      setIsPlaying(false);
+      getIpcRenderer()?.send('tts-stop-requested');
+    };
+    ipc.on('tts-stop', stopHandler);
+
     return () => {
       ipc.removeListener('tts-audio-data', handler);
+      ipc.removeListener('tts-stop', stopHandler);
     };
   }, [stopTick]);
 
@@ -184,8 +184,6 @@ function SubtitleContent() {
         boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',
-        minHeight: '80px',
-        maxHeight: '400px',
         color: '#e0e0e0',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
       }}
@@ -265,11 +263,11 @@ function SubtitleContent() {
           lineHeight: '1.8',
           wordBreak: 'break-word',
           overflowY: 'auto',
-          maxHeight: 'calc(400px - 42px - 28px)',
+          height: '92px',
           paddingRight: '4px',
         }}
       >
-        <div ref={(el) => { textContainerRef.current = el; }}>
+        <div>
           {words.length > 0
             ? words.map((w, i) => {
                 let color = 'transparent';
@@ -288,6 +286,20 @@ function SubtitleContent() {
             : '...'}
         </div>
       </div>
+
+      {/* Bottom gradient mask */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '14px',
+          left: '18px',
+          right: '18px',
+          height: '28px',
+          background: 'linear-gradient(transparent, rgb(28, 28, 35))',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}
+      />
     </div>
   );
 }
