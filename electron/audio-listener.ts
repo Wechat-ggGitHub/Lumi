@@ -1,3 +1,6 @@
+import path from 'path';
+import fs from 'fs';
+import { app } from 'electron';
 import { log } from '../src/lib/logger';
 
 const RENDERER_HTML = `<!DOCTYPE html>
@@ -59,10 +62,20 @@ ipcRenderer.on('audio-listener:stop', () => {
 </body>
 </html>`;
 
+export type ListenerMode = 'wake-word' | 'recording' | 'continuous-chat';
+
 export class AudioListener {
   private win: Electron.BrowserWindow | null = null;
   private capturing = false;
   private chunkHandler: ((chunk: Float32Array) => void) | null = null;
+  private _mode: ListenerMode = 'wake-word';
+
+  get mode(): ListenerMode { return this._mode; }
+
+  setMode(mode: ListenerMode): void {
+    this._mode = mode;
+    log.info(`AudioListener: 模式切换为 ${mode}`);
+  }
 
   create(): void {
     const { BrowserWindow } = require('electron') as typeof import('electron');
@@ -80,17 +93,20 @@ export class AudioListener {
       },
     });
 
-    this.win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(RENDERER_HTML));
+    // data: URL 不是安全上下文，navigator.mediaDevices 不可用
+    // 用 file:// 加载以确保 getUserMedia 可用
+    const tmpDir = path.join(app.getPath('temp'), 'shrew');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const htmlPath = path.join(tmpDir, 'audio-listener.html');
+    fs.writeFileSync(htmlPath, RENDERER_HTML, 'utf-8');
+    this.win.loadFile(htmlPath);
     log.info('AudioListener: hidden window created');
   }
 
   registerChunkHandler(handler: (chunk: Float32Array) => void): void {
     const { ipcMain } = require('electron') as typeof import('electron');
 
-    if (this.chunkHandler) {
-      ipcMain.removeListener('audio-listener:pcm-chunk', this._onChunk);
-    }
-
+    if (this.chunkHandler) return;
     this.chunkHandler = handler;
     ipcMain.on('audio-listener:pcm-chunk', this._onChunk);
     log.info('AudioListener: chunk handler registered');
@@ -107,6 +123,13 @@ export class AudioListener {
 
     if (!this.win || this.win.isDestroyed()) {
       this.create();
+    }
+
+    // 等待页面加载完成，确保 navigator.mediaDevices 可用
+    if (this.win!.webContents.isLoading()) {
+      await new Promise<void>(resolve => {
+        this.win!.webContents.once('did-finish-load', resolve);
+      });
     }
 
     return new Promise((resolve, reject) => {
