@@ -52,7 +52,7 @@ let wakeWordEngine: WakeWordEngine | null = null;
 let audioListener: AudioListener | null = null;
 let voiceEndpoint: VoiceEndpoint | null = null;
 let wakeWordActive = false;
-let endpointMode = false;
+let continuousChatTimer: ReturnType<typeof setTimeout> | null = null;
 
 function startPersonaWatcher(): void {
   const personaDir = getPersonaDir(shrewDir);
@@ -70,16 +70,22 @@ function startPersonaWatcher(): void {
         log.warn('Persona watcher: profile.json 缺少 name 字段，跳过广播');
         return;
       }
+
+      // 同步更新唤醒词关键词
+      if (wakeWordEngine && wakeWordActive) {
+        wakeWordEngine.updateKeyword(profile.name);
+        log.info('唤醒词关键词已更新:', profile.name);
+      }
+
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('persona:updated');
+        }
+      });
     } catch (err) {
       log.error('Persona watcher: 解析 profile.json 失败:', err);
       return;
     }
-
-    BrowserWindow.getAllWindows().forEach(win => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('persona:updated');
-      }
-    });
   });
 
   personaWatcher.on('error', (err) => {
@@ -254,14 +260,8 @@ async function startWakeWord(): Promise<void> {
   }
 
   try {
-    if (!audioListener) {
-      audioListener = new AudioListener();
-      audioListener.create();
-      audioListener.registerChunkHandler(handleAudioChunk);
-      await audioListener.start();
-    } else if (!audioListener.isActive()) {
-      await audioListener.start();
-    }
+    await ensureAudioListener();
+    if (audioListener) audioListener.setMode('wake-word');
   } catch (err) {
     audioListener = null;
     throw err;
@@ -276,7 +276,6 @@ function stopWakeWord(): void {
   if (wakeWordEngine) wakeWordEngine.stop();
   if (audioListener) audioListener.stop();
   wakeWordActive = false;
-  endpointMode = false;
   log.info('唤醒词监听已停止');
 }
 
@@ -297,36 +296,27 @@ function destroyWakeWord(): void {
 }
 
 function handleAudioChunk(samples: Float32Array): void {
-  if (endpointMode) {
-    voiceEndpoint?.feed(samples);
-    return;
-  }
+  if (!audioListener) return;
 
-  if (wakeWordActive && wakeWordEngine) {
-    const detected = wakeWordEngine.feed(samples);
-    if (detected) {
-      onWakeWordDetected();
-    }
+  switch (audioListener.mode) {
+    case 'recording':
+    case 'continuous-chat':
+      voiceEndpoint?.feed(samples);
+      break;
+    case 'wake-word':
+      if (wakeWordActive && wakeWordEngine) {
+        const detected = wakeWordEngine.feed(samples);
+        if (detected) {
+          onWakeWordDetected();
+        }
+      }
+      break;
   }
 }
 
-function resumeWakeWord(): void {
-  if (!wakeWordEngine || !isWakeWordEnabled()) return;
-  wakeWordEngine.reset();
-  wakeWordEngine.start();
-  wakeWordActive = true;
-  endpointMode = false;
-  log.info('唤醒词监听已恢复');
-}
-
-function onWakeWordDetected(): void {
-  if (store.appState !== 'idle') {
-    log.info('唤醒词检测到但状态非 idle，忽略:', store.appState);
-    return;
-  }
-
-  log.info('唤醒词检测到！切换到录音模式');
-  endpointMode = true;
+function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-chat'): void {
+  log.info(`开始录音 (trigger: ${trigger})`);
+  if (audioListener) audioListener.setMode('recording');
 
   const settings = loadSettings();
   const timeout = settings.wakeWordSilenceTimeout ?? 3;
@@ -337,114 +327,129 @@ function onWakeWordDetected(): void {
     minDuration: 0.5,
     maxDuration: 30,
   });
-  voiceEndpoint.init();
+
+  try {
+    voiceEndpoint.init();
+  } catch (err) {
+    log.error('VoiceEndpoint 初始化失败:', err);
+    if (audioListener) audioListener.setMode('wake-word');
+    voiceEndpoint.destroy();
+    voiceEndpoint = null;
+    resumeWakeWord();
+    return;
+  }
+
   voiceEndpoint.setCallbacks(
     (wavPath) => onRecordingComplete(wavPath),
     () => onRecordingTooShort(),
+    (volume) => voiceBar.send('voice:volume', { volume }),
   );
   voiceEndpoint.start();
 
   voiceBar.show();
+  voiceBar.send('voice:start-recording');
   store.transition('recording');
   updateTrayDot();
 }
 
-function onRecordingComplete(wavPath: string): void {
-  endpointMode = false;
-  if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
-  log.info('唤醒词录音完成, 开始转写');
+async function ensureAudioListener(): Promise<void> {
+  if (!audioListener) {
+    audioListener = new AudioListener();
+    audioListener.create();
+    audioListener.registerChunkHandler(handleAudioChunk);
+    await audioListener.start();
+  } else if (!audioListener.isActive()) {
+    audioListener.create();
+    await audioListener.start();
+  }
+}
 
+function resumeWakeWord(): void {
+  if (!wakeWordEngine || !isWakeWordEnabled()) return;
+  wakeWordEngine.reset();
+  wakeWordEngine.start();
+  wakeWordActive = true;
+  if (audioListener) audioListener.setMode('wake-word');
+  log.info('唤醒词监听已恢复');
+}
+
+function onWakeWordDetected(): void {
+  if (store.appState !== 'idle') {
+    log.info('唤醒词检测到但状态非 idle，忽略:', store.appState);
+    return;
+  }
+  log.info('唤醒词检测到！');
+  startRecordingSession('wake-word');
+}
+
+function onRecordingComplete(wavPath: string): void {
+  if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
+  log.info('录音完成, 开始转写');
+
+  voiceBar.hide();
   store.transition('transcribing');
   updateTrayDot();
-  voiceBar.send('voice:transcribing');
 
-  recorder.transcribe(wavPath).then(text => {
+  recorder.transcribeFile(wavPath).then(text => {
     log.info('转写结果:', text || '(空)');
     if (text) {
-      store.transition('editing');
-      voiceBar.send('voice:transcript', { text, isAppending: false });
+      executePrompt(text, true);
     } else {
-      voiceBar.send('voice:error', { message: '未能识别语音，请重试' });
       store.transition('idle');
+      updateTrayDot();
+      resumeWakeWord();
     }
-    updateTrayDot();
   }).catch(err => {
     log.error('转写失败:', err);
     try { fs.unlinkSync(wavPath); } catch {}
-    voiceBar.send('voice:error', { message: err.message });
     store.transition('idle');
     updateTrayDot();
+    resumeWakeWord();
   });
 }
 
 function onRecordingTooShort(): void {
-  endpointMode = false;
   if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
-  log.info('唤醒词录音太短，忽略');
-  voiceBar.close();
-  store.transition('idle');
-  updateTrayDot();
-  resumeWakeWord();
+  log.info('录音太短，忽略');
+
+  if (store.continuousChatWindow) {
+    voiceBar.hide();
+    if (audioListener) audioListener.setMode('continuous-chat');
+  } else {
+    voiceBar.close();
+    store.transition('idle');
+    updateTrayDot();
+    resumeWakeWord();
+  }
 }
 
 // 右 Command 按键处理
 function handleRightCommand(): void {
+  // 如果正在录音中，手动结束
+  if (voiceEndpoint && audioListener?.mode === 'recording') {
+    voiceEndpoint.finish();
+    return;
+  }
+
   const action = store.getRightCommandAction();
 
   switch (action) {
     case 'start-recording':
-      log.info('开始录音');
-      voiceBar.show();
-      recorder.startRecording().catch(err => {
-        log.error('录音启动失败:', err);
-        if (store.appState === 'recording') {
-          voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
-          store.transition('idle');
-          updateTrayDot();
-        }
-      });
-      store.transition('recording');
-      updateTrayDot();
+      if (!audioListener || !audioListener.isActive()) {
+        ensureAudioListener().then(() => {
+          startRecordingSession('shortcut');
+        }).catch(err => {
+          log.error('启动 AudioListener 失败:', err);
+        });
+      } else {
+        startRecordingSession('shortcut');
+      }
       break;
 
     case 'stop-recording':
-      log.info('停止录音');
-      recorder.stopRecording().then(audioPath => {
-        store.transition('transcribing');
-        updateTrayDot();
-        voiceBar.send('voice:transcribing');
-
-        return recorder.transcribe(audioPath);
-      }).then(text => {
-        log.info('转写结果:', text || '(空)');
-        if (text) {
-          store.transition('editing');
-          voiceBar.send('voice:transcript', { text, isAppending: false });
-        } else {
-          voiceBar.send('voice:error', { message: '未能识别语音，请重试' });
-          store.transition('idle');
-        }
-        updateTrayDot();
-      }).catch(err => {
-        log.error('转写失败:', err);
-        voiceBar.send('voice:error', { message: err.message });
-        store.transition('idle');
-        updateTrayDot();
-      });
-      break;
-
-    case 'append-recording':
-      log.info('追加录音');
-      recorder.startRecording().catch(err => {
-        log.error('追加录音失败:', err);
-        if (store.appState === 'recording') {
-          voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
-          store.transition('idle');
-          updateTrayDot();
-        }
-      });
-      store.transition('recording');
-      updateTrayDot();
+      if (voiceEndpoint) {
+        voiceEndpoint.finish();
+      }
       break;
 
     case 'cancel-execution':
@@ -456,6 +461,7 @@ function handleRightCommand(): void {
 
     case 'stop-speaking':
       log.info('中断语音朗读');
+      cancelContinuousChat();
       if (ttsAbortController) {
         ttsAbortController.abort();
         ttsAbortController = null;
@@ -469,6 +475,70 @@ function handleRightCommand(): void {
     case 'none':
       break;
   }
+}
+
+function startContinuousChat(): void {
+  log.info('进入连续对话模式');
+  if (continuousChatTimer) {
+    clearTimeout(continuousChatTimer);
+    continuousChatTimer = null;
+  }
+
+  store.setContinuousChatWindow(true);
+
+  if (audioListener && audioListener.isActive()) {
+    audioListener.setMode('continuous-chat');
+  }
+
+  const settings = loadSettings();
+  const timeout = settings.wakeWordSilenceTimeout ?? 3;
+
+  if (voiceEndpoint) voiceEndpoint.destroy();
+  voiceEndpoint = new VoiceEndpoint({
+    silenceTimeout: timeout,
+    minDuration: 0.5,
+    maxDuration: 30,
+  });
+
+  try {
+    voiceEndpoint.init();
+  } catch (err) {
+    log.error('连续对话 VAD 初始化失败:', err);
+    voiceEndpoint.destroy();
+    voiceEndpoint = null;
+    return;
+  }
+
+  voiceEndpoint.setCallbacks(
+    (wavPath) => {
+      subtitlePopup.fadeOut();
+      setTimeout(() => {
+        onRecordingComplete(wavPath);
+      }, 350);
+    },
+    () => {
+      log.info('连续对话: 语音太短，保持监听');
+    },
+    (volume) => {
+      if (volume > 0.1 && !voiceBar.isVisible()) {
+        voiceBar.show();
+        voiceBar.send('voice:start-recording');
+      }
+      voiceBar.send('voice:volume', { volume });
+    },
+  );
+  voiceEndpoint.start();
+}
+
+function cancelContinuousChat(): void {
+  if (continuousChatTimer) {
+    clearTimeout(continuousChatTimer);
+    continuousChatTimer = null;
+  }
+  store.setContinuousChatWindow(false);
+  if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
+  voiceBar.hide();
+  resumeWakeWord();
 }
 
 // 执行 Claude 命令
@@ -860,7 +930,24 @@ async function speakResult(summary: string): Promise<void> {
     subtitlePopup.close();
     ttsService.stop();
     if (store.appState === 'completed') {
-      store.transition('idle');
+      if (isWakeWordEnabled()) {
+        startContinuousChat();
+        continuousChatTimer = setTimeout(() => {
+          if (store.continuousChatWindow && store.appState !== 'recording') {
+            log.info('连续对话窗口过期');
+            store.setContinuousChatWindow(false);
+            if (audioListener) audioListener.setMode('wake-word');
+            if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
+            voiceBar.hide();
+            store.transition('idle');
+            updateTrayDot();
+            resumeWakeWord();
+          }
+          continuousChatTimer = null;
+        }, 5000);
+      } else {
+        store.transition('idle');
+      }
     } else if (store.appState === 'executing') {
       store.transition('completed');
     }
@@ -871,30 +958,13 @@ async function speakResult(summary: string): Promise<void> {
 // IPC Handlers
 function registerIpcHandlers(): void {
   // voice-bar messages
-  ipcMain.on('voice:send', (_, data: { text: string }) => {
-    executePrompt(data.text, true);
-  });
-
   ipcMain.on('voice:cancel', () => {
-    if (store.appState === 'recording') {
-      recorder.stopRecording().catch(() => {});
-    }
+    cancelContinuousChat();
+    if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
     voiceBar.close();
     store.transition('idle');
     updateTrayDot();
-  });
-
-  ipcMain.on('voice:request-append', () => {
-    recorder.startRecording().catch(err => {
-      console.error('Append recording failed:', err);
-      if (store.appState === 'recording') {
-        voiceBar.send('voice:error', { message: `录音失败: ${err.message}` });
-        store.transition('idle');
-        updateTrayDot();
-      }
-    });
-    store.transition('recording');
-    updateTrayDot();
+    resumeWakeWord();
   });
 
   // chat window IPC
@@ -1378,7 +1448,7 @@ app.whenReady().then(async () => {
     broadcastChatState();
 
     // Resume wake word spotting when returning to idle
-    if (store.appState === 'idle' && isWakeWordEnabled() && !endpointMode) {
+    if (store.appState === 'idle' && isWakeWordEnabled() && !store.continuousChatWindow) {
       if (!wakeWordActive) {
         startWakeWord().catch(err => log.error('恢复唤醒词监听失败:', err));
       } else if (wakeWordEngine) {
@@ -1440,20 +1510,15 @@ app.whenReady().then(async () => {
 
   // voice-bar 失焦自动关闭
   voiceBar.onBlur = () => {
-    if (endpointMode) {
-      endpointMode = false;
-      if (voiceEndpoint) {
-        voiceEndpoint.destroy();
-        voiceEndpoint = null;
-      }
-    }
-    if (store.appState === 'recording') {
-      recorder.stopRecording().catch(() => {});
+    if (voiceEndpoint) {
+      voiceEndpoint.destroy();
+      voiceEndpoint = null;
     }
     if (store.appState !== 'transcribing' && store.appState !== 'thinking' && store.appState !== 'executing') {
       voiceBar.close();
       store.transition('idle');
       updateTrayDot();
+      if (isWakeWordEnabled()) resumeWakeWord();
     }
   };
 
