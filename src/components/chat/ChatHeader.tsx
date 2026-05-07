@@ -15,7 +15,6 @@ function getStatusText(appState: AppState, sdkSubState: SdkSubState, currentTool
   switch (appState) {
     case 'recording': return '正在听...';
     case 'transcribing': return '正在转写...';
-    case 'editing': return '等待发送';
     case 'thinking': return '正在思考...';
     case 'executing':
       if (currentToolName) return `正在执行: ${currentToolName}`;
@@ -33,8 +32,7 @@ function getDotColorClass(appState: AppState): string {
     case 'completed': return 'bg-success';
     case 'error': return 'bg-danger';
     case 'recording': return 'bg-warning';
-    case 'transcribing':
-    case 'editing': return 'bg-text-muted';
+    case 'transcribing': return 'bg-text-muted';
     default: return '';
   }
 }
