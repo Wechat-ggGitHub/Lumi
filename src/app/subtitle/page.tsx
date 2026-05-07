@@ -26,6 +26,7 @@ function SubtitleContent() {
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const startTimeRef = useRef<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -145,8 +146,11 @@ function SubtitleContent() {
       try {
         const audioBuffer = await ctx.decodeAudioData(payload.audio.buffer.slice(0) as ArrayBuffer);
         const source = ctx.createBufferSource();
+        const gainNode = ctx.createGain();
         source.buffer = audioBuffer;
-        source.connect(ctx.destination);
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        gainNodeRef.current = gainNode;
 
         source.onended = () => {
           setIsPlaying(false);
@@ -180,10 +184,27 @@ function SubtitleContent() {
     };
     ipc.on('tts-stop', stopHandler);
 
+    const fadeOutHandler = () => {
+      const ctx = audioCtxRef.current;
+      const gn = gainNodeRef.current;
+      if (ctx && gn) {
+        gn.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+      }
+      setTimeout(() => {
+        stopTick();
+        sourceRef.current?.stop();
+        sourceRef.current = null;
+        setIsPlaying(false);
+        getIpcRenderer()?.send('tts-stop-requested');
+      }, 350);
+    };
+    ipc.on('tts-fade-out', fadeOutHandler);
+
     return () => {
       ipc.removeListener('tts-reset', resetHandler);
       ipc.removeListener('tts-audio-data', handler);
       ipc.removeListener('tts-stop', stopHandler);
+      ipc.removeListener('tts-fade-out', fadeOutHandler);
     };
   }, [stopTick]);
 

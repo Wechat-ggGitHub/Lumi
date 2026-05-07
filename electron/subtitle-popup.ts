@@ -104,6 +104,13 @@ export class SubtitlePopup {
     }
   }
 
+  /** 渐弱 TTS 音量并在 300ms 后停止 */
+  fadeOut(): void {
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('tts-fade-out');
+    }
+  }
+
   stop(): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.webContents.send('tts-stop');
