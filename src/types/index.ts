@@ -3,7 +3,6 @@ export type AppState =
   | 'idle'
   | 'recording'
   | 'transcribing'
-  | 'editing'
   | 'thinking'
   | 'executing'
   | 'completed'
@@ -127,11 +126,8 @@ export interface IpcMessages {
   'voice:transcribing': void;
   'voice:error': { message: string };
 
-  // voice-bar <-> main (audio capture)
-  'voice:start-capture': void;
-  'voice:stop-capture': void;
-  'voice:capture-started': boolean;
-  'voice:audio-data': { samples: Float32Array; sampleRate: number };
+  'voice:volume': { volume: number };
+  'voice:continuous-chat-hint': { remaining: number };
 
   // chat window: renderer -> main
   'chat:ready': void;
