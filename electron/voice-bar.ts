@@ -46,17 +46,6 @@ export class VoiceBarWindow {
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/voice-bar`);
   }
 
-  /** 显示呼吸灯提示（连续对话待机），小尺寸 */
-  showHint(): void {
-    if (!this.win || this.win.isDestroyed()) {
-      this.preCreate();
-    }
-    this.win!.setSize(120, 6);
-    const pos = this.centerPosition(120, 6);
-    this.win!.setPosition(pos.x, pos.y);
-    this.win!.showInactive();
-  }
-
   /** 显示录音指示器，正常尺寸 */
   show(): void {
     if (!this.win || this.win.isDestroyed()) {

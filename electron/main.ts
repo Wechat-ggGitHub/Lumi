@@ -54,6 +54,22 @@ let voiceEndpoint: VoiceEndpoint | null = null;
 let wakeWordActive = false;
 let continuousChatTimer: ReturnType<typeof setTimeout> | null = null;
 let fadeOutTimer: ReturnType<typeof setTimeout> | null = null;
+let recordingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+let voiceBarHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearRecordingTimeoutTimer(): void {
+  if (recordingTimeoutTimer) {
+    clearTimeout(recordingTimeoutTimer);
+    recordingTimeoutTimer = null;
+  }
+}
+
+function clearVoiceBarHideTimer(): void {
+  if (voiceBarHideTimer) {
+    clearTimeout(voiceBarHideTimer);
+    voiceBarHideTimer = null;
+  }
+}
 
 function startPersonaWatcher(): void {
   const personaDir = getPersonaDir(shrewDir);
@@ -294,6 +310,8 @@ function destroyWakeWord(): void {
     voiceEndpoint.destroy();
     voiceEndpoint = null;
   }
+  clearRecordingTimeoutTimer();
+  clearVoiceBarHideTimer();
 }
 
 function handleAudioChunk(samples: Float32Array): void {
@@ -317,10 +335,11 @@ function handleAudioChunk(samples: Float32Array): void {
 
 function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-chat'): void {
   log.info(`开始录音 (trigger: ${trigger})`);
+  clearVoiceBarHideTimer();
   if (audioListener) audioListener.setMode('recording');
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 3;
+  const timeout = settings.wakeWordSilenceTimeout ?? 2;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
@@ -348,9 +367,17 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   voiceEndpoint.start();
 
   voiceBar.show();
-  voiceBar.send('voice:start-recording');
+  voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
   store.transition('recording');
   updateTrayDot();
+
+  // 8s 绝对超时兜底：避免 VAD 卡死永不收尾
+  clearRecordingTimeoutTimer();
+  recordingTimeoutTimer = setTimeout(() => {
+    log.warn('录音绝对超时（8s），强制 finish');
+    recordingTimeoutTimer = null;
+    if (voiceEndpoint) voiceEndpoint.finish();
+  }, 8000);
 }
 
 async function ensureAudioListener(): Promise<void> {
@@ -384,18 +411,29 @@ function onWakeWordDetected(): void {
 }
 
 function onRecordingComplete(wavPath: string): void {
+  clearRecordingTimeoutTimer();
   if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
   log.info('录音完成, 开始转写');
 
-  voiceBar.hide();
+  // 切换 voice bar 视觉到 transcribing；不再 hide
+  voiceBar.send('voice:state', { state: 'transcribing', message: '识别中…' });
   store.transition('transcribing');
   updateTrayDot();
 
   recorder.transcribeFile(wavPath).then(text => {
     log.info('转写结果:', text || '(空)');
     if (text) {
+      // 成功路径：交给 executePrompt（其内部会在 thinking 时关闭 voice bar）
       executePrompt(text, true);
     } else {
+      // ASR 成功但识别为空：显示 too-short 1.2s
+      voiceBar.send('voice:state', { state: 'too-short', message: '没听清' });
+      clearVoiceBarHideTimer();
+      voiceBarHideTimer = setTimeout(() => {
+        voiceBarHideTimer = null;
+        voiceBar.hide();
+        voiceBar.send('voice:state', { state: 'hidden' });
+      }, 1200);
       store.transition('idle');
       updateTrayDot();
       resumeWakeWord();
@@ -403,6 +441,14 @@ function onRecordingComplete(wavPath: string): void {
   }).catch(err => {
     log.error('转写失败:', err);
     try { fs.unlinkSync(wavPath); } catch {}
+    // ASR 失败：显示 error 2s
+    voiceBar.send('voice:state', { state: 'error', message: '识别失败' });
+    clearVoiceBarHideTimer();
+    voiceBarHideTimer = setTimeout(() => {
+      voiceBarHideTimer = null;
+      voiceBar.hide();
+      voiceBar.send('voice:state', { state: 'hidden' });
+    }, 2000);
     store.transition('idle');
     updateTrayDot();
     resumeWakeWord();
@@ -410,18 +456,25 @@ function onRecordingComplete(wavPath: string): void {
 }
 
 function onRecordingTooShort(): void {
+  clearRecordingTimeoutTimer();
   if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
   log.info('录音太短，忽略');
 
-  if (store.continuousChatWindow) {
+  voiceBar.send('voice:state', { state: 'too-short', message: '没听清' });
+  clearVoiceBarHideTimer();
+  voiceBarHideTimer = setTimeout(() => {
+    voiceBarHideTimer = null;
     voiceBar.hide();
-    if (audioListener) audioListener.setMode('continuous-chat');
-  } else {
-    voiceBar.close();
-    store.transition('idle');
-    updateTrayDot();
-    resumeWakeWord();
-  }
+    voiceBar.send('voice:state', { state: 'hidden' });
+    if (store.continuousChatWindow) {
+      // 连续对话期间静默期保持 audioListener 在 continuous-chat 模式
+      if (audioListener) audioListener.setMode('continuous-chat');
+    } else {
+      store.transition('idle');
+      updateTrayDot();
+      resumeWakeWord();
+    }
+  }, 1200);
 }
 
 // 右 Command 按键处理
@@ -492,7 +545,7 @@ function startContinuousChat(): void {
   }
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 3;
+  const timeout = settings.wakeWordSilenceTimeout ?? 2;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
@@ -522,18 +575,17 @@ function startContinuousChat(): void {
       log.info('连续对话: 语音太短，保持监听');
     },
     (volume) => {
+      // 连续对话期间 voice bar 默认 hidden；用户开口达到阈值才显示 recording
       if (volume > 0.1 && !voiceBar.isVisible()) {
         voiceBar.show();
-        voiceBar.send('voice:start-recording');
+        voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
       }
       voiceBar.send('voice:volume', { volume });
     },
   );
   voiceEndpoint.start();
 
-  // 显示呼吸灯提示（连续对话待机）
-  voiceBar.showHint();
-  voiceBar.send('voice:continuous-chat-hint', { remaining: 5 });
+  // 不再调用 voiceBar.showHint()——5 秒静默期保持 hidden
 }
 
 function cancelContinuousChat(): void {

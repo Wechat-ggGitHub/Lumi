@@ -118,9 +118,11 @@ export interface IpcMessages {
   'voice:cancel': void;
 
   // main -> voice-bar
-  'voice:start-recording': void;
+  'voice:state': {
+    state: 'recording' | 'transcribing' | 'too-short' | 'error' | 'hidden';
+    message?: string;
+  };
   'voice:volume': { volume: number };
-  'voice:continuous-chat-hint': { remaining: number };
 
   // chat window: renderer -> main
   'chat:ready': void;

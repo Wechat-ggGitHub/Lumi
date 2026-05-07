@@ -1,146 +1,153 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+type VoiceState = 'recording' | 'transcribing' | 'too-short' | 'error';
+
+type VoiceStatePayload = {
+  state: VoiceState | 'hidden';
+  message?: string;
+};
 
 type VoiceInputProps = {
   onCancel: () => void;
 };
 
-export function VoiceInput({ onCancel }: VoiceInputProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animFrameRef = useRef<number>(0);
-  const volumeRef = useRef(0);
-  const [status, setStatus] = useState<'recording' | 'hint'>('recording');
+const BAR_COUNT = 5;
+const RECORDING_BASE = [6, 10, 14, 8, 12];
 
-  // 接收实时音量
+export function VoiceInput({ onCancel }: VoiceInputProps) {
+  const [state, setState] = useState<VoiceState>('recording');
+  const [message, setMessage] = useState<string>('在听…');
+  const volumeRef = useRef(0);
+  const barRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const animFrameRef = useRef<number>(0);
+
+  // IPC: voice:state 切换状态；voice:volume 喂音量
   useEffect(() => {
     const { ipcRenderer } = require('electron');
-    const onVolume = (_: any, data: { volume: number }) => {
+    const onState = (_: unknown, payload: VoiceStatePayload) => {
+      if (payload.state === 'hidden') return; // hidden 由窗口 hide 处理，不进入渲染
+      setState(payload.state);
+      if (payload.message !== undefined) setMessage(payload.message);
+    };
+    const onVolume = (_: unknown, data: { volume: number }) => {
       volumeRef.current = data.volume;
     };
-    const onHint = () => {
-      setStatus('hint');
-    };
-    const onRecording = () => {
-      setStatus('recording');
-    };
-
+    ipcRenderer.on('voice:state', onState);
     ipcRenderer.on('voice:volume', onVolume);
-    ipcRenderer.on('voice:continuous-chat-hint', onHint);
-    ipcRenderer.on('voice:start-recording', onRecording);
-
     return () => {
+      ipcRenderer.removeListener('voice:state', onState);
       ipcRenderer.removeListener('voice:volume', onVolume);
-      ipcRenderer.removeListener('voice:continuous-chat-hint', onHint);
-      ipcRenderer.removeListener('voice:start-recording', onRecording);
     };
   }, []);
 
-  // Canvas 波浪动画
+  // 仅 recording 状态用音量驱动 5 根条；其它状态走静态 / CSS 动画
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = 160 * dpr;
-    canvas.height = 24 * dpr;
-    ctx.scale(dpr, dpr);
-
-    let phase = 0;
-
-    const draw = () => {
-      ctx.clearRect(0, 0, 160, 24);
-
-      const amplitude = 2 + volumeRef.current * 10;
-      ctx.beginPath();
-      ctx.strokeStyle = '#5B8DEF';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-
-      for (let x = 0; x < 160; x++) {
-        const y = 12 + Math.sin((x / 160) * Math.PI * 4 + phase) * amplitude;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    if (state !== 'recording') return;
+    const tick = () => {
+      const v = volumeRef.current;
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const el = barRefs.current[i];
+        if (!el) continue;
+        const base = RECORDING_BASE[i];
+        const amp = base + v * 8 * Math.sin((Date.now() / 120) + i);
+        const h = Math.max(3, Math.min(14, amp));
+        el.style.height = `${h}px`;
       }
-      ctx.stroke();
-
-      phase += 0.05 + volumeRef.current * 0.1;
-      animFrameRef.current = requestAnimationFrame(draw);
+      animFrameRef.current = requestAnimationFrame(tick);
     };
-
-    draw();
+    animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [status]);
+  }, [state]);
 
-  // ESC 键关闭
+  // ESC 关闭（仅 recording / error 允许；transcribing / too-short 不可中断）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape' && (state === 'recording' || state === 'error')) {
+        onCancel();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  }, [onCancel, state]);
 
-  if (status === 'hint') {
-    return (
-      <div style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{
-          width: 80,
-          height: 3,
-          borderRadius: 2,
-          background: 'rgba(91, 141, 239, 0.4)',
-          animation: 'breathe 1.5s ease-in-out infinite',
-        }} />
-        <style>{`
-          @keyframes breathe {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.8; }
-          }
-        `}</style>
-      </div>
-    );
-  }
+  const showClose = state === 'recording' || state === 'error';
+  const barColor =
+    state === 'recording' ? '#4CAF50'
+    : state === 'transcribing' ? '#7AA8FF'
+    : state === 'too-short' ? '#cfa44a'
+    : '#ff6b6b';
+  const messageColor =
+    state === 'error' ? '#ff8b8b'
+    : state === 'too-short' ? 'rgba(255,255,255,0.55)'
+    : '#e6e6ec';
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      padding: '8px 16px',
-    }}>
-      <canvas
-        ref={canvasRef}
-        style={{ width: 160, height: 24 }}
-      />
-      <button
-        onClick={onCancel}
-        style={{
-          background: 'rgba(255,255,255,0.1)',
-          border: 'none',
-          borderRadius: '50%',
-          width: 28,
-          height: 28,
-          color: 'rgba(255,255,255,0.5)',
-          fontSize: 16,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'color 0.15s',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
-        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
-      >
-        ×
-      </button>
-    </div>
+    <>
+      <style>{`
+        @keyframes vbWaveSlow { from { height:4px } to { height:10px } }
+      `}</style>
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        background: 'rgb(28, 28, 35)',
+        borderRadius: 14,
+        padding: '10px 14px',
+        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
+        color: messageColor,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+        fontSize: 13,
+        transition: 'opacity 200ms ease',
+      }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, height: 14 }}>
+          {Array.from({ length: BAR_COUNT }).map((_, i) => (
+            <span
+              key={i}
+              ref={(el) => { barRefs.current[i] = el; }}
+              style={{
+                width: 2,
+                borderRadius: 1,
+                background: barColor,
+                display: 'block',
+                height: state === 'recording' ? `${RECORDING_BASE[i]}px`
+                  : state === 'transcribing' ? '4px'
+                  : state === 'too-short' ? (i === 2 ? '6px' : '4px')
+                  : (i === 2 ? '8px' : '4px'),
+                animation: state === 'transcribing'
+                  ? `vbWaveSlow 0.9s ease-in-out ${i * 0.12}s infinite alternate`
+                  : 'none',
+              }}
+            />
+          ))}
+        </div>
+        <span>{message}</span>
+        {showClose && (
+          <button
+            onClick={onCancel}
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              border: 'none',
+              background: 'rgba(255,255,255,0.08)',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginLeft: 4,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.20)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+              <path d="M1 1L7 7M7 1L1 7" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </>
   );
 }
