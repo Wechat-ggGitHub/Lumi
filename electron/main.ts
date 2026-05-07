@@ -9,6 +9,9 @@ import { AudioRecorder } from './recorder';
 import { ShrewStore } from '../src/lib/store';
 import { TtsService, TtsResult } from './tts';
 import { SubtitlePopup } from './subtitle-popup';
+import { WakeWordEngine } from './wake-word';
+import { AudioListener } from './audio-listener';
+import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
@@ -45,6 +48,11 @@ let subtitlePopup: SubtitlePopup;
 let ttsAbortController: AbortController | null = null;
 let personaWatcher: fs.FSWatcher | null = null;
 let isQuitting = false;
+let wakeWordEngine: WakeWordEngine | null = null;
+let audioListener: AudioListener | null = null;
+let voiceEndpoint: VoiceEndpoint | null = null;
+let wakeWordActive = false;
+let endpointMode = false;
 
 function startPersonaWatcher(): void {
   const personaDir = getPersonaDir(shrewDir);
@@ -216,6 +224,139 @@ function broadcastChatState(): void {
     sdkSubState: store.sdkSubState,
     currentToolName: store.currentToolName ?? undefined,
   });
+}
+
+// --- Wake Word Functions ---
+
+function isWakeWordEnabled(): boolean {
+  const settings = loadSettings();
+  return settings.wakeWordEnabled === true;
+}
+
+function getKeyword(): string {
+  const profile = readProfile(shrewDir);
+  return profile.name || 'Shrew';
+}
+
+async function startWakeWord(): Promise<void> {
+  if (wakeWordActive) return;
+
+  const keyword = getKeyword();
+
+  if (!wakeWordEngine) {
+    wakeWordEngine = new WakeWordEngine();
+    wakeWordEngine.init(keyword);
+  }
+
+  if (!audioListener) {
+    audioListener = new AudioListener();
+    audioListener.create();
+    audioListener.registerChunkHandler(handleAudioChunk);
+    await audioListener.start();
+  } else if (!audioListener.isActive()) {
+    await audioListener.start();
+  }
+
+  wakeWordEngine.start();
+  wakeWordActive = true;
+  log.info('唤醒词监听已启动, 关键词:', keyword);
+}
+
+function stopWakeWord(): void {
+  if (wakeWordEngine) wakeWordEngine.stop();
+  if (audioListener) audioListener.stop();
+  wakeWordActive = false;
+  endpointMode = false;
+  log.info('唤醒词监听已停止');
+}
+
+function destroyWakeWord(): void {
+  stopWakeWord();
+  if (wakeWordEngine) {
+    wakeWordEngine.destroy();
+    wakeWordEngine = null;
+  }
+  if (audioListener) {
+    audioListener.destroy();
+    audioListener = null;
+  }
+  if (voiceEndpoint) {
+    voiceEndpoint.destroy();
+    voiceEndpoint = null;
+  }
+}
+
+function handleAudioChunk(samples: Float32Array): void {
+  if (endpointMode) {
+    voiceEndpoint?.feed(samples);
+    return;
+  }
+
+  if (wakeWordActive && wakeWordEngine) {
+    const detected = wakeWordEngine.feed(samples);
+    if (detected) {
+      onWakeWordDetected();
+    }
+  }
+}
+
+function onWakeWordDetected(): void {
+  log.info('唤醒词检测到！切换到录音模式');
+  wakeWordEngine?.stop();
+  endpointMode = true;
+
+  const settings = loadSettings();
+  const timeout = settings.wakeWordSilenceTimeout ?? 3;
+
+  voiceEndpoint = new VoiceEndpoint({
+    silenceTimeout: timeout,
+    minDuration: 0.5,
+    maxDuration: 30,
+  });
+  voiceEndpoint.init();
+  voiceEndpoint.setCallbacks(
+    (wavPath) => onRecordingComplete(wavPath),
+    () => onRecordingTooShort(),
+  );
+  voiceEndpoint.start();
+
+  voiceBar.show();
+  store.transition('recording');
+  updateTrayDot();
+}
+
+function onRecordingComplete(wavPath: string): void {
+  endpointMode = false;
+  log.info('唤醒词录音完成, 开始转写');
+
+  store.transition('transcribing');
+  updateTrayDot();
+  voiceBar.send('voice:transcribing');
+
+  recorder.transcribe(wavPath).then(text => {
+    log.info('转写结果:', text || '(空)');
+    if (text) {
+      store.transition('editing');
+      voiceBar.send('voice:transcript', { text, isAppending: false });
+    } else {
+      voiceBar.send('voice:error', { message: '未能识别语音，请重试' });
+      store.transition('idle');
+    }
+    updateTrayDot();
+  }).catch(err => {
+    log.error('转写失败:', err);
+    voiceBar.send('voice:error', { message: err.message });
+    store.transition('idle');
+    updateTrayDot();
+  });
+}
+
+function onRecordingTooShort(): void {
+  endpointMode = false;
+  log.info('唤醒词录音太短，忽略');
+  voiceBar.close();
+  store.transition('idle');
+  updateTrayDot();
 }
 
 // 右 Command 按键处理
@@ -1068,6 +1209,40 @@ function registerIpcHandlers(): void {
 
   // NOTE: globalThis IPC 不可用于 standalone 服务器（独立子进程）。
   // 所有通信通过 Electron ipcMain/ipcRenderer 进行。
+
+  // Wake word IPC handlers
+  ipcMain.handle('wake-word:toggle', async (_event, { enabled }: { enabled: boolean }) => {
+    const settings = loadSettings();
+    settings.wakeWordEnabled = enabled;
+    saveSettings(settings);
+
+    if (enabled) {
+      try {
+        await startWakeWord();
+        return { success: true };
+      } catch (err: any) {
+        log.error('启动唤醒词失败:', err);
+        return { success: false, error: err.message };
+      }
+    } else {
+      destroyWakeWord();
+      return { success: true };
+    }
+  });
+
+  ipcMain.handle('wake-word:status', () => {
+    return {
+      enabled: isWakeWordEnabled(),
+      active: wakeWordActive,
+      keyword: getKeyword(),
+    };
+  });
+
+  ipcMain.handle('wake-word:update-keyword', (_event, { keyword }: { keyword: string }) => {
+    if (wakeWordEngine) {
+      wakeWordEngine.updateKeyword(keyword);
+    }
+  });
 }
 
 // 启动应用
@@ -1173,6 +1348,11 @@ app.whenReady().then(async () => {
   store.onChange(() => {
     updateTrayDot();
     broadcastChatState();
+
+    // Resume wake word spotting when returning to idle
+    if (store.appState === 'idle' && isWakeWordEnabled() && !wakeWordActive && !endpointMode) {
+      startWakeWord().catch(err => log.error('恢复唤醒词监听失败:', err));
+    }
   });
 
   // 创建菜单栏 Tray
@@ -1216,8 +1396,25 @@ app.whenReady().then(async () => {
   recorder.setWindow(voiceBar.getWindow()!);
   log.info('快捷键:', shortcutReady ? '已就绪' : '未授权');
 
+  // Initialize wake word if enabled
+  if (isWakeWordEnabled()) {
+    try {
+      await startWakeWord();
+      log.info('唤醒词功能已启动');
+    } catch (err) {
+      log.error('启动唤醒词功能失败:', err);
+    }
+  }
+
   // voice-bar 失焦自动关闭
   voiceBar.onBlur = () => {
+    if (endpointMode) {
+      endpointMode = false;
+      if (voiceEndpoint) {
+        voiceEndpoint.destroy();
+        voiceEndpoint = null;
+      }
+    }
     if (store.appState === 'recording') {
       recorder.stopRecording().catch(() => {});
     }
@@ -1312,6 +1509,7 @@ app.on('before-quit', () => {
     mainWindow.close();
   }
   personaWatcher?.close();
+  destroyWakeWord();
   shortcutManager?.stop();
   ttsService?.stop();
   subtitlePopup?.destroy();
