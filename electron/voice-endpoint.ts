@@ -163,5 +163,7 @@ export class VoiceEndpoint {
     this.chunks = [];
     this.vad = null;
     this.onVolume = null;
+    this.onComplete = null;
+    this.onTooShort = null;
   }
 }

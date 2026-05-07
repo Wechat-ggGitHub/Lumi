@@ -44,10 +44,10 @@ export class ShrewStore {
     this._appState = newState;
     this.notify();
 
-    // completed 是瞬态（2-3s），自动转回 idle
+    // completed 是瞬态，自动转回 idle（连续对话模式下由外部管理）
     if (newState === 'completed') {
       this._completedTimer = setTimeout(() => {
-        if (this._appState === 'completed' && !this._speaking) {
+        if (this._appState === 'completed' && !this._speaking && !this._continuousChatWindow) {
           this.transition('idle');
         }
       }, 2500);

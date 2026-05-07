@@ -116,13 +116,9 @@ export interface McpServerConfig {
 export interface IpcMessages {
   // voice-bar -> main
   'voice:cancel': void;
-  'voice:ready': void;
 
   // main -> voice-bar
   'voice:start-recording': void;
-  'voice:transcribing': void;
-  'voice:error': { message: string };
-
   'voice:volume': { volume: number };
   'voice:continuous-chat-hint': { remaining: number };
 

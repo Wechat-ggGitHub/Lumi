@@ -53,6 +53,7 @@ let audioListener: AudioListener | null = null;
 let voiceEndpoint: VoiceEndpoint | null = null;
 let wakeWordActive = false;
 let continuousChatTimer: ReturnType<typeof setTimeout> | null = null;
+let fadeOutTimer: ReturnType<typeof setTimeout> | null = null;
 
 function startPersonaWatcher(): void {
   const personaDir = getPersonaDir(shrewDir);
@@ -512,7 +513,8 @@ function startContinuousChat(): void {
   voiceEndpoint.setCallbacks(
     (wavPath) => {
       subtitlePopup.fadeOut();
-      setTimeout(() => {
+      fadeOutTimer = setTimeout(() => {
+        fadeOutTimer = null;
         onRecordingComplete(wavPath);
       }, 350);
     },
@@ -538,6 +540,10 @@ function cancelContinuousChat(): void {
   if (continuousChatTimer) {
     clearTimeout(continuousChatTimer);
     continuousChatTimer = null;
+  }
+  if (fadeOutTimer) {
+    clearTimeout(fadeOutTimer);
+    fadeOutTimer = null;
   }
   store.setContinuousChatWindow(false);
   if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
@@ -1302,7 +1308,6 @@ function registerIpcHandlers(): void {
       saveVolcengineCredentials(appId, accessToken);
       const creds = loadVolcengineCredentials();
       recorder = new AudioRecorder(creds);
-      recorder.setWindow(voiceBar.getWindow()!);
     } catch (err) {
       console.error('[volcengine] 凭证验证失败:', err);
       throw err;
@@ -1499,7 +1504,6 @@ app.whenReady().then(async () => {
   log.info('语音识别凭证:', volcengineCreds ? '已配置' : '未配置');
   recorder = new AudioRecorder(volcengineCreds);
   voiceBar.preCreate();
-  recorder.setWindow(voiceBar.getWindow()!);
   log.info('快捷键:', shortcutReady ? '已就绪' : '未授权');
 
   // Initialize wake word if enabled
@@ -1512,8 +1516,9 @@ app.whenReady().then(async () => {
     }
   }
 
-  // voice-bar 失焦自动关闭
+  // voice-bar 失焦自动关闭（连续对话模式下不响应 blur）
   voiceBar.onBlur = () => {
+    if (store.continuousChatWindow) return;
     if (voiceEndpoint) {
       voiceEndpoint.destroy();
       voiceEndpoint = null;
