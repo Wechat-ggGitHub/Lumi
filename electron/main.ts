@@ -528,6 +528,10 @@ function startContinuousChat(): void {
     },
   );
   voiceEndpoint.start();
+
+  // 显示呼吸灯提示（连续对话待机）
+  voiceBar.showHint();
+  voiceBar.send('voice:continuous-chat-hint', { remaining: 5 });
 }
 
 function cancelContinuousChat(): void {

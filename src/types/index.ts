@@ -115,14 +115,11 @@ export interface McpServerConfig {
 // IPC 消息类型
 export interface IpcMessages {
   // voice-bar -> main
-  'voice:send': { text: string };
   'voice:cancel': void;
   'voice:ready': void;
 
   // main -> voice-bar
   'voice:start-recording': void;
-  'voice:stop-recording': void;
-  'voice:transcript': { text: string; isAppending: boolean };
   'voice:transcribing': void;
   'voice:error': { message: string };
 
