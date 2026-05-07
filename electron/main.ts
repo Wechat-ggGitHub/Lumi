@@ -366,8 +366,8 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   );
   voiceEndpoint.start();
 
-  voiceBar.show();
   voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
+  voiceBar.show();
   store.transition('recording');
   updateTrayDot();
 
@@ -432,7 +432,6 @@ function onRecordingComplete(wavPath: string): void {
       voiceBarHideTimer = setTimeout(() => {
         voiceBarHideTimer = null;
         voiceBar.hide();
-        voiceBar.send('voice:state', { state: 'hidden' });
       }, 1200);
       store.transition('idle');
       updateTrayDot();
@@ -447,7 +446,6 @@ function onRecordingComplete(wavPath: string): void {
     voiceBarHideTimer = setTimeout(() => {
       voiceBarHideTimer = null;
       voiceBar.hide();
-      voiceBar.send('voice:state', { state: 'hidden' });
     }, 2000);
     store.transition('idle');
     updateTrayDot();
@@ -465,7 +463,6 @@ function onRecordingTooShort(): void {
   voiceBarHideTimer = setTimeout(() => {
     voiceBarHideTimer = null;
     voiceBar.hide();
-    voiceBar.send('voice:state', { state: 'hidden' });
     if (store.continuousChatWindow) {
       // 连续对话期间静默期保持 audioListener 在 continuous-chat 模式
       if (audioListener) audioListener.setMode('continuous-chat');
@@ -577,8 +574,8 @@ function startContinuousChat(): void {
     (volume) => {
       // 连续对话期间 voice bar 默认 hidden；用户开口达到阈值才显示 recording
       if (volume > 0.1 && !voiceBar.isVisible()) {
-        voiceBar.show();
         voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
+        voiceBar.show();
       }
       voiceBar.send('voice:volume', { volume });
     },
@@ -1022,6 +1019,8 @@ function registerIpcHandlers(): void {
   // voice-bar messages
   ipcMain.on('voice:cancel', () => {
     cancelContinuousChat();
+    clearRecordingTimeoutTimer();
+    clearVoiceBarHideTimer();
     if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
     voiceBar.close();
     store.transition('idle');
