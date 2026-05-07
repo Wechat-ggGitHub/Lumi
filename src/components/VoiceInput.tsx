@@ -1,257 +1,146 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { getIpcRenderer } from '@/lib/electron-ipc';
-import { AudioCapture } from '@/lib/audio-capture';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 type VoiceInputProps = {
-  onSend: (text: string) => void;
   onCancel: () => void;
 };
 
-export function VoiceInput({ onSend, onCancel }: VoiceInputProps) {
-  const [text, setText] = useState('');
-  const [status, setStatus] = useState<'recording' | 'transcribing' | 'editing' | 'error'>('recording');
-  const [errorMessage, setErrorMessage] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const statusRef = useRef(status);
-  statusRef.current = status;
+export function VoiceInput({ onCancel }: VoiceInputProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameRef = useRef<number>(0);
+  const volumeRef = useRef(0);
+  const [status, setStatus] = useState<'recording' | 'hint'>('recording');
 
-  const audioCaptureRef = useRef<AudioCapture | null>(null);
-
-  // Initialize AudioCapture once
+  // 接收实时音量
   useEffect(() => {
-    audioCaptureRef.current = new AudioCapture();
+    const { ipcRenderer } = require('electron');
+    const onVolume = (_: any, data: { volume: number }) => {
+      volumeRef.current = data.volume;
+    };
+    const onHint = () => {
+      setStatus('hint');
+    };
+    const onRecording = () => {
+      setStatus('recording');
+    };
+
+    ipcRenderer.on('voice:volume', onVolume);
+    ipcRenderer.on('voice:continuous-chat-hint', onHint);
+    ipcRenderer.on('voice:start-recording', onRecording);
+
     return () => {
-      audioCaptureRef.current?.close();
-      audioCaptureRef.current = null;
+      ipcRenderer.removeListener('voice:volume', onVolume);
+      ipcRenderer.removeListener('voice:continuous-chat-hint', onHint);
+      ipcRenderer.removeListener('voice:start-recording', onRecording);
     };
   }, []);
 
+  // Canvas 波浪动画
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const ipcRenderer = getIpcRenderer();
-    if (!ipcRenderer) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 160 * dpr;
+    canvas.height = 24 * dpr;
+    ctx.scale(dpr, dpr);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlers: Record<string, (...args: any[]) => void> = {
-      'voice:transcript': (_: any, data: { text: string; isAppending: boolean }) => {
-        setText(prev => data.isAppending ? prev + data.text : data.text);
-        setStatus('editing');
-        textareaRef.current?.focus();
-      },
-      'voice:transcribing': () => setStatus('transcribing'),
-      'voice:error': (_: any, data: { message: string }) => {
-        if (statusRef.current === 'recording' || statusRef.current === 'transcribing') {
-          setErrorMessage(data.message);
-          setStatus('error');
-          setTimeout(() => onCancel(), 2000);
-        } else {
-          setText(prev => prev + `\n[错误: ${data.message}]`);
-        }
-      },
-      'voice:start-capture': async () => {
-        console.log('[voice-bar] Received voice:start-capture, audioCaptureRef:', !!audioCaptureRef.current);
-        setStatus('recording');
-        try {
-          await audioCaptureRef.current?.start();
-          console.log('[voice-bar] AudioCapture started successfully');
-          ipcRenderer.send('voice:capture-started', true);
-        } catch (err) {
-          console.error('[voice-bar] AudioCapture start failed:', err);
-          ipcRenderer.send('voice:capture-started', false);
-        }
-      },
-      'voice:stop-capture': () => {
-        const result = audioCaptureRef.current?.stop();
-        if (result) {
-          ipcRenderer.send('voice:audio-data', result);
-        }
-      },
-    };
+    let phase = 0;
 
-    for (const [channel, handler] of Object.entries(handlers)) {
-      ipcRenderer.on(channel, handler);
-    }
+    const draw = () => {
+      ctx.clearRect(0, 0, 160, 24);
 
-    return () => {
-      for (const [channel, handler] of Object.entries(handlers)) {
-        ipcRenderer.removeListener(channel, handler);
+      const amplitude = 2 + volumeRef.current * 10;
+      ctx.beginPath();
+      ctx.strokeStyle = '#5B8DEF';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+
+      for (let x = 0; x < 160; x++) {
+        const y = 12 + Math.sin((x / 160) * Math.PI * 4 + phase) * amplitude;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
+      ctx.stroke();
+
+      phase += 0.05 + volumeRef.current * 0.1;
+      animFrameRef.current = requestAnimationFrame(draw);
     };
-  }, [onCancel]);
 
-  const handleSend = useCallback(() => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    onSend(trimmed);
-  }, [text, onSend]);
+    draw();
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [status]);
 
-  // Global Escape listener — works in all states, not just when textarea has focus
+  // ESC 键关闭
   useEffect(() => {
-    const onGlobalKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
-    window.addEventListener('keydown', onGlobalKeyDown);
-    return () => window.removeEventListener('keydown', onGlobalKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      handleSend();
-    }
-  }, [handleSend]);
+  if (status === 'hint') {
+    return (
+      <div style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{
+          width: 80,
+          height: 3,
+          borderRadius: 2,
+          background: 'rgba(91, 141, 239, 0.4)',
+          animation: 'breathe 1.5s ease-in-out infinite',
+        }} />
+        <style>{`
+          @keyframes breathe {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'center',
       gap: 12,
-      padding: '16px 20px',
-      background: 'var(--bg-window)',
-      borderRadius: 16,
-      backdropFilter: 'blur(20px)',
-      color: 'var(--text-primary)',
-      width: '100%',
-      boxSizing: 'border-box',
-      position: 'relative',
+      padding: '8px 16px',
     }}>
-      {/* Close button — visible in all states */}
+      <canvas
+        ref={canvasRef}
+        style={{ width: 160, height: 24 }}
+      />
       <button
         onClick={onCancel}
         style={{
-          position: 'absolute',
-          top: -10,
-          right: -10,
-          width: 26,
-          height: 26,
-          borderRadius: '50%',
+          background: 'rgba(255,255,255,0.1)',
           border: 'none',
-          background: 'var(--bg-surface-3)',
-          color: 'var(--text-muted)',
+          borderRadius: '50%',
+          width: 28,
+          height: 28,
+          color: 'rgba(255,255,255,0.5)',
+          fontSize: 16,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 12,
-          lineHeight: 1,
-          padding: 0,
-          pointerEvents: 'all',
-          transition: 'background 0.15s ease, color 0.15s ease',
+          transition: 'color 0.15s',
         }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'var(--danger)';
-          e.currentTarget.style.color = 'var(--text-primary)';
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'var(--bg-surface-3)';
-          e.currentTarget.style.color = 'var(--text-muted)';
-        }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.9)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
       >
-        ✕
+        ×
       </button>
-
-      {/* Error state */}
-      {status === 'error' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 14, color: 'var(--danger)' }}>{errorMessage || '发生错误'}</span>
-        </div>
-      )}
-
-      {/* Recording state */}
-      {status === 'recording' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-          <RecordingPulse />
-          <span style={{ fontSize: 14, opacity: 0.7 }}>正在聆听...</span>
-        </div>
-      )}
-
-      {status === 'transcribing' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-          <Spinner />
-          <span style={{ fontSize: 14, opacity: 0.7 }}>识别中...</span>
-        </div>
-      )}
-
-      {status === 'editing' && (
-        <>
-          <button
-            onClick={() => {
-              getIpcRenderer()?.send('voice:request-append');
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 20,
-              padding: 4,
-              opacity: 0.6,
-            }}
-            title="追加语音"
-          >
-            🎤
-          </button>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-primary)',
-              fontSize: 15,
-              resize: 'none',
-              outline: 'none',
-              maxHeight: 80,
-              minHeight: 24,
-              fontFamily: 'inherit',
-              lineHeight: 1.5,
-            }}
-            rows={1}
-            autoFocus
-          />
-          <button
-            onClick={handleSend}
-            disabled={!text.trim()}
-            style={{
-              background: text.trim() ? 'var(--brand-primary)' : 'var(--bg-surface-3)',
-              color: text.trim() ? 'var(--text-primary)' : 'var(--text-muted)',
-              border: 'none',
-              borderRadius: 8,
-              padding: '6px 16px',
-              cursor: text.trim() ? 'pointer' : 'default',
-              fontSize: 14,
-            }}
-          >
-            发送
-          </button>
-        </>
-      )}
     </div>
-  );
-}
-
-function RecordingPulse() {
-  return (
-    <div style={{
-      width: 12, height: 12, borderRadius: '50%',
-      background: 'var(--danger)',
-      animation: 'pulse 1.5s ease-in-out infinite',
-    }} />
-  );
-}
-
-function Spinner() {
-  return (
-    <div style={{
-      width: 16, height: 16, borderRadius: '50%',
-      border: '2px solid var(--bg-surface-3)',
-      borderTopColor: 'var(--brand-primary)',
-      animation: 'spin 0.8s linear infinite',
-    }} />
   );
 }
