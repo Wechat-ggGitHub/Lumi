@@ -11,10 +11,12 @@ export class VoiceBarWindow {
   }
 
   private centerPosition(width: number, height: number): { x: number; y: number } {
-    const display = screen.getPrimaryDisplay();
+    const point = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(point);
+    const bounds = display.workArea;
     return {
-      x: Math.round((display.workAreaSize.width - width) / 2),
-      y: display.workAreaSize.height - height - 40,
+      x: Math.round(bounds.x + (bounds.width - width) / 2),
+      y: Math.round(bounds.y + bounds.height - height - 40),
     };
   }
 
@@ -46,16 +48,23 @@ export class VoiceBarWindow {
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/voice-bar`);
   }
 
-  /** 显示录音指示器，正常尺寸 */
   show(): void {
     if (!this.win || this.win.isDestroyed()) {
       this.preCreate();
     }
-    this.win!.setSize(200, 48);
+    const win = this.win!;
+    win.setSize(200, 48);
     const pos = this.centerPosition(200, 48);
-    this.win!.setPosition(pos.x, pos.y);
-    this.win!.showInactive();
-    this.win!.once('blur', () => {
+    win.setPosition(pos.x, pos.y);
+
+    // 清除之前残留的 blur 监听器，防止快速连按累积回调
+    win.removeAllListeners('blur');
+
+    win.showInactive();
+    // 强制刷新层级，确保透明窗口不被 Dock / 全屏应用遮挡
+    win.setAlwaysOnTop(true, 'floating');
+
+    win.once('blur', () => {
       if (this.onBlur) this.onBlur();
     });
   }
