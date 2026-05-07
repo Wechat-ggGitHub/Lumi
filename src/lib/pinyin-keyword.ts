@@ -12,6 +12,10 @@ export function splitPinyin(syllable: string): [string, string] {
 }
 
 export function chineseToKeyword(text: string): string {
+  // 如果不包含中文字符，无法生成有效的中文关键词格式
+  if (!/[一-鿿]/.test(text)) {
+    return `${text.split('').join(' ')} @${text}`;
+  }
   const syllables = pinyin(text, { toneType: 'symbol', type: 'array' });
   const parts = syllables.map((s) => {
     const [initial, final] = splitPinyin(s);

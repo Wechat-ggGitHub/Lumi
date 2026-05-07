@@ -5,8 +5,6 @@ import { app } from 'electron';
 import { chineseToKeyword } from '../src/lib/pinyin-keyword';
 import { log } from '../src/lib/logger';
 
-const { KeywordSpotter } = require('sherpa-onnx-node');
-
 export class WakeWordEngine {
   private kws: any = null;
   private stream: any = null;
@@ -19,6 +17,14 @@ export class WakeWordEngine {
   }
 
   init(keyword: string): void {
+    let KeywordSpotter: any;
+    try {
+      KeywordSpotter = require('sherpa-onnx-node').KeywordSpotter;
+    } catch (err) {
+      log.error('WakeWordEngine: 无法加载 sherpa-onnx-node:', err);
+      throw new Error('唤醒词引擎加载失败，请确认 sherpa-onnx-node 已正确安装');
+    }
+
     const resourcesDir = app.isPackaged
       ? path.join(process.resourcesPath, 'sherpa-onnx', 'kws')
       : path.join(app.getAppPath(), 'resources', 'sherpa-onnx', 'kws');

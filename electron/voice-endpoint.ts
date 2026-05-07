@@ -86,7 +86,7 @@ export class VoiceEndpoint {
 
     // Check for completed speech segments
     while (!this.vad.isEmpty()) {
-      const segment = this.vad.front();
+      const segment = this.vad.front(false);
       this.vad.pop();
 
       const duration = segment.samples.length / 16000;

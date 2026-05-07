@@ -29,6 +29,7 @@ export class VoiceBarWindow {
       show: false,
       frame: false,
       transparent: true,
+      backgroundColor: '#00000000',
       resizable: false,
       alwaysOnTop: true,
       skipTaskbar: true,
