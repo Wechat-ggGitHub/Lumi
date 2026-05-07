@@ -80,6 +80,12 @@ export default function SettingsPage() {
       path: '/settings/voice',
     },
     {
+      title: '语音唤醒',
+      summary: '说出名称即可唤起',
+      status: 'default' as const,
+      path: '/settings/wake-word',
+    },
+    {
       title: '运行环境',
       summary: summary.defaultCwd,
       status: 'configured' as const,
