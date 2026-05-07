@@ -99,6 +99,10 @@ export class AudioRecorder {
     });
   }
 
+  async transcribeFile(wavPath: string): Promise<string> {
+    return this.transcribe(wavPath);
+  }
+
   async transcribe(audioPath?: string): Promise<string> {
     if (!this.hasCredentials) {
       log.error('录音器: 未配置语音识别凭证');
