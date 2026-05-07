@@ -6,7 +6,7 @@ test('initial state is idle with no substate', () => {
   expect(store.sdkSubState).toBeNull();
 });
 
-test('transition: idle → recording → transcribing → editing', () => {
+test('transition: idle -> recording -> transcribing -> thinking', () => {
   const store = new ShrewStore();
   store.transition('recording');
   expect(store.appState).toBe('recording');
@@ -14,39 +14,21 @@ test('transition: idle → recording → transcribing → editing', () => {
   store.transition('transcribing');
   expect(store.appState).toBe('transcribing');
 
-  store.transition('editing');
-  expect(store.appState).toBe('editing');
-});
-
-test('transition: editing → thinking → executing → completed → idle', () => {
-  const store = new ShrewStore();
-  store.transition('recording');
-  store.transition('transcribing');
-  store.transition('editing');
-  store.transition('thinking');
-  store.transition('executing');
-
-  expect(store.appState).toBe('executing');
-
-  store.transition('completed');
-  expect(store.appState).toBe('completed');
-});
-
-test('transition: idle → thinking (text input path)', () => {
-  const store = new ShrewStore();
   store.transition('thinking');
   expect(store.appState).toBe('thinking');
+});
 
+test('transition: idle -> thinking -> executing -> completed -> idle', () => {
+  const store = new ShrewStore();
+  store.transition('thinking');
   store.transition('executing');
-  expect(store.appState).toBe('executing');
-
   store.transition('completed');
   expect(store.appState).toBe('completed');
 });
 
 test('invalid transitions are ignored', () => {
   const store = new ShrewStore();
-  store.transition('executing'); // idle → executing is invalid
+  store.transition('executing'); // idle -> executing is invalid
   expect(store.appState).toBe('idle');
 });
 
@@ -83,25 +65,18 @@ test('dotColor mapping', () => {
 test('rightCommand behavior per state', () => {
   const store = new ShrewStore();
 
-  const action1 = store.getRightCommandAction();
-  expect(action1).toBe('start-recording');
+  expect(store.getRightCommandAction()).toBe('start-recording');
 
   store.transition('recording');
-  const action2 = store.getRightCommandAction();
-  expect(action2).toBe('stop-recording');
+  expect(store.getRightCommandAction()).toBe('stop-recording');
 
   store.transition('transcribing');
-  const action3 = store.getRightCommandAction();
-  expect(action3).toBe('none');
+  expect(store.getRightCommandAction()).toBe('none');
 
-  store.transition('editing');
-  const action4 = store.getRightCommandAction();
-  expect(action4).toBe('append-recording');
-
+  // transcribing -> thinking (no more editing)
   store.transition('thinking');
   store.transition('executing');
-  const action5 = store.getRightCommandAction();
-  expect(action5).toBe('cancel-execution');
+  expect(store.getRightCommandAction()).toBe('cancel-execution');
 });
 
 test('transcribing can transition to idle (empty transcription scenario)', () => {
@@ -157,10 +132,20 @@ test('completed timer does not transition to idle while speaking', () => {
   expect(store.appState).toBe('completed');
 
   store.setSpeaking(false);
-  // Now manually transition since the timer already fired
   if (store.appState === 'completed') {
     store.transition('idle');
   }
   expect(store.appState).toBe('idle');
   jest.useRealTimers();
+});
+
+test('continuousChatWindow flag', () => {
+  const store = new ShrewStore();
+  expect(store.continuousChatWindow).toBe(false);
+
+  store.setContinuousChatWindow(true);
+  expect(store.continuousChatWindow).toBe(true);
+
+  store.setContinuousChatWindow(false);
+  expect(store.continuousChatWindow).toBe(false);
 });
