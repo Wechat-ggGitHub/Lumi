@@ -1,4 +1,5 @@
 import type { AppState, SdkSubState, DotColor } from '@/types';
+import { log } from './logger';
 
 type ValidTransitions = Record<AppState, AppState[]>;
 
@@ -39,7 +40,10 @@ export class ShrewStore {
 
   transition(newState: AppState): void {
     const allowed = VALID_TRANSITIONS[this._appState];
-    if (!allowed.includes(newState)) return;
+    if (!allowed.includes(newState)) {
+      log.warn(`store.transition rejected: ${this._appState} → ${newState}`);
+      return;
+    }
 
     this._appState = newState;
     this.notify();

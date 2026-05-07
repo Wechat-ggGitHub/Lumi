@@ -32,6 +32,18 @@ test('invalid transitions are ignored', () => {
   expect(store.appState).toBe('idle');
 });
 
+test('invalid transitions log a warning', () => {
+  const store = new ShrewStore();
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  store.transition('executing'); // idle -> executing is invalid
+
+  expect(warnSpy).toHaveBeenCalledWith(
+    expect.stringContaining('store.transition rejected: idle → executing')
+  );
+  warnSpy.mockRestore();
+});
+
 test('sdk substate updates independently', () => {
   const store = new ShrewStore();
   const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
