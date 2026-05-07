@@ -143,11 +143,6 @@ export class AudioListener {
   stop(): void {
     if (!this.capturing) return;
 
-    const { ipcMain } = require('electron') as typeof import('electron');
-
-    ipcMain.removeAllListeners('audio-listener:started');
-    ipcMain.removeAllListeners('audio-listener:error');
-
     if (this.win && !this.win.isDestroyed()) {
       this.win.webContents.send('audio-listener:stop');
     }

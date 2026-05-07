@@ -244,17 +244,27 @@ async function startWakeWord(): Promise<void> {
   const keyword = getKeyword();
 
   if (!wakeWordEngine) {
-    wakeWordEngine = new WakeWordEngine();
-    wakeWordEngine.init(keyword);
+    try {
+      wakeWordEngine = new WakeWordEngine();
+      wakeWordEngine.init(keyword);
+    } catch (err) {
+      wakeWordEngine = null;
+      throw err;
+    }
   }
 
-  if (!audioListener) {
-    audioListener = new AudioListener();
-    audioListener.create();
-    audioListener.registerChunkHandler(handleAudioChunk);
-    await audioListener.start();
-  } else if (!audioListener.isActive()) {
-    await audioListener.start();
+  try {
+    if (!audioListener) {
+      audioListener = new AudioListener();
+      audioListener.create();
+      audioListener.registerChunkHandler(handleAudioChunk);
+      await audioListener.start();
+    } else if (!audioListener.isActive()) {
+      await audioListener.start();
+    }
+  } catch (err) {
+    audioListener = null;
+    throw err;
   }
 
   wakeWordEngine.start();
