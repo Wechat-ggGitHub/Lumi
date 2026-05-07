@@ -1,37 +1,38 @@
-import { BrowserWindow, screen } from 'electron';
+import { screen } from 'electron';
 import { log } from '../src/lib/logger';
 
 export class VoiceBarWindow {
-  private win: BrowserWindow | null = null;
-  private serverPort: number;
+  private win: Electron.BrowserWindow | null = null;
   onBlur: (() => void) | null = null;
+  private serverPort: number;
 
   constructor(serverPort: number) {
     this.serverPort = serverPort;
   }
 
+  private centerPosition(width: number, height: number): { x: number; y: number } {
+    const display = screen.getPrimaryDisplay();
+    return {
+      x: Math.round((display.workAreaSize.width - width) / 2),
+      y: display.workAreaSize.height - height - 40,
+    };
+  }
+
   preCreate(): void {
     if (this.win && !this.win.isDestroyed()) return;
 
-    const cursorScreen = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-    const { width: screenWidth, height: screenHeight } = cursorScreen.workAreaSize;
-    const barWidth = 640;
-    const barHeight = 100;
-    const x = cursorScreen.workArea.x + Math.round((screenWidth - barWidth) / 2);
-    const y = cursorScreen.workArea.y + screenHeight - barHeight - 40;
+    const { BrowserWindow } = require('electron') as typeof import('electron');
 
     this.win = new BrowserWindow({
-      width: barWidth,
-      height: barHeight,
-      x,
-      y,
+      width: 200,
+      height: 48,
+      show: false,
       frame: false,
       transparent: true,
       resizable: false,
       alwaysOnTop: true,
       skipTaskbar: true,
       hasShadow: false,
-      show: false,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -39,28 +40,39 @@ export class VoiceBarWindow {
     });
 
     this.win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    const pos = this.centerPosition(200, 48);
+    this.win.setPosition(pos.x, pos.y);
     this.win.loadURL(`http://127.0.0.1:${this.serverPort}/voice-bar`);
-    log.info('语音条窗口: 预创建完成, 位置:', { x, y });
   }
 
+  /** 显示呼吸灯提示（连续对话待机），小尺寸 */
+  showHint(): void {
+    if (!this.win || this.win.isDestroyed()) {
+      this.preCreate();
+    }
+    this.win!.setSize(120, 6);
+    const pos = this.centerPosition(120, 6);
+    this.win!.setPosition(pos.x, pos.y);
+    this.win!.showInactive();
+  }
+
+  /** 显示录音指示器，正常尺寸 */
   show(): void {
     if (!this.win || this.win.isDestroyed()) {
       this.preCreate();
     }
-    const win = this.win!;
-    win.removeAllListeners('blur');
-    win.once('blur', () => {
-      log.info('语音条窗口: 失焦');
+    this.win!.setSize(200, 48);
+    const pos = this.centerPosition(200, 48);
+    this.win!.setPosition(pos.x, pos.y);
+    this.win!.showInactive();
+    this.win!.once('blur', () => {
       if (this.onBlur) this.onBlur();
     });
-    win.show();
-    log.info('语音条窗口: 已显示');
   }
 
   hide(): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.hide();
-      log.info('语音条窗口: 已隐藏');
     }
   }
 
@@ -72,22 +84,20 @@ export class VoiceBarWindow {
     if (this.win && !this.win.isDestroyed()) {
       this.win.close();
       this.win = null;
-      log.info('语音条窗口: 已销毁');
     }
   }
 
-  send(channel: string, data?: unknown): void {
+  send(channel: string, data?: any): void {
     if (this.win && !this.win.isDestroyed()) {
       this.win.webContents.send(channel, data);
-      log.info('语音条窗口: 发送消息:', channel);
     }
   }
 
-  getWindow(): BrowserWindow | null {
-    return this.win && !this.win.isDestroyed() ? this.win : null;
+  getWindow(): Electron.BrowserWindow | null {
+    return this.win;
   }
 
   isVisible(): boolean {
-    return this.win !== null && !this.win.isDestroyed() && this.win.isVisible();
+    return this.win ? this.win.isVisible() : false;
   }
 }
