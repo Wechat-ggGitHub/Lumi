@@ -41,7 +41,7 @@ export class VoiceEndpoint {
     this.vad = new Vad({
       sileroVad: {
         model: path.join(resourcesDir, 'silero_vad.onnx'),
-        threshold: 0.5,
+        threshold: 0.6,
         minSpeechDuration: this.minDuration,
         minSilenceDuration: this.silenceTimeout,
         maxSpeechDuration: this.maxDuration,
