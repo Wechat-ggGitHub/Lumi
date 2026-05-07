@@ -55,13 +55,17 @@ export class WakeWordEngine {
 
   updateKeyword(keyword: string): void {
     if (!this.kws) return;
+    const wasActive = this.active;
+    // Clean up old keywords file before re-initializing
+    if (this.keywordsFilePath && fs.existsSync(this.keywordsFilePath)) {
+      fs.unlinkSync(this.keywordsFilePath);
+    }
     this.keyword = keyword;
-    // Must recreate KWS when keyword changes (no runtime keyword update API)
     this.stream = null;
     this.kws = null;
     this.init(keyword);
-    if (this.active) {
-      // Re-activate after recreation
+    if (wasActive) {
+      this.start();
     }
   }
 

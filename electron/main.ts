@@ -310,14 +310,28 @@ function handleAudioChunk(samples: Float32Array): void {
   }
 }
 
+function resumeWakeWord(): void {
+  if (!wakeWordEngine || !isWakeWordEnabled()) return;
+  wakeWordEngine.reset();
+  wakeWordEngine.start();
+  wakeWordActive = true;
+  endpointMode = false;
+  log.info('唤醒词监听已恢复');
+}
+
 function onWakeWordDetected(): void {
+  if (store.appState !== 'idle') {
+    log.info('唤醒词检测到但状态非 idle，忽略:', store.appState);
+    return;
+  }
+
   log.info('唤醒词检测到！切换到录音模式');
-  wakeWordEngine?.stop();
   endpointMode = true;
 
   const settings = loadSettings();
   const timeout = settings.wakeWordSilenceTimeout ?? 3;
 
+  if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
     silenceTimeout: timeout,
     minDuration: 0.5,
@@ -337,6 +351,7 @@ function onWakeWordDetected(): void {
 
 function onRecordingComplete(wavPath: string): void {
   endpointMode = false;
+  if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
   log.info('唤醒词录音完成, 开始转写');
 
   store.transition('transcribing');
@@ -355,6 +370,7 @@ function onRecordingComplete(wavPath: string): void {
     updateTrayDot();
   }).catch(err => {
     log.error('转写失败:', err);
+    try { fs.unlinkSync(wavPath); } catch {}
     voiceBar.send('voice:error', { message: err.message });
     store.transition('idle');
     updateTrayDot();
@@ -363,10 +379,12 @@ function onRecordingComplete(wavPath: string): void {
 
 function onRecordingTooShort(): void {
   endpointMode = false;
+  if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
   log.info('唤醒词录音太短，忽略');
   voiceBar.close();
   store.transition('idle');
   updateTrayDot();
+  resumeWakeWord();
 }
 
 // 右 Command 按键处理
@@ -1360,8 +1378,12 @@ app.whenReady().then(async () => {
     broadcastChatState();
 
     // Resume wake word spotting when returning to idle
-    if (store.appState === 'idle' && isWakeWordEnabled() && !wakeWordActive && !endpointMode) {
-      startWakeWord().catch(err => log.error('恢复唤醒词监听失败:', err));
+    if (store.appState === 'idle' && isWakeWordEnabled() && !endpointMode) {
+      if (!wakeWordActive) {
+        startWakeWord().catch(err => log.error('恢复唤醒词监听失败:', err));
+      } else if (wakeWordEngine) {
+        resumeWakeWord();
+      }
     }
   });
 
