@@ -8,7 +8,7 @@
     "build": "next build",
     "build:electron": "node scripts/build-electron.mjs",
     "electron:dev": "node scripts/build-electron.mjs && concurrently \"next dev\" \"wait-on http://127.0.0.1:3000/api/health && electron .\"",
-    "electron:build": "next build && node scripts/copy-native-deps.mjs && node scripts/build-electron.mjs && electron-builder",
+    "electron:build": "bash scripts/download-kws-models.sh && next build && node scripts/copy-native-deps.mjs && node scripts/build-electron.mjs && electron-builder",
     "rebuild": "electron-rebuild"
   },
   "dependencies": {

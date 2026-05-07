@@ -31,6 +31,8 @@ extraResources:
     to: ".next/standalone/.next/static"
   - from: "public"
     to: ".next/standalone/public"
+  - from: "resources/sherpa-onnx"
+    to: "sherpa-onnx"
 files:
   - "dist-electron/**/*"
   - "node_modules/better-sqlite3/**/*"
