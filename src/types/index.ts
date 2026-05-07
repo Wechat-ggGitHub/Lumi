@@ -68,6 +68,8 @@ export interface AppSettings {
   claudePermissionMode: string;
   defaultCwd: string;
   vadTimeout: number;
+  wakeWordEnabled?: boolean;
+  wakeWordSilenceTimeout?: number; // seconds, default 3
   theme: string;
   provider?: ProviderKey;
   modelPreset?: ModelPreset;
@@ -198,4 +200,16 @@ export interface IpcMessages {
   'memory:delete-core': { filename: string };
   'memory:list-daily': void;
   'memory:read-daily': { date: string };
+
+  // wake word: invoke (request-response)
+  'wake-word:toggle': { enabled: boolean };
+  'wake-word:status': void;
+  'wake-word:update-keyword': { keyword: string };
+
+  // audio-listener: fire-and-forget
+  'audio-listener:pcm-chunk': Float32Array;
+  'audio-listener:start': void;
+  'audio-listener:stop': void;
+  'audio-listener:started': void;
+  'audio-listener:error': string;
 }
