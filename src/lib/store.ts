@@ -5,8 +5,7 @@ type ValidTransitions = Record<AppState, AppState[]>;
 const VALID_TRANSITIONS: ValidTransitions = {
   idle: ['recording', 'thinking'],
   recording: ['transcribing', 'idle'],
-  transcribing: ['editing', 'idle'],
-  editing: ['thinking', 'recording', 'idle'],
+  transcribing: ['thinking', 'idle'],
   thinking: ['executing', 'completed', 'error', 'idle'],
   executing: ['completed', 'error', 'idle'],
   completed: ['idle', 'thinking', 'recording'],
@@ -17,7 +16,6 @@ export type RightCommandAction =
   | 'start-recording'
   | 'stop-recording'
   | 'none'
-  | 'append-recording'
   | 'cancel-execution'
   | 'stop-speaking';
 
@@ -30,12 +28,14 @@ export class ShrewStore {
   private _currentToolName: string | null = null;
   private _completedTimer: ReturnType<typeof setTimeout> | null = null;
   private _speaking: boolean = false;
+  private _continuousChatWindow: boolean = false;
   private _listeners: StateChangeCallback[] = [];
 
   get appState(): AppState { return this._appState; }
   get sdkSubState(): SdkSubState { return this._sdkSubState; }
   get currentToolName(): string | null { return this._currentToolName; }
   get speaking(): boolean { return this._speaking; }
+  get continuousChatWindow(): boolean { return this._continuousChatWindow; }
 
   transition(newState: AppState): void {
     const allowed = VALID_TRANSITIONS[this._appState];
@@ -84,6 +84,11 @@ export class ShrewStore {
     this.notify();
   }
 
+  setContinuousChatWindow(value: boolean): void {
+    this._continuousChatWindow = value;
+    this.notify();
+  }
+
   get dotColor(): DotColor {
     if (this._appState === 'thinking') return 'blue';
     if (this._appState === 'executing') {
@@ -106,7 +111,6 @@ export class ShrewStore {
       case 'completed': return 'start-recording';
       case 'recording': return 'stop-recording';
       case 'transcribing': return 'none';
-      case 'editing': return 'append-recording';
       case 'thinking':
       case 'executing': return 'cancel-execution';
       default: return 'none';
