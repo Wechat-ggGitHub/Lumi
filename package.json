@@ -16,9 +16,11 @@
     "adm-zip": "^0.5.17",
     "better-sqlite3": "^11.0.0",
     "next": "^15.0.0",
+    "pinyin-pro": "^3.28.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-easy-crop": "^5.5.7",
+    "sherpa-onnx-node": "^1.13.0",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.20.0"
   },
