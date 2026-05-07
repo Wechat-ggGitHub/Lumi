@@ -10,13 +10,16 @@ export default function VoiceBarPage() {
   }, []);
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-    }}>
-      <VoiceInput onCancel={handleCancel} />
-    </div>
+    <>
+      <style>{`html, body { background: transparent !important; overflow: hidden !important; }`}</style>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+      }}>
+        <VoiceInput onCancel={handleCancel} />
+      </div>
+    </>
   );
 }
