@@ -354,7 +354,7 @@ function SubtitleContent() {
 export default function SubtitlePage() {
   return (
     <>
-      <style>{`html, body { background: transparent !important; overflow: hidden !important; }
+      <style>{`
 @keyframes waveBar { from { height: 4px; } to { height: 14px; } }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 ::-webkit-scrollbar { width: 4px; }
