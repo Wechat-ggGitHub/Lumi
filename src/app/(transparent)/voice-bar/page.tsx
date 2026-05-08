@@ -5,14 +5,12 @@ import { useCallback } from 'react';
 
 export default function VoiceBarPage() {
   const handleCancel = useCallback(() => {
-    const { ipcRenderer } = require('electron');
+    const { ipcRenderer } = window.require('electron');
     ipcRenderer.send('voice:cancel');
   }, []);
 
   return (
-    <>
-      <style>{`html, body { background: transparent !important; overflow: hidden !important; }`}</style>
-      <div style={{
+    <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -20,6 +18,5 @@ export default function VoiceBarPage() {
       }}>
         <VoiceInput onCancel={handleCancel} />
       </div>
-    </>
   );
 }

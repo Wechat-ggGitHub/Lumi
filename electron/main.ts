@@ -366,8 +366,8 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   );
   voiceEndpoint.start();
 
-  voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
   voiceBar.show();
+  voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
   store.transition('recording');
   updateTrayDot();
 
@@ -574,8 +574,8 @@ function startContinuousChat(): void {
     (volume) => {
       // 连续对话期间 voice bar 默认 hidden；用户开口达到阈值才显示 recording
       if (volume > 0.1 && !voiceBar.isVisible()) {
-        voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
         voiceBar.show();
+        voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
       }
       voiceBar.send('voice:volume', { volume });
     },

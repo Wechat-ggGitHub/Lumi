@@ -25,7 +25,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
 
   // IPC: voice:state 切换状态；voice:volume 喂音量
   useEffect(() => {
-    const { ipcRenderer } = require('electron');
+    const { ipcRenderer } = window.require('electron');
     const onState = (_: unknown, payload: VoiceStatePayload) => {
       if (payload.state === 'hidden') return; // hidden 由窗口 hide 处理，不进入渲染
       setState(payload.state);
@@ -92,14 +92,13 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 10,
-        background: 'rgb(28, 28, 35)',
+        background: 'rgb(40, 40, 52)',
         borderRadius: 14,
         padding: '10px 14px',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)',
         color: messageColor,
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
         fontSize: 13,
-        transition: 'opacity 200ms ease',
       }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, height: 14 }}>
           {Array.from({ length: BAR_COUNT }).map((_, i) => (
