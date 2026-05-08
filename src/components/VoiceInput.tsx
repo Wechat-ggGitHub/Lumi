@@ -95,7 +95,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
         background: 'rgb(40, 40, 52)',
         borderRadius: 14,
         padding: '10px 14px',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.08)',
         color: messageColor,
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
         fontSize: 13,
