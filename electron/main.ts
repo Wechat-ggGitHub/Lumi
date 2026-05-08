@@ -22,6 +22,7 @@ import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteS
 import { buildShrewContext } from '../src/lib/shrew-context';
 import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
 import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
+import { evaluateAndWriteCoreMemory } from '../src/lib/core-memory-evaluator';
 import { log, initLogger } from '../src/lib/logger';
 import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, SdkSubState, ToolCallRecord } from '../src/types';
 
@@ -339,7 +340,7 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   if (audioListener) audioListener.setMode('recording');
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 2;
+  const timeout = settings.wakeWordSilenceTimeout ?? 1.5;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
@@ -542,7 +543,7 @@ function startContinuousChat(): void {
   }
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 2;
+  const timeout = settings.wakeWordSilenceTimeout ?? 1.5;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
@@ -573,9 +574,22 @@ function startContinuousChat(): void {
     },
     (volume) => {
       // 连续对话期间 voice bar 默认 hidden；用户开口达到阈值才显示 recording
-      if (volume > 0.1 && !voiceBar.isVisible()) {
+      if (volume > 0.2 && !voiceBar.isVisible()) {
         voiceBar.show();
         voiceBar.send('voice:state', { state: 'recording', message: '在听…' });
+        // 用户开口后重置连续对话窗口计时器
+        if (continuousChatTimer) {
+          clearTimeout(continuousChatTimer);
+          continuousChatTimer = setTimeout(() => {
+            if (store.continuousChatWindow && !voiceBar.isVisible()) {
+              log.info('连续对话窗口过期');
+              cancelContinuousChat();
+              store.transition('idle');
+              updateTrayDot();
+            }
+            continuousChatTimer = null;
+          }, 5000);
+        }
       }
       voiceBar.send('voice:volume', { volume });
     },
@@ -834,6 +848,10 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
           shrewDir, prompt, result.summary || assistantContent,
           ak, providerKey,
         ).catch(err => log.error('每日记忆写入异常:', err));
+        evaluateAndWriteCoreMemory(
+          shrewDir, prompt, assistantContent,
+          ak, providerKey,
+        ).catch(err => log.error('核心记忆评估异常:', err));
       }
     }
 
@@ -992,15 +1010,11 @@ async function speakResult(summary: string): Promise<void> {
       if (isWakeWordEnabled()) {
         startContinuousChat();
         continuousChatTimer = setTimeout(() => {
-          if (store.continuousChatWindow && store.appState !== 'recording') {
+          if (store.continuousChatWindow && !voiceBar.isVisible()) {
             log.info('连续对话窗口过期');
-            store.setContinuousChatWindow(false);
-            if (audioListener) audioListener.setMode('wake-word');
-            if (voiceEndpoint) { voiceEndpoint.destroy(); voiceEndpoint = null; }
-            voiceBar.hide();
+            cancelContinuousChat();
             store.transition('idle');
             updateTrayDot();
-            resumeWakeWord();
           }
           continuousChatTimer = null;
         }, 5000);
