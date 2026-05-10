@@ -110,7 +110,7 @@ hasApiKey(providerKey: string): boolean
 
 1. 启动时 `migratePerProviderKeys()` 检测旧文件 `api-key.enc`
 2. 读取当前 settings 的 `provider` 值（fallback 到 `glm-cn`）
-3. 将 `api-key.enc` 重命名为 `api-key-{provider}.enc`
+3. 仅当目标文件不存在时，将 `api-key.enc` 重命名为 `api-key-{provider}.enc`（防止部分迁移后覆盖）
 4. 在现有 `migrateKeyFile()`（处理 `anthropic-key.enc`）之后执行，确保链式迁移
 
 ### 文件路径安全
@@ -191,6 +191,7 @@ const needsOnboarding = !hasApiKey(settings.provider || 'glm-cn');
 - `useEffect` 调用 `settings:load` 获取当前 provider + apiKeyStatus
 - 点击卡片 → 本地 state 切换选中 provider + 展开面板
 - 保存 → `settings:save` 保存 provider/model + `settings:save-api-key` 保存 key
+- 切换卡片时丢弃展开面板中未保存的内容（不弹确认，输入框内容丢失成本低）
 
 ### 设置总览页（settings/page.tsx）
 
@@ -238,8 +239,6 @@ const modelLabel = provider.modelDisplayNames[summary.modelPreset] ?? summary.mo
 | `electron/main.ts` | IPC handlers + 启动迁移 + 验证 header 修复 |
 | `src/types/index.ts` | ProviderKey → string |
 | `src/lib/claude-client.ts` | 类型适配 |
-| `src/lib/daily-memory-writer.ts` | 适配新 ProviderPreset 接口 |
-| `src/lib/core-memory-evaluator.ts` | 适配新 ProviderPreset 接口 |
 | `src/app/(main)/settings/provider/page.tsx` | 重写为分组卡片 UI |
 | `src/app/(main)/settings/page.tsx` | 动态 provider 名称 + 清理局部类型 |
 | `src/components/Onboarding.tsx` | 加 select-provider 步骤 |
@@ -264,8 +263,8 @@ provider-config.ts (改造)
   ├── keychain.ts (改动：加 providerKey)
   ├── electron/main.ts (改动：IPC + 迁移 + header 修复)
   ├── claude-client.ts (改动：类型)
-  ├── daily-memory-writer.ts (改动：适配接口)
-  ├── core-memory-evaluator.ts (改动：适配接口)
+  ├── daily-memory-writer.ts (不变：只访问 baseUrl/authStyle，字段未变)
+  ├── core-memory-evaluator.ts (不变：同上)
   ├── settings/provider/page.tsx (重写)
   ├── settings/page.tsx (改动)
   └── Onboarding.tsx (改动：加步骤)
