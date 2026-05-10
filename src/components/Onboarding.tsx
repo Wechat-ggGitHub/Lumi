@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { Button } from '@/components/ui/Button';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
+import { getProvider } from '@/lib/provider-config';
 
-type Step = 'welcome' | 'accessibility' | 'volcengine' | 'api-key' | 'cwd' | 'done';
+type Step = 'welcome' | 'accessibility' | 'volcengine' | 'select-provider' | 'api-key' | 'cwd' | 'done';
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('welcome');
@@ -13,6 +14,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [volcAppId, setVolcAppId] = useState('');
   const [volcToken, setVolcToken] = useState('');
   const [defaultCwd, setDefaultCwd] = useState('~/Documents');
+  const [selectedProvider, setSelectedProvider] = useState('glm-cn');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -35,7 +37,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         appId: volcAppId.trim(),
         accessToken: volcToken.trim(),
       });
-      setStep('api-key');
+      setStep('select-provider');
     } catch (e: any) {
       setError(e.message || '凭证验证失败');
     } finally {
@@ -47,7 +49,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     setError('');
     setSaving(true);
     try {
-      await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim(), providerKey: 'glm-cn' });
+      await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim(), providerKey: selectedProvider });
       setStep('cwd');
     } catch {
       setError('API Key 验证失败，请检查后重试');
@@ -112,15 +114,57 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         </Button>
       </div>
     ),
+    'select-provider': (
+      <div className="text-center">
+        <h2 className="text-page-title text-text-primary mb-3">选择 AI 服务商</h2>
+        <p className="text-body text-text-muted mb-6">选择你偏好的模型服务商。</p>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {[
+            { key: 'glm-cn', name: 'GLM (智谱)', recommended: true },
+            { key: 'deepseek', name: 'DeepSeek', recommended: false },
+            { key: 'anthropic', name: 'Anthropic', recommended: false },
+            { key: 'moonshot', name: 'Moonshot (Kimi)', recommended: false },
+            { key: 'minimax-cn', name: 'MiniMax', recommended: false },
+            { key: 'openrouter', name: 'OpenRouter', recommended: false },
+          ].map(p => (
+            <button
+              key={p.key}
+              onClick={() => setSelectedProvider(p.key)}
+              className={`rounded-input p-3 text-left transition-all ${
+                selectedProvider === p.key
+                  ? 'border-2 border-brand bg-bg-surface-2'
+                  : 'border border-line-default bg-bg-surface-1'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className={`text-body font-medium ${selectedProvider === p.key ? 'text-brand' : 'text-text-primary'}`}>
+                  {p.name}
+                </span>
+                {selectedProvider === p.key && (
+                  <span className="text-brand text-sm">✓</span>
+                )}
+                {p.recommended && selectedProvider !== p.key && (
+                  <span className="text-xs text-brand bg-brand/10 px-1.5 py-0.5 rounded">推荐</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+        <p className="text-body-sm text-text-muted mb-4">更多服务商可在设置中配置</p>
+        <Button variant="primary" onClick={() => setStep('api-key')}>
+          下一步
+        </Button>
+      </div>
+    ),
     'api-key': (
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">API Key</h2>
-        <p className="text-body text-text-muted mb-6">需要 API Key 来调用 Claude。Key 将安全存储在 macOS 钥匙串中。</p>
+        <p className="text-body text-text-muted mb-6">需要 API Key 来调用模型。Key 将安全存储在 macOS 钥匙串中。</p>
         <SingleLineInput
           type="password"
           value={apiKey}
           onChange={e => setApiKey(e.target.value)}
-          placeholder="从 open.bigmodel.cn 获取您的 API Key"
+          placeholder={getProvider(selectedProvider).keyPlaceholder}
         />
         {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
         <Button variant="primary" onClick={validateApiKey} disabled={saving || !apiKey.trim()}>
