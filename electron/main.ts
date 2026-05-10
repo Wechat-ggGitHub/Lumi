@@ -15,7 +15,7 @@ import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
-import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint } from '../src/lib/provider-config';
+import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
@@ -1078,19 +1078,29 @@ function registerIpcHandlers(): void {
   // settings
   ipcMain.handle('settings:load', () => {
     const settings = loadSettings();
-    return { ...settings, hasApiKey: hasApiKey(settings.provider || 'glm-cn') };
+    return {
+      ...settings,
+      hasApiKey: hasApiKey(settings.provider || 'glm-cn'),
+      apiKeyStatus: Object.fromEntries(
+        getAllProviders().map(p => [p.key, hasApiKey(p.key)])
+      ),
+    };
   });
 
-  ipcMain.handle('settings:save-api-key', async (_, { key }: { key: string }) => {
-    const settings = loadSettings();
-    const provider = getProvider(settings.provider || 'glm-cn');
+  ipcMain.handle('settings:save-api-key', async (_, { key, providerKey }: { key: string; providerKey: string }) => {
+    const provider = getProvider(providerKey);
+    const headers: Record<string, string> = {
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    };
+    if (provider.authStyle === 'auth_token') {
+      headers['authorization'] = `Bearer ${key}`;
+    } else {
+      headers['x-api-key'] = key;
+    }
     const response = await fetch(getValidateEndpoint(provider), {
       method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         model: provider.models.haiku,
         max_tokens: 1,
@@ -1098,7 +1108,7 @@ function registerIpcHandlers(): void {
       }),
     });
     if (!response.ok) throw new Error('Invalid API key');
-    saveApiKey(key, settings.provider || 'glm-cn');
+    saveApiKey(key, providerKey);
   });
 
   ipcMain.handle('settings:save', (_, data: Partial<AppSettings>) => {
@@ -1122,14 +1132,18 @@ function registerIpcHandlers(): void {
     shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
   });
 
-  ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey?: string }) => {
-    const provider = getProvider(providerKey || 'glm-cn');
+  ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey: string }) => {
+    const provider = getProvider(providerKey);
     log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${getValidateEndpoint(provider)}`);
     const headers: Record<string, string> = {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     };
-    headers['x-api-key'] = key;
+    if (provider.authStyle === 'auth_token') {
+      headers['authorization'] = `Bearer ${key}`;
+    } else {
+      headers['x-api-key'] = key;
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     let response: Response;
@@ -1159,7 +1173,7 @@ function registerIpcHandlers(): void {
       log.error(`API Key 验证失败, status: ${response.status}, body: ${body}`);
       throw new Error('Invalid API key');
     }
-    saveApiKey(key, providerKey || 'glm-cn');
+    saveApiKey(key, providerKey);
     const settings = loadSettings();
     saveSettings({ ...settings, provider: provider.key });
     log.info('API Key 验证成功并已保存');
