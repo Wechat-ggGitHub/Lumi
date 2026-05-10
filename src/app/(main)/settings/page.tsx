@@ -5,11 +5,10 @@ import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SummaryCard } from '@/components/ui/SummaryCard';
 import { Button } from '@/components/ui/Button';
-
-type ProviderKey = 'glm-cn' | 'glm-global' | 'anthropic';
+import { getProvider } from '@/lib/provider-config';
 
 interface SettingsSummary {
-  provider: ProviderKey;
+  provider: string;
   modelPreset: string;
   hasApiKey: boolean;
   hasVolcCreds: boolean;
@@ -50,25 +49,15 @@ export default function SettingsPage() {
     getIpcRenderer()?.send('navigate:route', { path });
   };
 
-  const providerNames: Record<ProviderKey, string> = {
-    'glm-cn': 'GLM (国内)',
-    'glm-global': 'GLM (国际)',
-    anthropic: 'Anthropic',
-  };
-
-  const modelLabels: Record<ProviderKey, Record<string, string>> = {
-    'glm-cn': { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
-    'glm-global': { opus: 'GLM-5.1', sonnet: 'GLM-5-Turbo', haiku: 'GLM-4.5-Air' },
-    anthropic: { opus: 'Claude Opus 4.6', sonnet: 'Claude Sonnet 4.6', haiku: 'Claude Haiku 4.5' },
-  };
-
-  const modelLabel = modelLabels[summary.provider]?.[summary.modelPreset] ?? summary.modelPreset;
+  const currentProvider = getProvider(summary.provider || 'glm-cn');
+  const providerName = currentProvider.nameZh;
+  const modelLabel = currentProvider.modelDisplayNames[summary.modelPreset as keyof typeof currentProvider.modelDisplayNames] ?? summary.modelPreset;
 
   const settingsGroups = [
     {
       title: '模型与凭证',
       summary: summary.hasApiKey
-        ? `${providerNames[summary.provider]} / ${modelLabel}`
+        ? `${providerName} / ${modelLabel}`
         : '尚未配置 API Key',
       status: summary.hasApiKey ? 'configured' as const : 'unconfigured' as const,
       path: '/settings/provider',
