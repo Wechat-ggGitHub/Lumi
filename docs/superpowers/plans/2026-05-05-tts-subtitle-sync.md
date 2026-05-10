@@ -58,9 +58,9 @@ let cumulativeTime = 0;
 
 ```typescript
 case EVENT_CONNECTION_STARTED:
-  sessionId = `shrew-${Date.now()}`;
+  sessionId = `aiva-${Date.now()}`;
   const sessionPayload = {
-    user: { uid: 'shrew-app' },
+    user: { uid: 'aiva-app' },
     event: EVENT_START_SESSION,
     namespace: 'BidirectionalTTS',
     req_params: {
@@ -446,7 +446,7 @@ function SubtitleContent() {
         >
           <span style={{ fontSize: '6px', color: 'white' }}>▶</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#888' }}>Shrew 正在朗读...</span>
+        <span style={{ fontSize: '10px', color: '#888' }}>Aiva 正在朗读...</span>
       </div>
       <div
         ref={scrollRef}
@@ -536,7 +536,7 @@ Run: `npm run electron:dev`
 
 - [ ] **Step 2: 触发一次 TTS 朗读，查看日志**
 
-在应用中执行一次语音指令，触发 TTS 朗读。查看日志文件 `~/.shrew/logs/shrew-$(date +%Y-%m-%d).log` 中 `TTS: SentenceEnd payload:` 的输出。
+在应用中执行一次语音指令，触发 TTS 朗读。查看日志文件 `~/.aiva/logs/aiva-$(date +%Y-%m-%d).log` 中 `TTS: SentenceEnd payload:` 的输出。
 
 Expected: 应该看到类似如下结构的 JSON：
 ```json

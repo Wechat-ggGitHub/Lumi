@@ -5,11 +5,11 @@
 
 ## Goal
 
-Change Shrew's default API provider from Anthropic to GLM Coding Plan, while keeping Anthropic as a switchable alternative. Users should be able to select a provider, configure their API key, and choose models from the settings page.
+Change Aiva's default API provider from Anthropic to GLM Coding Plan, while keeping Anthropic as a switchable alternative. Users should be able to select a provider, configure their API key, and choose models from the settings page.
 
 ## Background
 
-Shrew currently hardcodes Anthropic as the sole API provider:
+Aiva currently hardcodes Anthropic as the sole API provider:
 - API key stored as `anthropic-key.enc` via Electron safeStorage
 - Onboarding validates keys against `api.anthropic.com`
 - `claude-client.ts` injects `ANTHROPIC_API_KEY` into the SDK env

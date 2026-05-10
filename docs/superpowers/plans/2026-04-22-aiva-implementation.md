@@ -1,4 +1,4 @@
-# Shrew Implementation Plan
+# Aiva Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +13,7 @@
 ## File Structure
 
 ```
-项目/Shrew/
+项目/Aiva/
 ├── electron/
 │   ├── main.ts                  # 主进程入口：启动 Next.js server、创建窗口/Tray、管理生命周期
 │   ├── tray.ts                  # 菜单栏 Tray：图标、状态小点渲染、点击事件
@@ -78,19 +78,19 @@
 ### Task 1: Project Scaffold
 
 **Files:**
-- Create: `项目/Shrew/package.json`
-- Create: `项目/Shrew/tsconfig.json`
-- Create: `项目/Shrew/tsconfig.electron.json`
-- Create: `项目/Shrew/next.config.ts`
-- Create: `项目/Shrew/electron-builder.yml`
-- Create: `项目/Shrew/src/app/layout.tsx`
-- Create: `项目/Shrew/src/app/api/health/route.ts`
-- Create: `项目/Shrew/electron/main.ts`
+- Create: `项目/Aiva/package.json`
+- Create: `项目/Aiva/tsconfig.json`
+- Create: `项目/Aiva/tsconfig.electron.json`
+- Create: `项目/Aiva/next.config.ts`
+- Create: `项目/Aiva/electron-builder.yml`
+- Create: `项目/Aiva/src/app/layout.tsx`
+- Create: `项目/Aiva/src/app/api/health/route.ts`
+- Create: `项目/Aiva/electron/main.ts`
 
 - [ ] **Step 1: 初始化项目目录**
 
 ```bash
-mkdir -p 项目/Shrew && cd 项目/Shrew
+mkdir -p 项目/Aiva && cd 项目/Aiva
 git init
 ```
 
@@ -98,7 +98,7 @@ git init
 
 ```json
 {
-  "name": "shrew",
+  "name": "aiva",
   "version": "0.1.0",
   "private": true,
   "main": "dist-electron/main.js",
@@ -188,8 +188,8 @@ export default nextConfig;
 - [ ] **Step 6: 创建 electron-builder.yml**
 
 ```yaml
-appId: com.shrew.app
-productName: Shrew
+appId: com.aiva.app
+productName: Aiva
 directories:
   output: release
 mac:
@@ -218,7 +218,7 @@ files:
 
 ```tsx
 // src/app/layout.tsx
-export const metadata = { title: 'Shrew' };
+export const metadata = { title: 'Aiva' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -280,7 +280,7 @@ app.on('window-all-closed', () => {
 - [ ] **Step 10: 安装依赖并验证**
 
 ```bash
-cd 项目/Shrew && npm install
+cd 项目/Aiva && npm install
 npx tsc --noEmit
 ```
 
@@ -468,7 +468,7 @@ test('getRecentExecutions returns ordered by created_at desc', () => {
 - [ ] **Step 3: 运行测试验证失败**
 
 ```bash
-cd 项目/Shrew && npx jest src/__tests__/db.test.ts --no-compile 2>&1 | head -5
+cd 项目/Aiva && npx jest src/__tests__/db.test.ts --no-compile 2>&1 | head -5
 ```
 
 Expected: FAIL (module not found)
@@ -550,7 +550,7 @@ export function getExecutionById(db: Database.Database, id: string): ExecutionRe
 - [ ] **Step 5: 运行测试验证通过**
 
 ```bash
-cd 项目/Shrew && npx jest src/__tests__/db.test.ts
+cd 项目/Aiva && npx jest src/__tests__/db.test.ts
 ```
 
 Expected: 所有测试 PASS
@@ -574,16 +574,16 @@ git commit -m "feat: add type definitions and SQLite database layer"
 
 ```typescript
 // src/__tests__/store.test.ts
-import { ShrewStore } from '../lib/store';
+import { AivaStore } from '../lib/store';
 
 test('initial state is idle with no substate', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   expect(store.appState).toBe('idle');
   expect(store.sdkSubState).toBeNull();
 });
 
 test('transition: idle → recording → transcribing → editing', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('recording');
   expect(store.appState).toBe('recording');
 
@@ -595,7 +595,7 @@ test('transition: idle → recording → transcribing → editing', () => {
 });
 
 test('transition: editing → sending → executing → idle', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('recording');
   store.transition('transcribing');
   store.transition('editing');
@@ -609,13 +609,13 @@ test('transition: editing → sending → executing → idle', () => {
 });
 
 test('invalid transitions are ignored', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('executing'); // idle → executing is invalid
   expect(store.appState).toBe('idle');
 });
 
 test('sdk substate updates independently', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
   store.onChange((state) => changes.push({ ...state }));
 
@@ -632,7 +632,7 @@ test('sdk substate updates independently', () => {
 });
 
 test('dotColor mapping', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
 
   expect(store.dotColor).toBe('gray');
 
@@ -654,7 +654,7 @@ test('dotColor mapping', () => {
 });
 
 test('rightCommand behavior per state', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
 
   // idle → should start recording
   const action1 = store.getRightCommandAction();
@@ -682,7 +682,7 @@ test('rightCommand behavior per state', () => {
 - [ ] **Step 2: 运行测试验证失败**
 
 ```bash
-cd 项目/Shrew && npx jest src/__tests__/store.test.ts
+cd 项目/Aiva && npx jest src/__tests__/store.test.ts
 ```
 
 Expected: FAIL
@@ -714,7 +714,7 @@ export type RightCommandAction =
 
 export type StateChangeCallback = (state: { appState: AppState; sdkSubState: SdkSubState }) => void;
 
-export class ShrewStore {
+export class AivaStore {
   private _appState: AppState = 'idle';
   private _sdkSubState: SdkSubState = null;
   private _previousSdkSubState: SdkSubState = null;
@@ -804,7 +804,7 @@ export class ShrewStore {
 - [ ] **Step 4: 运行测试验证通过**
 
 ```bash
-cd 项目/Shrew && npx jest src/__tests__/store.test.ts
+cd 项目/Aiva && npx jest src/__tests__/store.test.ts
 ```
 
 Expected: 所有测试 PASS
@@ -836,7 +836,7 @@ git commit -m "feat: add two-layer state management store"
 创建资源目录：
 
 ```bash
-mkdir -p 项目/Shrew/resources/tray
+mkdir -p 项目/Aiva/resources/tray
 ```
 
 - [ ] **Step 2: 创建 electron/tray.ts**
@@ -847,7 +847,7 @@ import { Tray, nativeImage, Menu, BrowserWindow } from 'electron';
 import path from 'path';
 import type { DotColor } from '../src/types';
 
-// 动态生成 Template 图标 (22x22 黑色 Shrew logo 轮廓)
+// 动态生成 Template 图标 (22x22 黑色 Aiva logo 轮廓)
 function createBaseIcon(): Electron.NativeImage {
   const size = 22;
   // macOS Template 图标：黑色像素自动适配明暗模式
@@ -893,7 +893,7 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
-export class ShrewTray {
+export class AivaTray {
   private tray: Tray;
   private dotIcons: Record<DotColor, Electron.NativeImage>;
   private baseIcon: Electron.NativeImage;
@@ -910,15 +910,15 @@ export class ShrewTray {
     };
 
     this.tray = new Tray(this.baseIcon);
-    this.tray.setToolTip('Shrew - 待命中');
+    this.tray.setToolTip('Aiva - 待命中');
     this.updateDot('gray');
 
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Shrew', type: 'normal', enabled: false },
+      { label: 'Aiva', type: 'normal', enabled: false },
       { type: 'separator' },
       { label: '设置...', click: () => this.openSettings() },
       { type: 'separator' },
-      { label: '退出 Shrew', role: 'quit' },
+      { label: '退出 Aiva', role: 'quit' },
     ]);
     this.tray.setContextMenu(contextMenu);
 
@@ -932,11 +932,11 @@ export class ShrewTray {
     this.tray.setImage(dot);
 
     const tooltips: Record<DotColor, string> = {
-      gray: 'Shrew - 待命中',
-      blue: 'Shrew - 执行中',
-      green: 'Shrew - 已完成',
-      red: 'Shrew - 出错了',
-      yellow: 'Shrew - 等待中',
+      gray: 'Aiva - 待命中',
+      blue: 'Aiva - 执行中',
+      green: 'Aiva - 已完成',
+      red: 'Aiva - 出错了',
+      yellow: 'Aiva - 等待中',
     };
     this.tray.setToolTip(tooltips[color]);
   }
@@ -987,7 +987,7 @@ git commit -m "feat: add menu bar Tray with dynamic status dot icons"
 - [ ] **Step 1: 创建 Swift addon 目录结构**
 
 ```bash
-mkdir -p 项目/Shrew/electron/native/key-event-tap/Sources
+mkdir -p 项目/Aiva/electron/native/key-event-tap/Sources
 ```
 
 - [ ] **Step 2: 创建 Package.swift**
@@ -1015,7 +1015,7 @@ let package = Package(
 - [ ] **Step 3: 创建 CNodeAPI modulemap**
 
 ```bash
-mkdir -p 项目/Shrew/electron/native/key-event-tap/Sources/CNodeAPI
+mkdir -p 项目/Aiva/electron/native/key-event-tap/Sources/CNodeAPI
 ```
 
 ```c
@@ -1841,7 +1841,7 @@ export async function POST(request: NextRequest) {
   // 而 Next.js API routes 在 Node.js 中运行，可以直接调用
 
   // 此处通过 global 暴露的执行函数来调用
-  const executor = (globalThis as any).__shrewExecutor;
+  const executor = (globalThis as any).__aivaExecutor;
   if (!executor) {
     return NextResponse.json({ error: 'Executor not ready' }, { status: 503 });
   }
@@ -1865,7 +1865,7 @@ export async function POST(request: NextRequest) {
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const store = (globalThis as any).__shrewStore;
+  const store = (globalThis as any).__aivaStore;
   if (!store) {
     return NextResponse.json({ state: 'idle', substate: null });
   }
@@ -2192,7 +2192,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', padding: '0 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 32 }}>Shrew 设置</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 32 }}>Aiva 设置</h1>
 
       {/* API Key */}
       <section style={{ marginBottom: 32 }}>
@@ -2289,7 +2289,7 @@ export default function SettingsPage() {
       {/* 关于 */}
       <section style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #eee' }}>
         <p style={{ fontSize: 12, color: '#999' }}>
-          Shrew v0.1.0 · Claude Code 语音壳子
+          Aiva v0.1.0 · Claude Code 语音壳子
         </p>
       </section>
     </div>
@@ -2368,8 +2368,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const steps: Record<Step, JSX.Element> = {
     welcome: (
       <OnboardingStep
-        title="欢迎使用 Shrew"
-        description="Shrew 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
+        title="欢迎使用 Aiva"
+        description="Aiva 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
         buttonText="开始设置"
         onAction={() => setStep('accessibility')}
       />
@@ -2377,7 +2377,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     accessibility: (
       <OnboardingStep
         title="辅助功能权限"
-        description="为了响应右 Command 键唤起语音，Shrew 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Shrew 只会监听右 Command 键，不会记录任何其他按键。"
+        description="为了响应右 Command 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Command 键，不会记录任何其他按键。"
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
@@ -2397,7 +2397,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     'model-download': (
       <div style={stepStyle}>
         <h2 style={titleStyle}>语音模型</h2>
-        <p style={descStyle}>Shrew 使用本地语音识别，需要下载约 230MB 的模型文件。</p>
+        <p style={descStyle}>Aiva 使用本地语音识别，需要下载约 230MB 的模型文件。</p>
         {downloadProgress > 0 && downloadProgress < 100 ? (
           <div style={{ marginBottom: 16 }}>
             <div style={{ background: '#eee', borderRadius: 4, height: 6, overflow: 'hidden' }}>
@@ -2455,7 +2455,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     done: (
       <OnboardingStep
         title="设置完成！"
-        description="按下右 Command 开始使用 Shrew。"
+        description="按下右 Command 开始使用 Aiva。"
         buttonText="开始使用"
         onAction={onComplete}
       />
@@ -2528,12 +2528,12 @@ git commit -m "feat: add onboarding flow (accessibility, model download, API key
 import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { ShrewTray } from './tray';
+import { AivaTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
 import { SummaryPopupWindow } from './summary-popup';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
-import { ShrewStore } from '../src/lib/store';
+import { AivaStore } from '../src/lib/store';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getActiveExecution } from '../src/lib/db';
 import { saveApiKey, loadApiKey, hasApiKey } from '../src/lib/keychain';
 import { executeClaude } from '../src/lib/claude-client';
@@ -2544,11 +2544,11 @@ import Database from 'better-sqlite3';
 
 const userDataDir = app.getPath('userData');
 const settingsPath = path.join(userDataDir, 'settings.json');
-const dbPath = path.join(userDataDir, 'shrew.db');
+const dbPath = path.join(userDataDir, 'aiva.db');
 
 let db: Database.Database;
-let store: ShrewStore;
-let tray: ShrewTray;
+let store: AivaStore;
+let tray: AivaTray;
 let voiceBar: VoiceBarWindow;
 let summaryPopup: SummaryPopupWindow;
 let shortcutManager: ShortcutManager;
@@ -2810,8 +2810,8 @@ function registerIpcHandlers(): void {
   });
 
   // 暴露给 API routes
-  (globalThis as any).__shrewStore = store;
-  (globalThis as any).__shrewExecutor = {
+  (globalThis as any).__aivaStore = store;
+  (globalThis as any).__aivaExecutor = {
     execute: executePrompt,
   };
 }
@@ -2823,11 +2823,11 @@ app.whenReady().then(async () => {
   initDb(db);
 
   // 初始化状态管理
-  store = new ShrewStore();
+  store = new AivaStore();
   store.onChange(() => updateTrayDot());
 
   // 创建菜单栏 Tray
-  tray = new ShrewTray();
+  tray = new AivaTray();
   tray.onPopupRequested = () => summaryPopup.show(tray as any);
   tray.onSettingsRequested = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2962,7 +2962,7 @@ module.exports = {
 - [ ] **Step 3: 运行全部测试**
 
 ```bash
-cd 项目/Shrew && npm install && npm test
+cd 项目/Aiva && npm install && npm test
 ```
 
 Expected: 所有测试 PASS
@@ -2970,7 +2970,7 @@ Expected: 所有测试 PASS
 - [ ] **Step 4: 运行开发模式验证**
 
 ```bash
-cd 项目/Shrew && npm run dev
+cd 项目/Aiva && npm run dev
 ```
 
 打开浏览器访问 `http://127.0.0.1:3000/settings` 验证设置页渲染正常。
@@ -3014,5 +3014,5 @@ git commit -m "feat: add test configuration and build scripts"
 
 ### Type Consistency
 - `AppState`, `SdkSubState`, `DotColor`, `ExecutionRecord`, `AppSettings` 类型在 Task 2 定义，后续 Task 全部引用一致
-- `ShrewStore` 的 `getRightCommandAction()` 返回类型在 Task 3 定义，Task 12 中使用一致
+- `AivaStore` 的 `getRightCommandAction()` 返回类型在 Task 3 定义，Task 12 中使用一致
 - IPC 消息通道名称在各组件间一致（`voice:send`, `summary:update` 等）

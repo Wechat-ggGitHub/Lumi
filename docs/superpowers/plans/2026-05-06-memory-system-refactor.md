@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 重构 Shrew 记忆系统为两层架构——SDK Auto-Memory 管理全局核心记忆，Shrew 自管理每日记忆 Markdown 文件。
+**Goal:** 重构 Aiva 记忆系统为两层架构——SDK Auto-Memory 管理全局核心记忆，Aiva 自管理每日记忆 Markdown 文件。
 
-**Architecture:** 删除 SQLite `memory_item` 表和相关提取/注入逻辑。SDK 的 `autoMemoryDirectory` 设为固定路径 `~/.shrew/memories/`（不受工作目录切换影响）。新增 `daily-memory-reader.ts` 和 `daily-memory-writer.ts` 管理每日 Markdown 文件，每次对话完成后 LLM 评估是否追加到当日文件。`/memory` 页面改为双 tab UI。
+**Architecture:** 删除 SQLite `memory_item` 表和相关提取/注入逻辑。SDK 的 `autoMemoryDirectory` 设为固定路径 `~/.aiva/memories/`（不受工作目录切换影响）。新增 `daily-memory-reader.ts` 和 `daily-memory-writer.ts` 管理每日 Markdown 文件，每次对话完成后 LLM 评估是否追加到当日文件。`/memory` 页面改为双 tab UI。
 
 **Tech Stack:** TypeScript, Node.js fs, better-sqlite3 (仅迁移用), Claude Agent SDK (autoMemoryDirectory), Electron IPC, Next.js React (page rewrite)
 
@@ -19,7 +19,7 @@
 | Create | `src/__tests__/daily-memory-reader.test.ts` | daily-memory-reader 单元测试 |
 | Create | `src/__tests__/daily-memory-writer.test.ts` | daily-memory-writer 单元测试 |
 | Modify | `src/lib/claude-client.ts:51-64` | 添加 SDK autoMemoryDirectory 配置 |
-| Modify | `src/lib/shrew-context.ts` | 删除 getActiveMemories/getPinnedMemories，修改 buildShrewContext 签名和逻辑 |
+| Modify | `src/lib/aiva-context.ts` | 删除 getActiveMemories/getPinnedMemories，修改 buildAivaContext 签名和逻辑 |
 | Modify | `src/lib/db.ts:48-61,268-313` | 删除 memory_item 表和相关函数 |
 | Modify | `electron/main.ts:12,19-20,381-391,527-539,980-1007` | 删除旧 memory import/IPC/handler，替换为新的每日记忆逻辑 |
 | Modify | `src/types/index.ts:114-125,208-214` | 删除 MemoryItem，更新 IPC 类型 |
@@ -121,18 +121,18 @@ Expected: FAIL — module not found
 import fs from 'fs';
 import path from 'path';
 
-export function getDailyMemoryDir(shrewDir: string): string {
-  return path.join(shrewDir, 'daily');
+export function getDailyMemoryDir(aivaDir: string): string {
+  return path.join(aivaDir, 'daily');
 }
 
-export function readDailyMemory(shrewDir: string, date: string): string | null {
-  const filePath = path.join(getDailyMemoryDir(shrewDir), `${date}.md`);
+export function readDailyMemory(aivaDir: string, date: string): string | null {
+  const filePath = path.join(getDailyMemoryDir(aivaDir), `${date}.md`);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, 'utf-8');
 }
 
-export function listDailyMemoryDates(shrewDir: string): string[] {
-  const dir = getDailyMemoryDir(shrewDir);
+export function listDailyMemoryDates(aivaDir: string): string[] {
+  const dir = getDailyMemoryDir(aivaDir);
   if (!fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir);
   const dates = files
@@ -143,14 +143,14 @@ export function listDailyMemoryDates(shrewDir: string): string[] {
   return dates;
 }
 
-export function readRecentDailyMemories(shrewDir: string, days: number): Map<string, string> {
+export function readRecentDailyMemories(aivaDir: string, days: number): Map<string, string> {
   const result = new Map<string, string>();
   const today = new Date();
   for (let i = 0; i < days; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
-    const content = readDailyMemory(shrewDir, dateStr);
+    const content = readDailyMemory(aivaDir, dateStr);
     if (content) {
       result.set(dateStr, content);
     }
@@ -271,8 +271,8 @@ interface EvalResult {
   summary: string;
 }
 
-export function appendDailyMemory(shrewDir: string, date: string, time: string, title: string, summary: string): void {
-  const dir = getDailyMemoryDir(shrewDir);
+export function appendDailyMemory(aivaDir: string, date: string, time: string, title: string, summary: string): void {
+  const dir = getDailyMemoryDir(aivaDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -288,7 +288,7 @@ export function appendDailyMemory(shrewDir: string, date: string, time: string, 
 }
 
 export async function evaluateAndWriteDailyMemory(
-  shrewDir: string,
+  aivaDir: string,
   userMessage: string,
   assistantMessage: string,
   apiKey: string,
@@ -342,7 +342,7 @@ export async function evaluateAndWriteDailyMemory(
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    appendDailyMemory(shrewDir, dateStr, timeStr, result.title, result.summary);
+    appendDailyMemory(aivaDir, dateStr, timeStr, result.title, result.summary);
     log.info('每日记忆已写入:', result.title);
   } catch (err) {
     log.error('每日记忆评估异常:', err);
@@ -386,7 +386,7 @@ In `src/lib/claude-client.ts`, add three lines to the `options` object (after li
       preset: 'claude_code',
       ...(skillCatalog ? { append: skillCatalog } : {}),
     },
-    autoMemoryDirectory: '~/.shrew/memories',
+    autoMemoryDirectory: '~/.aiva/memories',
     autoMemoryEnabled: true,
     autoDreamEnabled: true,
     ...(resumeSessionId ? { resume: resumeSessionId } : {}),
@@ -409,17 +409,17 @@ git commit -m "feat: configure SDK auto-memory with global directory"
 
 ---
 
-### Task 4: Update shrew-context.ts
+### Task 4: Update aiva-context.ts
 
 **Files:**
-- Modify: `src/lib/shrew-context.ts`
+- Modify: `src/lib/aiva-context.ts`
 
-- [ ] **Step 1: Rewrite shrew-context.ts**
+- [ ] **Step 1: Rewrite aiva-context.ts**
 
 Replace the entire file. Remove `getActiveMemories`, `getPinnedMemories`, and the `memoryLines` parameter. Add daily memory injection.
 
 ```typescript
-// src/lib/shrew-context.ts
+// src/lib/aiva-context.ts
 import fs from 'fs';
 import path from 'path';
 import { readDailyMemory } from './daily-memory-reader';
@@ -430,9 +430,9 @@ const DELIVERY_INSTRUCTION = `## 结果交付方式
 - 如果结果较长或包含复杂内容（如代码修改总结、多步骤操作、详细分析），将完整内容整理成文件写入 ~/Desktop/ 目录，然后用一两句话告诉用户你做了什么以及文件位置`;
 
 const DAILY_MEMORY_HINT = `## 每日记忆
-每日记忆存储在 ~/.shrew/daily/ 目录，格式为 YYYY-MM-DD.md。当用户提及过去发生的事或询问之前讨论过的内容时，用 Read 工具读取对应日期的文件。`;
+每日记忆存储在 ~/.aiva/daily/ 目录，格式为 YYYY-MM-DD.md。当用户提及过去发生的事或询问之前讨论过的内容时，用 Read 工具读取对应日期的文件。`;
 
-export function buildShrewContext(shrewDir: string, personaContent: string): string {
+export function buildAivaContext(aivaDir: string, personaContent: string): string {
   const parts: string[] = [];
 
   if (personaContent.trim()) {
@@ -445,7 +445,7 @@ export function buildShrewContext(shrewDir: string, personaContent: string): str
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().slice(0, 10);
-  const yesterdayMemory = readDailyMemory(shrewDir, yesterdayStr);
+  const yesterdayMemory = readDailyMemory(aivaDir, yesterdayStr);
   if (yesterdayMemory) {
     parts.push(`\n## 近期动态\n以下是 ${yesterdayStr} 的记忆摘要：\n${yesterdayMemory}`);
   }
@@ -464,7 +464,7 @@ Expected: will show errors in main.ts because `getActiveMemories` import is remo
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/lib/shrew-context.ts
+git add src/lib/aiva-context.ts
 git commit -m "refactor: replace memory injection with daily memory context"
 ```
 
@@ -525,11 +525,11 @@ import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecu
 
 删除第 19 行：
 ```typescript
-// 删除: import { buildShrewContext, getActiveMemories } from '../src/lib/shrew-context';
+// 删除: import { buildAivaContext, getActiveMemories } from '../src/lib/aiva-context';
 ```
 替换为：
 ```typescript
-import { buildShrewContext } from '../src/lib/shrew-context';
+import { buildAivaContext } from '../src/lib/aiva-context';
 import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
 import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 ```
@@ -544,32 +544,32 @@ import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 将第 380-391 行：
 ```typescript
   // 构建 persona + memory 上下文
-  const personaContent = buildPersonaContext(shrewDir);
+  const personaContent = buildPersonaContext(aivaDir);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(personaContent, memoryLines);
+  const aivaContext = buildAivaContext(personaContent, memoryLines);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
-    path.join(shrewDir, 'skills'),
+    path.join(aivaDir, 'skills'),
     settings.disabledSkills || []
   );
 
-  const fullPrompt = shrewContext ? shrewContext + '\n\n' + prompt : prompt;
+  const fullPrompt = aivaContext ? aivaContext + '\n\n' + prompt : prompt;
 ```
 
 替换为：
 ```typescript
   // 构建 persona + 每日记忆上下文
-  const personaContent = buildPersonaContext(shrewDir);
-  const shrewContext = buildShrewContext(shrewDir, personaContent);
+  const personaContent = buildPersonaContext(aivaDir);
+  const aivaContext = buildAivaContext(aivaDir, personaContent);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
-    path.join(shrewDir, 'skills'),
+    path.join(aivaDir, 'skills'),
     settings.disabledSkills || []
   );
 
-  const fullPrompt = shrewContext ? shrewContext + '\n\n' + prompt : prompt;
+  const fullPrompt = aivaContext ? aivaContext + '\n\n' + prompt : prompt;
 ```
 
 - [ ] **Step 3: Update executePrompt — replace memory extraction with daily memory writer**
@@ -601,7 +601,7 @@ import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
         const assistantContent = conversationMessages
           .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
         evaluateAndWriteDailyMemory(
-          shrewDir, prompt, result.summary || assistantContent,
+          aivaDir, prompt, result.summary || assistantContent,
           ak, providerKey,
         ).catch(err => log.error('每日记忆写入异常:', err));
       }
@@ -615,7 +615,7 @@ import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 ```typescript
   // memory (file-based)
   ipcMain.handle('memory:list-core', () => {
-    const memoriesDir = path.join(shrewDir, 'memories');
+    const memoriesDir = path.join(aivaDir, 'memories');
     if (!fs.existsSync(memoriesDir)) return [];
     const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
     return files.map(f => {
@@ -625,24 +625,24 @@ import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
   });
 
   ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
-    const filePath = path.join(shrewDir, 'memories', filename);
+    const filePath = path.join(aivaDir, 'memories', filename);
     if (!fs.existsSync(filePath)) return false;
     fs.writeFileSync(filePath, content);
     return true;
   });
 
   ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
-    const filePath = path.join(shrewDir, 'memories', filename);
+    const filePath = path.join(aivaDir, 'memories', filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     return true;
   });
 
   ipcMain.handle('memory:list-daily', () => {
-    return listDailyMemoryDates(shrewDir);
+    return listDailyMemoryDates(aivaDir);
   });
 
   ipcMain.handle('memory:read-daily', (_, { date }: { date: string }) => {
-    return readDailyMemory(shrewDir, date);
+    return readDailyMemory(aivaDir, date);
   });
 ```
 
@@ -743,7 +743,7 @@ git commit -m "refactor: delete legacy memory-extractor module"
   if (tables.length > 0) {
     const memories = db.prepare(`SELECT * FROM memory_item WHERE status = '生效中'`).all() as Array<{ type: string; content: string }>;
     if (memories.length > 0) {
-      const memoriesDir = path.join(appHomeDir || shrewDirFromDb(db), 'memories');
+      const memoriesDir = path.join(appHomeDir || aivaDirFromDb(db), 'memories');
       fs.mkdirSync(memoriesDir, { recursive: true });
 
       const indexLines: string[] = [];
@@ -769,12 +769,12 @@ git commit -m "refactor: delete legacy memory-extractor module"
   }
 ```
 
-注意：`initDb` 需要 `shrewDir` 参数。当前 `initDb` 只接收 `db`，需要额外传入 `shrewDir` 路径。或者改为在 `electron/main.ts` 的初始化阶段单独调用迁移函数。
+注意：`initDb` 需要 `aivaDir` 参数。当前 `initDb` 只接收 `db`，需要额外传入 `aivaDir` 路径。或者改为在 `electron/main.ts` 的初始化阶段单独调用迁移函数。
 
 **更好的方案**：在 `src/lib/db.ts` 中添加一个独立的 `migrateMemoryItems` 函数：
 
 ```typescript
-export function migrateMemoryItems(db: Database.Database, shrewDir: string): void {
+export function migrateMemoryItems(db: Database.Database, aivaDir: string): void {
   const tables = db.pragma('table_info(memory_item)') as { name: string }[];
   if (tables.length === 0) return;
 
@@ -784,7 +784,7 @@ export function migrateMemoryItems(db: Database.Database, shrewDir: string): voi
     return;
   }
 
-  const memoriesDir = path.join(shrewDir, 'memories');
+  const memoriesDir = path.join(aivaDir, 'memories');
   fs.mkdirSync(memoriesDir, { recursive: true });
 
   const indexLines: string[] = [];
@@ -811,7 +811,7 @@ export function migrateMemoryItems(db: Database.Database, shrewDir: string): voi
 在 `electron/main.ts` 的初始化代码中（`initDb(db)` 之后）添加调用：
 
 ```typescript
-  migrateMemoryItems(db, shrewDir);
+  migrateMemoryItems(db, aivaDir);
 ```
 
 同时在 `electron/main.ts` 的 import 中添加 `migrateMemoryItems`。
@@ -918,7 +918,7 @@ export default function MemoryPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="记忆管理" subtitle="Shrew 记住了什么"
+      <PageHeader title="记忆管理" subtitle="Aiva 记住了什么"
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {/* Tab switcher */}
@@ -1009,8 +1009,8 @@ Expected: build succeeds
 Run: `npm run electron:dev`
 Verify:
 - /memory 页面加载正常，显示双 tab
-- 核心记忆 tab 显示 `~/.shrew/memories/` 下的文件内容
-- 每日记忆 tab 显示 `~/.shrew/daily/` 下的日期列表
+- 核心记忆 tab 显示 `~/.aiva/memories/` 下的文件内容
+- 每日记忆 tab 显示 `~/.aiva/daily/` 下的日期列表
 - 点击日期可展开查看内容
 
 - [ ] **Step 4: Commit**
@@ -1040,8 +1040,8 @@ Run: `npm run electron:dev`
 
 Test scenarios:
 1. 执行一次对话，确认执行完成后没有 memory 提炼报错
-2. 检查 `~/.shrew/daily/` 目录下是否生成了当日文件
-3. 检查 `~/.shrew/memories/` 目录是否被 SDK 使用（Claude 应能自主写入记忆）
+2. 检查 `~/.aiva/daily/` 目录下是否生成了当日文件
+3. 检查 `~/.aiva/memories/` 目录是否被 SDK 使用（Claude 应能自主写入记忆）
 4. 打开 /memory 页面，确认核心记忆和每日记忆 tab 都正常工作
 5. 换一个工作目录（设置中修改），执行对话，确认 SDK 记忆不会丢失
 
@@ -1070,6 +1070,6 @@ git commit -m "feat: complete memory system refactor — SDK global + daily mark
 
 **3. Type consistency:**
 - `CoreMemory` interface defined in Task 10 matches IPC return type from Task 6
-- `readDailyMemory(shrewDir, date)` signature consistent between Task 1 and Task 4/6
+- `readDailyMemory(aivaDir, date)` signature consistent between Task 1 and Task 4/6
 - `evaluateAndWriteDailyMemory` parameters match Task 2 and Task 6
 - IPC channel names (`memory:list-core`, etc.) consistent across Task 5, Task 6, Task 10

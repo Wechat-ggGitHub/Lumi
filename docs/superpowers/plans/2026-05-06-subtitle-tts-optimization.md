@@ -567,7 +567,7 @@ async function speakResult(summary: string): Promise<void> {
   try {
     // Start TTS synthesis and window preparation in parallel
     const trayBounds = tray.getBounds();
-    const profile = readProfile(shrewDir);
+    const profile = readProfile(aivaDir);
 
     const [ttsResult] = await Promise.all([
       ttsService.synthesize({

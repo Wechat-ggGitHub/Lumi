@@ -41,11 +41,11 @@
 `electron/tray.ts` 中的 context menu 从：
 
 ```
-Shrew (disabled)
+Aiva (disabled)
 ---
 设置...
 ---
-退出 Shrew
+退出 Aiva
 ```
 
 改为：

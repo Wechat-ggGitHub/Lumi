@@ -1,11 +1,11 @@
-# Shrew Icon Design Spec
+# Aiva Icon Design Spec
 
 **Date**: 2026-05-03
 **Status**: Approved
 
 ## Overview
 
-为 Shrew macOS 桌面应用设计两套图标：Dock 图标（App Icon）和菜单栏 Tray 图标。
+为 Aiva macOS 桌面应用设计两套图标：Dock 图标（App Icon）和菜单栏 Tray 图标。
 
 设计方向：Siri 式光球风格，紫蓝青渐变，传达 AI 助手的智能存在感。
 

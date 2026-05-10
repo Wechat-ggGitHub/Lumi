@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
 
-const KEYCHAIN_DIR = path.join(app.getPath('home'), '.shrew', 'secure');
+const KEYCHAIN_DIR = path.join(app.getPath('home'), '.aiva', 'secure');
 const API_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
 const LEGACY_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
 

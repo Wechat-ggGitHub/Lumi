@@ -4,7 +4,7 @@
 
 **Goal:** Split persona into structured name/avatar (profile.json) + freeform personality markdown (persona.md), and wire both to the chat header.
 
-**Architecture:** New `~/.shrew/persona/` directory holds `profile.json` (name + avatar filename), `persona.md` (personality text), and `avatar.png` (uploaded image). persona-file.ts manages all three. Persona page has name input + avatar upload at top, markdown editor below. ChatHeader reads profile via IPC and renders dynamically. executePrompt prepends name to context.
+**Architecture:** New `~/.aiva/persona/` directory holds `profile.json` (name + avatar filename), `persona.md` (personality text), and `avatar.png` (uploaded image). persona-file.ts manages all three. Persona page has name input + avatar upload at top, markdown editor below. ChatHeader reads profile via IPC and renders dynamically. executePrompt prepends name to context.
 
 **Tech Stack:** Electron IPC, React state, fs/path (Node.js), native file dialog
 
@@ -20,7 +20,7 @@
 | `src/app/chat/page.tsx` | Loads persona profile on mount, passes to ChatHeader |
 | `electron/main.ts` | IPC handlers for persona load/save/avatar/upload, executePrompt context |
 | `src/types/index.ts` | IPC type definitions |
-| `src/lib/shrew-context.ts` | No changes needed — already takes a string |
+| `src/lib/aiva-context.ts` | No changes needed — already takes a string |
 
 ---
 
@@ -31,7 +31,7 @@
 
 - [ ] **Step 1: Rewrite persona-file.ts**
 
-Replace the entire file. The module now manages a `~/.shrew/persona/` directory with three files: `profile.json`, `persona.md`, and optionally `avatar.<ext>`.
+Replace the entire file. The module now manages a `~/.aiva/persona/` directory with three files: `profile.json`, `persona.md`, and optionally `avatar.<ext>`.
 
 ```ts
 import fs from 'fs';
@@ -43,34 +43,34 @@ const PROFILE_FILE = 'profile.json';
 const MARKDOWN_FILE = 'persona.md';
 const AVATAR_FILENAME = 'avatar';
 
-const DEFAULT_PROFILE = { name: 'Shrew', avatar: null as string | null };
+const DEFAULT_PROFILE = { name: 'Aiva', avatar: null as string | null };
 const DEFAULT_MARKDOWN = '你是一个专业、高效的编程助手。';
 
 // --- Path helpers ---
 
-export function getPersonaDir(shrewDir: string): string {
-  return path.join(shrewDir, PERSONA_DIR);
+export function getPersonaDir(aivaDir: string): string {
+  return path.join(aivaDir, PERSONA_DIR);
 }
 
-function profilePath(shrewDir: string): string {
-  return path.join(getPersonaDir(shrewDir), PROFILE_FILE);
+function profilePath(aivaDir: string): string {
+  return path.join(getPersonaDir(aivaDir), PROFILE_FILE);
 }
 
-function markdownPath(shrewDir: string): string {
-  return path.join(getPersonaDir(shrewDir), MARKDOWN_FILE);
+function markdownPath(aivaDir: string): string {
+  return path.join(getPersonaDir(aivaDir), MARKDOWN_FILE);
 }
 
-export function getAvatarPath(shrewDir: string): string | null {
-  const dir = getPersonaDir(shrewDir);
-  const profile = readProfile(shrewDir);
+export function getAvatarPath(aivaDir: string): string | null {
+  const dir = getPersonaDir(aivaDir);
+  const profile = readProfile(aivaDir);
   if (!profile.avatar) return null;
   return path.join(dir, profile.avatar);
 }
 
 // --- Ensure directory exists ---
 
-function ensurePersonaDir(shrewDir: string): void {
-  const dir = getPersonaDir(shrewDir);
+function ensurePersonaDir(aivaDir: string): void {
+  const dir = getPersonaDir(aivaDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -83,8 +83,8 @@ interface PersonaProfile {
   avatar: string | null;
 }
 
-export function readProfile(shrewDir: string): PersonaProfile {
-  const filePath = profilePath(shrewDir);
+export function readProfile(aivaDir: string): PersonaProfile {
+  const filePath = profilePath(aivaDir);
   if (!fs.existsSync(filePath)) {
     return { ...DEFAULT_PROFILE };
   }
@@ -96,38 +96,38 @@ export function readProfile(shrewDir: string): PersonaProfile {
   }
 }
 
-export function writeProfile(shrewDir: string, profile: Partial<PersonaProfile>): void {
-  ensurePersonaDir(shrewDir);
-  const current = readProfile(shrewDir);
+export function writeProfile(aivaDir: string, profile: Partial<PersonaProfile>): void {
+  ensurePersonaDir(aivaDir);
+  const current = readProfile(aivaDir);
   const merged = { ...current, ...profile };
-  fs.writeFileSync(profilePath(shrewDir), JSON.stringify(merged, null, 2), 'utf-8');
+  fs.writeFileSync(profilePath(aivaDir), JSON.stringify(merged, null, 2), 'utf-8');
 }
 
 // --- Markdown (persona.md) ---
 
-export function readPersonaMarkdown(shrewDir: string): string {
-  const filePath = markdownPath(shrewDir);
+export function readPersonaMarkdown(aivaDir: string): string {
+  const filePath = markdownPath(aivaDir);
   if (!fs.existsSync(filePath)) {
     return DEFAULT_MARKDOWN;
   }
   return fs.readFileSync(filePath, 'utf-8');
 }
 
-export function writePersonaMarkdown(shrewDir: string, content: string): void {
-  ensurePersonaDir(shrewDir);
-  fs.writeFileSync(markdownPath(shrewDir), content, 'utf-8');
+export function writePersonaMarkdown(aivaDir: string, content: string): void {
+  ensurePersonaDir(aivaDir);
+  fs.writeFileSync(markdownPath(aivaDir), content, 'utf-8');
 }
 
 // --- Avatar file ---
 
-export function saveAvatarFile(shrewDir: string, sourcePath: string): string {
-  ensurePersonaDir(shrewDir);
+export function saveAvatarFile(aivaDir: string, sourcePath: string): string {
+  ensurePersonaDir(aivaDir);
   const ext = path.extname(sourcePath).toLowerCase();
   const filename = `${AVATAR_FILENAME}${ext}`;
-  const dest = path.join(getPersonaDir(shrewDir), filename);
+  const dest = path.join(getPersonaDir(aivaDir), filename);
 
   // Remove old avatar files
-  const dir = getPersonaDir(shrewDir);
+  const dir = getPersonaDir(aivaDir);
   for (const file of fs.readdirSync(dir)) {
     if (file.startsWith(AVATAR_FILENAME + '.')) {
       fs.unlinkSync(path.join(dir, file));
@@ -138,8 +138,8 @@ export function saveAvatarFile(shrewDir: string, sourcePath: string): string {
   return filename;
 }
 
-export function removeAvatarFile(shrewDir: string): void {
-  const dir = getPersonaDir(shrewDir);
+export function removeAvatarFile(aivaDir: string): void {
+  const dir = getPersonaDir(aivaDir);
   if (!fs.existsSync(dir)) return;
   for (const file of fs.readdirSync(dir)) {
     if (file.startsWith(AVATAR_FILENAME + '.')) {
@@ -150,9 +150,9 @@ export function removeAvatarFile(shrewDir: string): void {
 
 // --- Full context for Claude (used by executePrompt) ---
 
-export function buildPersonaContext(shrewDir: string): string {
-  const profile = readProfile(shrewDir);
-  const markdown = readPersonaMarkdown(shrewDir);
+export function buildPersonaContext(aivaDir: string): string {
+  const profile = readProfile(aivaDir);
+  const markdown = readPersonaMarkdown(aivaDir);
   const parts: string[] = [];
   if (profile.name) parts.push(`你的名称是${profile.name}。`);
   if (markdown.trim()) parts.push(markdown.trim());
@@ -161,23 +161,23 @@ export function buildPersonaContext(shrewDir: string): string {
 
 // --- Migration from old single-file and DB ---
 
-export function migratePersona(shrewDir: string, db: Database.Database): void {
-  const personaDir = getPersonaDir(shrewDir);
+export function migratePersona(aivaDir: string, db: Database.Database): void {
+  const personaDir = getPersonaDir(aivaDir);
   if (fs.existsSync(personaDir)) return;
 
   fs.mkdirSync(personaDir, { recursive: true });
 
-  // Migrate from old persona.md at ~/.shrew/persona.md
-  const oldFile = path.join(shrewDir, 'persona.md');
+  // Migrate from old persona.md at ~/.aiva/persona.md
+  const oldFile = path.join(aivaDir, 'persona.md');
   if (fs.existsSync(oldFile)) {
     const raw = fs.readFileSync(oldFile, 'utf-8');
     // Extract name from "你的名称是X。" line
     const nameMatch = raw.match(/你的名称是(.+?)。/);
-    const name = nameMatch ? nameMatch[1] : 'Shrew';
+    const name = nameMatch ? nameMatch[1] : 'Aiva';
     // Remove the name line, keep the rest
     const content = raw.replace(/你的名称是.+?\n?/, '').trim();
-    writeProfile(shrewDir, { name, avatar: null });
-    writePersonaMarkdown(shrewDir, content || DEFAULT_MARKDOWN);
+    writeProfile(aivaDir, { name, avatar: null });
+    writePersonaMarkdown(aivaDir, content || DEFAULT_MARKDOWN);
     fs.unlinkSync(oldFile);
     return;
   }
@@ -185,12 +185,12 @@ export function migratePersona(shrewDir: string, db: Database.Database): void {
   // Migrate from DB
   const row = db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Record<string, unknown> | undefined;
   if (!row) {
-    writeProfile(shrewDir, DEFAULT_PROFILE);
-    writePersonaMarkdown(shrewDir, DEFAULT_MARKDOWN);
+    writeProfile(aivaDir, DEFAULT_PROFILE);
+    writePersonaMarkdown(aivaDir, DEFAULT_MARKDOWN);
     return;
   }
 
-  const name = String(row.name || 'Shrew');
+  const name = String(row.name || 'Aiva');
   const parts: string[] = [];
   if (row.bio) parts.push(String(row.bio));
   const styleParts: string[] = [];
@@ -202,8 +202,8 @@ export function migratePersona(shrewDir: string, db: Database.Database): void {
   if (styleParts.length > 0) { parts.push(`## 性格与风格`); parts.push(...styleParts); }
   if (row.system_prompt) parts.push(String(row.system_prompt));
 
-  writeProfile(shrewDir, { name, avatar: null });
-  writePersonaMarkdown(shrewDir, parts.join('\n') || DEFAULT_MARKDOWN);
+  writeProfile(aivaDir, { name, avatar: null });
+  writePersonaMarkdown(aivaDir, parts.join('\n') || DEFAULT_MARKDOWN);
 }
 ```
 
@@ -238,26 +238,26 @@ import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, s
 
 Change lines 327-329 from:
 ```ts
-  const personaContent = readPersonaFile(shrewDir);
+  const personaContent = readPersonaFile(aivaDir);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(personaContent, memoryLines);
+  const aivaContext = buildAivaContext(personaContent, memoryLines);
 ```
 to:
 ```ts
-  const personaContent = buildPersonaContext(shrewDir);
+  const personaContent = buildPersonaContext(aivaDir);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(personaContent, memoryLines);
+  const aivaContext = buildAivaContext(personaContent, memoryLines);
 ```
 
 - [ ] **Step 3: Update migration call**
 
 Find the `migratePersonaFromDb` call in `main.ts` and replace with `migratePersona`. Search for `migratePersonaFromDb` — it's called during app initialization. Replace:
 ```ts
-migratePersonaFromDb(shrewDir, db);
+migratePersonaFromDb(aivaDir, db);
 ```
 with:
 ```ts
-migratePersona(shrewDir, db);
+migratePersona(aivaDir, db);
 ```
 
 - [ ] **Step 4: Replace persona IPC handlers**
@@ -266,11 +266,11 @@ Replace lines 641-649:
 ```ts
   // persona
   ipcMain.handle('persona:load', () => {
-    return { content: readPersonaFile(shrewDir) };
+    return { content: readPersonaFile(aivaDir) };
   });
 
   ipcMain.handle('persona:save', (_, { content }: { content: string }) => {
-    writePersonaFile(shrewDir, content);
+    writePersonaFile(aivaDir, content);
     return { content };
   });
 ```
@@ -278,9 +278,9 @@ with:
 ```ts
   // persona
   ipcMain.handle('persona:load', () => {
-    const profile = readProfile(shrewDir);
-    const content = readPersonaMarkdown(shrewDir);
-    const avatarPath = getAvatarPath(shrewDir);
+    const profile = readProfile(aivaDir);
+    const content = readPersonaMarkdown(aivaDir);
+    const avatarPath = getAvatarPath(aivaDir);
     return {
       name: profile.name,
       avatar: avatarPath && fs.existsSync(avatarPath) ? avatarPath : null,
@@ -289,8 +289,8 @@ with:
   });
 
   ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
-    writeProfile(shrewDir, { name });
-    writePersonaMarkdown(shrewDir, content);
+    writeProfile(aivaDir, { name });
+    writePersonaMarkdown(aivaDir, content);
     return { name, content };
   });
 
@@ -301,15 +301,15 @@ with:
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const filename = saveAvatarFile(shrewDir, result.filePaths[0]);
-    writeProfile(shrewDir, { avatar: filename });
-    const avatarPath = path.join(getPersonaDir(shrewDir), filename);
+    const filename = saveAvatarFile(aivaDir, result.filePaths[0]);
+    writeProfile(aivaDir, { avatar: filename });
+    const avatarPath = path.join(getPersonaDir(aivaDir), filename);
     return avatarPath;
   });
 
   ipcMain.handle('persona:avatar:remove', () => {
-    removeAvatarFile(shrewDir);
-    writeProfile(shrewDir, { avatar: null });
+    removeAvatarFile(aivaDir);
+    writeProfile(aivaDir, { avatar: null });
   });
 ```
 
@@ -381,7 +381,7 @@ interface PersonaData {
 }
 
 export default function PersonaPage() {
-  const [name, setName] = useState('Shrew');
+  const [name, setName] = useState('Aiva');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState(false);
@@ -518,7 +518,7 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
 
 Add after `const isActive` line:
 ```ts
-  const displayName = personaName || 'Shrew';
+  const displayName = personaName || 'Aiva';
   const initial = displayName[0] || 'S';
 ```
 
@@ -535,7 +535,7 @@ Replace the hardcoded avatar div (the `<div className="w-9 h-9 rounded-full ..."
       )}
 ```
 
-Replace the hardcoded name `<div className="text-card-title text-text-primary">Shrew</div>` with:
+Replace the hardcoded name `<div className="text-card-title text-text-primary">Aiva</div>` with:
 ```tsx
         <div className="text-card-title text-text-primary">{displayName}</div>
 ```

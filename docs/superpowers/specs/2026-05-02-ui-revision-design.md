@@ -1,11 +1,11 @@
-# Shrew UI Revision Design
+# Aiva UI Revision Design
 
 Date: 2026-05-02
 Status: Approved
 
 ## Overview
 
-Full UI revision of Shrew desktop app to unify visual language, establish a component library, and align with the detailed spec in `shrew-claude-code-ui-revision-spec.md`.
+Full UI revision of Aiva desktop app to unify visual language, establish a component library, and align with the detailed spec in `aiva-claude-code-ui-revision-spec.md`.
 
 ## Scope
 
@@ -135,7 +135,7 @@ Keep existing IPC-based navigation (`ipcRenderer.send('navigate:route', ...)`). 
 
 Structure: fixed header + scrollable message stream + fixed input area.
 
-- **Header**: Avatar + "Shrew" + status text + settings button. Single status position only (spec §12.4).
+- **Header**: Avatar + "Aiva" + status text + settings button. Single status position only (spec §12.4).
 - **Message stream**: User right-aligned, assistant left-aligned, system centered. Code/path highlighting.
 - **Input area**: Multi-line textarea. Left: `/clear` hint. Right: mic button + send button. Enter sends, Shift+Enter newlines.
 - **Busy state**: Input disabled with clear visual indicator.

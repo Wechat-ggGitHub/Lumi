@@ -132,7 +132,7 @@ getRightCommandAction(): RightCommandAction {
 
 - [ ] **Step 3: 新增 continuousChatWindow 标志**
 
-在 ShrewStore 中新增：
+在 AivaStore 中新增：
 
 ```typescript
 private _continuousChatWindow: boolean = false;
@@ -165,7 +165,7 @@ git commit -m "refactor: remove editing state, add continuousChatWindow flag"
 
 ```typescript
 test('transition: idle → recording → transcribing → thinking', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('recording');
   expect(store.appState).toBe('recording');
 
@@ -178,7 +178,7 @@ test('transition: idle → recording → transcribing → thinking', () => {
 });
 
 test('transition: idle → thinking → executing → completed → idle', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('thinking');
   store.transition('executing');
   store.transition('completed');
@@ -192,7 +192,7 @@ test('transition: idle → thinking → executing → completed → idle', () =>
 
 ```typescript
 test('rightCommand behavior per state', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
 
   expect(store.getRightCommandAction()).toBe('start-recording');
 
@@ -209,7 +209,7 @@ test('rightCommand behavior per state', () => {
 });
 
 test('continuousChatWindow flag', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   expect(store.continuousChatWindow).toBe(false);
 
   store.setContinuousChatWindow(true);

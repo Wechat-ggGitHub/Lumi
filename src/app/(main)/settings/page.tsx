@@ -80,8 +80,8 @@ export default function SettingsPage() {
       path: '/settings/voice',
     },
     {
-      title: '语音唤醒',
-      summary: '说出名称即可唤起',
+      title: '语音唤醒与连续对话',
+      summary: '说出名称唤起，回复后可直接追问',
       status: 'default' as const,
       path: '/settings/wake-word',
     },

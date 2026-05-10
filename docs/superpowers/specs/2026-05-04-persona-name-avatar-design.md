@@ -2,16 +2,16 @@
 
 ## Problem
 
-Persona name is embedded in `persona.md` as plain text (`你的名称是 Shrew。`). There is no structured name field, no avatar support, and the chat header hardcodes `"Shrew"` and `"S"`. Changing the persona name in settings has no effect on the chat UI or Claude's self-knowledge.
+Persona name is embedded in `persona.md` as plain text (`你的名称是 Aiva。`). There is no structured name field, no avatar support, and the chat header hardcodes `"Aiva"` and `"S"`. Changing the persona name in settings has no effect on the chat UI or Claude's self-knowledge.
 
 ## Design
 
 ### Storage
 
-All persona data lives under `~/.shrew/persona/`:
+All persona data lives under `~/.aiva/persona/`:
 
 ```
-~/.shrew/persona/
+~/.aiva/persona/
 ├── profile.json    # { "name": "钱多多", "avatar": "avatar.png" }
 ├── persona.md      # Markdown personality/style config
 └── avatar.png      # Uploaded avatar image (optional)
@@ -20,7 +20,7 @@ All persona data lives under `~/.shrew/persona/`:
 **profile.json schema:**
 ```json
 {
-  "name": "string (required, default: 'Shrew')",
+  "name": "string (required, default: 'Aiva')",
   "avatar": "string | null (filename of uploaded image, null = use first-letter)"
 }
 ```
@@ -35,7 +35,7 @@ All persona data lives under `~/.shrew/persona/`:
   - If avatar image exists: shows the image clipped to a circle
   - If no avatar: shows first character of name on `bg-brand-soft` background
   - On click: opens native file picker (`dialog.showOpenDialog` via IPC), filtered to `jpg/png/webp`
-  - Selected file is copied to `~/.shrew/persona/avatar.png` and `profile.json` updated
+  - Selected file is copied to `~/.aiva/persona/avatar.png` and `profile.json` updated
   - Long-press or right-click to remove avatar (reset to first-letter)
 - A name text input on the right of the avatar
 
@@ -50,7 +50,7 @@ All persona data lives under `~/.shrew/persona/`:
 
 - Add `name: string` and `avatarPath: string | null` props
 - Avatar: if `avatarPath` is valid, show circular `<img>`, otherwise show first letter of `name` in brand-colored circle
-- Name: display `name` prop instead of hardcoded `"Shrew"`
+- Name: display `name` prop instead of hardcoded `"Aiva"`
 - `chat/page.tsx` fetches persona profile on mount via IPC (`persona:load` returns `{ name, avatar, content }`)
 
 ### Claude Context (`executePrompt`)
@@ -58,7 +58,7 @@ All persona data lives under `~/.shrew/persona/`:
 In `electron/main.ts`:
 1. Read `profile.json` → get `name`
 2. Read `persona.md` → get personality content
-3. Build context: prepend `"你的名称是{name}。"` to the persona.md content before passing to `buildShrewContext`
+3. Build context: prepend `"你的名称是{name}。"` to the persona.md content before passing to `buildAivaContext`
 
 ### IPC Handlers
 
@@ -69,10 +69,10 @@ In `electron/main.ts`:
 
 ### Migration
 
-On startup, if `~/.shrew/persona/` doesn't exist:
+On startup, if `~/.aiva/persona/` doesn't exist:
 1. Create the directory
-2. If old `~/.shrew/persona.md` exists: move to `~/.shrew/persona/persona.md`, strip the `你的名称是X。` line from content, extract name into `profile.json`
-3. If old `~/.shrew/persona.md` doesn't exist: create defaults
+2. If old `~/.aiva/persona.md` exists: move to `~/.aiva/persona/persona.md`, strip the `你的名称是X。` line from content, extract name into `profile.json`
+3. If old `~/.aiva/persona.md` doesn't exist: create defaults
 4. Database migration (`migratePersonaFromDb`) writes to the new directory structure
 
 ### Files Changed
@@ -90,7 +90,7 @@ On startup, if `~/.shrew/persona/` doesn't exist:
 
 **profile.json:**
 ```json
-{ "name": "Shrew", "avatar": null }
+{ "name": "Aiva", "avatar": null }
 ```
 
 **persona.md:**

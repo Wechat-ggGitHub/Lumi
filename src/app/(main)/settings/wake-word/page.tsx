@@ -14,7 +14,7 @@ export default function WakeWordSettingsPage() {
   const [status, setStatus] = useState<WakeWordStatus>({
     enabled: false,
     active: false,
-    keyword: 'Shrew',
+    keyword: 'Aiva',
   });
   const [silenceTimeout, setSilenceTimeout] = useState(3);
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function WakeWordSettingsPage() {
           >
             ← 设置
           </button>
-          <h1 className="text-page-title text-text-primary">语音唤醒</h1>
+          <h1 className="text-page-title text-text-primary">语音唤醒与连续对话</h1>
         </div>
       </div>
 
@@ -78,9 +78,9 @@ export default function WakeWordSettingsPage() {
         {/* Toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">语音唤醒</p>
+            <p className="text-sm font-medium">语音唤醒与连续对话</p>
             <p className="text-xs text-text-muted mt-1">
-              说出分身名称即可唤起对话，无需按键
+              说出分身名称即可唤起对话，Agent 回复后可直接追问，无需按键
             </p>
           </div>
           <button
@@ -143,8 +143,9 @@ export default function WakeWordSettingsPage() {
             <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
               <li>• 清晰说出「{status.keyword}」即可唤起</li>
               <li>• 唤醒后自动录音，说完等待 {silenceTimeout} 秒自动识别</li>
-              <li>• 仅在空闲时监听，执行任务时暂停</li>
-              <li>• 所有唤醒词检测在本地完成，不上传音频</li>
+              <li>• Agent 回复后会自动进入 3 秒监听窗口，可直接追问</li>
+              <li>• 仅在空闲时监听唤醒词，执行任务时暂停</li>
+              <li>• 所有语音检测在本地完成，不上传音频</li>
             </ul>
           </div>
         )}

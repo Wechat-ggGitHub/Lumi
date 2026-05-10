@@ -9,15 +9,15 @@
 
 ## 方案
 
-保留名称(name)和头像(首字母)，其余所有字段合并为一个 `~/.shrew/persona.md` 文件，用户可自由编写。
+保留名称(name)和头像(首字母)，其余所有字段合并为一个 `~/.aiva/persona.md` 文件，用户可自由编写。
 
 ## 文件结构与存储
 
-**文件路径**: `~/.shrew/persona.md`
+**文件路径**: `~/.aiva/persona.md`
 
 **格式**:
 ```markdown
-# Shrew
+# Aiva
 
 你是一个专业、高效的编程助手。
 说话简洁直接，先执行再总结。
@@ -31,7 +31,7 @@
 
 **默认模板**:
 ```markdown
-# Shrew
+# Aiva
 
 你是一个专业、高效的编程助手。
 ```
@@ -40,13 +40,13 @@
 
 - 删除 persona 表的列: `bio`, `personality`, `tone`, `detail_level`, `clarify_pref`, `work_style`, `system_prompt`
 - 保留 `id` 和 `name` 列（name 作为缓存，启动时从文件同步）
-- 迁移逻辑: 旧字段按现有 `buildShrewContext()` 格式拼合，写入 `~/.shrew/persona.md`
+- 迁移逻辑: 旧字段按现有 `buildAivaContext()` 格式拼合，写入 `~/.aiva/persona.md`
 
 迁移后的 schema:
 ```sql
 CREATE TABLE persona (
   id INTEGER PRIMARY KEY DEFAULT 1,
-  name TEXT NOT NULL DEFAULT 'Shrew',
+  name TEXT NOT NULL DEFAULT 'Aiva',
   avatar TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -72,16 +72,16 @@ CREATE TABLE persona (
 
 ## 上下文注入变更
 
-`buildShrewContext()` 简化为:
+`buildAivaContext()` 简化为:
 
-1. 读取 `~/.shrew/persona.md` 内容
+1. 读取 `~/.aiva/persona.md` 内容
 2. 提取 name（第一行 `# xxx`）
 3. 剩余内容作为 persona prompt
 4. 如果存在生效中的 memory，追加 `## 关于用户的记忆` 段落
 
 拼出的最终 prompt 示例:
 ```
-# Shrew
+# Aiva
 
 你是一个专业、高效的编程助手。
 说话简洁直接，先执行再总结。
@@ -97,7 +97,7 @@ persona.md 的内容原封不动注入，不做格式转换。
 | 文件 | 变更 |
 |------|------|
 | `src/app/persona/page.tsx` | 页面重写，简化为名称 + 编辑器 |
-| `src/lib/shrew-context.ts` | `buildShrewContext()` 改为接收 content string |
+| `src/lib/aiva-context.ts` | `buildAivaContext()` 改为接收 content string |
 | `src/lib/db.ts` | 删除旧列迁移，简化 `getPersona()` / `updatePersona()` |
 | `electron/main.ts` | `executePrompt()` 中 persona 读取改为文件，IPC handler 适配 |
 | `src/types/index.ts` | `Persona` 接口精简为 `{ id, name, avatar }` |

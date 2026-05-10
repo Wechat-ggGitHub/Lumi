@@ -62,7 +62,7 @@
 ### 修改 `src/lib/keychain.ts`
 
 新增函数：
-- `saveVolcengineCredentials(appId: string, accessToken: string)` — safeStorage 加密，存入 `~/Library/Application Support/Shrew/secure/volcengine.json`
+- `saveVolcengineCredentials(appId: string, accessToken: string)` — safeStorage 加密，存入 `~/Library/Application Support/Aiva/secure/volcengine.json`
 - `loadVolcengineCredentials(): { appId: string; accessToken: string } | null`
 
 ### 修改 `electron/main.ts`
@@ -113,7 +113,7 @@
 
 ## 凭证配置
 
-**存储**：Electron `safeStorage.encryptString()` 加密，存入 `~/Library/Application Support/Shrew/secure/volcengine.json`
+**存储**：Electron `safeStorage.encryptString()` 加密，存入 `~/Library/Application Support/Aiva/secure/volcengine.json`
 
 **配置入口**：
 - 设置页新增"语音识别"section，包含 App ID 和 Access Token 输入框

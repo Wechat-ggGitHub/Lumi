@@ -43,7 +43,7 @@ Route Group 的括号目录不影响 URL 路径。`/voice-bar`、`/subtitle`、`
 ```tsx
 import './globals.css';
 
-export const metadata = { title: 'Shrew' };
+export const metadata = { title: 'Aiva' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function() {
                 try {
-                  var pref = localStorage.getItem('shrew-theme-preference');
+                  var pref = localStorage.getItem('aiva-theme-preference');
                   var root = document.documentElement;
                   root.classList.remove('light', 'dark');
                   if (pref === 'dark') {

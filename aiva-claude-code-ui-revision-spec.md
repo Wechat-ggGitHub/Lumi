@@ -1,13 +1,13 @@
-# Shrew Claude Code 页面改版执行规范
+# Aiva Claude Code 页面改版执行规范
 
 ## 1. 文档目的
 
-本文档用于指导 Claude Code 对 Shrew 的桌面端页面进行统一改版。目标不是自由发挥，而是让 Claude Code 严格按照本规范完成页面重构、视觉统一和交付。
+本文档用于指导 Claude Code 对 Aiva 的桌面端页面进行统一改版。目标不是自由发挥，而是让 Claude Code 严格按照本规范完成页面重构、视觉统一和交付。
 
 Claude Code 在开始修改前，必须先完整阅读：
 
-1. `/.monkeycode/docs/shrew-single-persona-prd.md`
-2. 本文件 `/.monkeycode/docs/shrew-claude-code-ui-revision-spec.md`
+1. `/.monkeycode/docs/aiva-single-persona-prd.md`
+2. 本文件 `/.monkeycode/docs/aiva-claude-code-ui-revision-spec.md`
 
 如果实现与本文档冲突，以本文档为准；如果产品目标与本文档冲突，以 PRD 为准。
 
@@ -15,7 +15,7 @@ Claude Code 在开始修改前，必须先完整阅读：
 
 Claude Code 这次改版需要同时达成以下目标：
 
-1. 把 Shrew 统一成一个围绕“单一 AI 分身”展开的桌面产品。
+1. 把 Aiva 统一成一个围绕“单一 AI 分身”展开的桌面产品。
 2. 保持主窗口首层就是聊天页，不改成会话列表，也不改成控制台首页。
 3. 统一聊天页、分身设定、记忆管理、技能管理、服务连接、设置页的视觉语言。
 4. 拆清设置体系，避免“模块导航页”和“具体配置页”混在同一页面。
@@ -259,7 +259,7 @@ Bottom Action Bar（如需要）
 包含：
 
 1. 左侧 traffic lights
-2. 中间应用名 `Shrew`
+2. 中间应用名 `Aiva`
 3. 右侧不放复杂操作
 
 ### 11.2 Page Header
@@ -300,7 +300,7 @@ Bottom Action Bar（如需要）
 ### 12.3 Header 组成
 
 1. 分身头像
-2. 分身名称 `Shrew`
+2. 分身名称 `Aiva`
 3. 一句人格描述或当前状态
 4. 右上更多入口按钮
 
@@ -455,7 +455,7 @@ Bottom Action Bar（如需要）
 
 ### 16.1 页面定位
 
-记忆管理页是“Shrew 记住了什么”的档案页，不是纯后台条目表。
+记忆管理页是“Aiva 记住了什么”的档案页，不是纯后台条目表。
 
 ### 16.2 页面结构
 
@@ -468,7 +468,7 @@ Bottom Action Bar（如需要）
 
 ### 16.3 记忆总览卡必须包含
 
-1. Shrew 当前记住了什么
+1. Aiva 当前记住了什么
 2. 2 到 4 条总结性 bullet
 
 ### 16.4 记忆卡片必须包含
@@ -490,7 +490,7 @@ Bottom Action Bar（如需要）
 
 ### 17.1 页面定位
 
-技能管理页必须表达“Shrew 当前具备哪些技能”，不是单纯的导入器。
+技能管理页必须表达“Aiva 当前具备哪些技能”，不是单纯的导入器。
 
 ### 17.2 页面结构
 
@@ -530,7 +530,7 @@ Bottom Action Bar（如需要）
 
 ### 18.1 页面定位
 
-服务连接页必须表达“Shrew 能访问哪些外部服务”，不是底层技术空壳页。
+服务连接页必须表达“Aiva 能访问哪些外部服务”，不是底层技术空壳页。
 
 ### 18.2 页面结构
 

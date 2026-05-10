@@ -165,7 +165,7 @@ And wrap the inner content (everything inside the outer div) in a `no-drag` cont
         S
       </div>
       <div className="flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <div className="text-card-title text-text-primary">Shrew</div>
+        <div className="text-card-title text-text-primary">Aiva</div>
         {isActive && (
           <div className="text-label-xs text-text-muted flex items-center gap-1 mt-0.5">
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse`} />
@@ -245,11 +245,11 @@ Find the contextMenu construction in `electron/tray.ts` (line 157):
 
 ```typescript
 this.contextMenu = Menu.buildFromTemplate([
-  { label: 'Shrew', type: 'normal', enabled: false },
+  { label: 'Aiva', type: 'normal', enabled: false },
   { type: 'separator' },
   { label: '设置...', click: () => this.openSettings() },
   { type: 'separator' },
-  { label: '退出 Shrew', role: 'quit' },
+  { label: '退出 Aiva', role: 'quit' },
 ]);
 ```
 
@@ -264,9 +264,9 @@ this.contextMenu = Menu.buildFromTemplate([
 ```
 
 Changes:
-- Removed disabled "Shrew" title and its separator
+- Removed disabled "Aiva" title and its separator
 - "设置..." → "设置" (removed ellipsis)
-- "退出 Shrew" → "退出"
+- "退出 Aiva" → "退出"
 - One separator between the two items
 
 - [ ] **Step 2: Commit**

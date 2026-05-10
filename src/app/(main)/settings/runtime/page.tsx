@@ -50,7 +50,7 @@ export default function RuntimeSettingsPage() {
       </div>
       <BottomActionBar>
         <Button variant="primary" onClick={handleSave} disabled={status === 'saving'}>
-          {status === 'saving' ? '保存中...' : '保存更改'}
+          {status === 'saving' ? '保存中...' : status === 'saved' ? '已保存' : '保存更改'}
         </Button>
       </BottomActionBar>
     </div>

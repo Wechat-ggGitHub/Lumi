@@ -95,7 +95,7 @@ function readExistingMemories(memoriesDir: string): string {
 }
 
 export async function evaluateAndWriteCoreMemory(
-  shrewDir: string,
+  aivaDir: string,
   userMessage: string,
   assistantMessage: string,
   apiKey: string,
@@ -105,7 +105,7 @@ export async function evaluateAndWriteCoreMemory(
     const provider = getProvider(providerKey);
     const modelId = resolveModel(providerKey, 'haiku');
 
-    const memoriesDir = path.resolve(path.join(os.homedir(), '.shrew', 'memories'));
+    const memoriesDir = path.resolve(path.join(os.homedir(), '.aiva', 'memories'));
     const existingMemories = readExistingMemories(memoriesDir);
 
     const conversation = `用户: ${userMessage}\n\n助手: ${assistantMessage.slice(0, 2000)}`;

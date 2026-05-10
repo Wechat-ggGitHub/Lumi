@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_segment ON chat_message(segment_id, 
 
 CREATE TABLE IF NOT EXISTS persona (
   id INTEGER PRIMARY KEY DEFAULT 1,
-  name TEXT NOT NULL DEFAULT 'Shrew',
+  name TEXT NOT NULL DEFAULT 'Aiva',
   avatar TEXT,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -254,7 +254,7 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
   return row ?? null;
 }
 
-export function migrateMemoryItems(db: Database.Database, shrewDir: string): void {
+export function migrateMemoryItems(db: Database.Database, aivaDir: string): void {
   const tables = db.pragma('table_info(memory_item)') as { name: string }[];
   if (tables.length === 0) return;
 
@@ -264,7 +264,7 @@ export function migrateMemoryItems(db: Database.Database, shrewDir: string): voi
     return;
   }
 
-  const memoriesDir = path.join(shrewDir, 'memories');
+  const memoriesDir = path.join(aivaDir, 'memories');
   fs.mkdirSync(memoriesDir, { recursive: true });
 
   const indexLines: string[] = [];

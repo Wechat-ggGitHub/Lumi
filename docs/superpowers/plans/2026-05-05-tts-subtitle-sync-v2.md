@@ -172,7 +172,7 @@ async function speakResult(summary: string): Promise<void> {
 
     const sentences = result.sentences.length > 0 ? result.sentences : null;
     const audioBuffer = fs.readFileSync(result.audioPath);
-    const profile = readProfile(shrewDir);
+    const profile = readProfile(aivaDir);
 
     const trayBounds = tray.getBounds();
     subtitlePopup.show(trayBounds, {

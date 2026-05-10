@@ -1,8 +1,8 @@
-# Shrew UI 设计系统刷新 — 实施计划
+# Aiva UI 设计系统刷新 — 实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 Shrew 的视觉系统从冷蓝深色主题刷新为暖调双模式（Dark + Light），品牌色从蓝色换成暖紫藤。
+**Goal:** 将 Aiva 的视觉系统从冷蓝深色主题刷新为暖调双模式（Dark + Light），品牌色从蓝色换成暖紫藤。
 
 **Architecture:** CSS 变量双模式切换。`globals.css` 定义两套变量（`:root` 为 Light，`:root.dark` 为 Dark），`tailwind.config.ts` 继续通过变量引用。所有已有组件自动级联更新，只需重写脱离系统的文件（detail、VoiceInput）。
 
@@ -158,7 +158,7 @@ git commit -m "feat: add brand-active token to tailwind config"
 ```ts
 type ThemePreference = 'system' | 'light' | 'dark';
 
-const STORAGE_KEY = 'shrew-theme-preference';
+const STORAGE_KEY = 'aiva-theme-preference';
 
 export function getThemePreference(): ThemePreference {
   if (typeof window === 'undefined') return 'system';
@@ -213,7 +213,7 @@ export function initTheme() {
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Shrew',
+  title: 'Aiva',
   description: 'Voice-driven AI assistant',
 };
 
@@ -226,7 +226,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function() {
                 try {
-                  var pref = localStorage.getItem('shrew-theme-preference');
+                  var pref = localStorage.getItem('aiva-theme-preference');
                   var root = document.documentElement;
                   root.classList.remove('light', 'dark');
                   if (pref === 'dark') {
@@ -652,7 +652,7 @@ export default function AppearanceSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="外观" subtitle="选择 Shrew 的外观模式" onBack={() => window.history.back()} />
+      <PageHeader title="外观" subtitle="选择 Aiva 的外观模式" onBack={() => window.history.back()} />
       <div className="flex-1 px-page-x pt-page-top">
         <SectionHeader title="外观模式" description="选择你偏好的配色方案。选择后立即生效。" />
         <div className="mt-widget-gap">
@@ -742,10 +742,10 @@ export default function PreferencesSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="交互偏好" subtitle="自定义 Shrew 的交互方式" onBack={() => window.history.back()} />
+      <PageHeader title="交互偏好" subtitle="自定义 Aiva 的交互方式" onBack={() => window.history.back()} />
       <div className="flex-1 px-page-x pt-page-top space-y-section-gap">
         <div>
-          <SectionHeader title="权限模式" description="Shrew 执行命令时的确认策略" />
+          <SectionHeader title="权限模式" description="Aiva 执行命令时的确认策略" />
           <div className="mt-widget-gap">
             <ChipGroup
               options={['confirm', 'auto']}
@@ -809,7 +809,7 @@ export default function PrivacySettingsPage() {
       <PageHeader title="数据与隐私" subtitle="管理数据保留和清除" onBack={() => window.history.back()} />
       <div className="flex-1 px-page-x pt-page-top space-y-section-gap">
         <div>
-          <SectionHeader title="执行历史" description="控制 Shrew 保留执行记录的时长" />
+          <SectionHeader title="执行历史" description="控制 Aiva 保留执行记录的时长" />
           <div className="mt-widget-gap">
             <SingleLineInput
               label="保留天数"

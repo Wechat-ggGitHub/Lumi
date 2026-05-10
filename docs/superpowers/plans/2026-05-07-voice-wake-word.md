@@ -19,7 +19,7 @@
 - [ ] **Step 1: Install npm packages**
 
 ```bash
-cd /Users/rikiwang/Documents/Agent/Shrew/Shrew
+cd /Users/rikiwang/Documents/Agent/Aiva/Aiva
 npm install sherpa-onnx-node pinyin-pro
 ```
 
@@ -586,7 +586,7 @@ export class VoiceEndpoint {
 
   private complete(samples: Float32Array): void {
     const wavBuffer = createWavBuffer(samples, 16000);
-    const tmpDir = path.join(require('os').homedir(), '.shrew', 'tmp');
+    const tmpDir = path.join(require('os').homedir(), '.aiva', 'tmp');
     fs.mkdirSync(tmpDir, { recursive: true });
     const wavPath = path.join(tmpDir, `wake-recording-${Date.now()}.wav`);
     fs.writeFileSync(wavPath, wavBuffer);
@@ -715,8 +715,8 @@ Add these functions before `handleRightCommand()`:
 // --- Wake Word Functions ---
 
 function getKeyword(): string {
-  const profile = readProfile(shrewDir);
-  return profile.name || 'Shrew';
+  const profile = readProfile(aivaDir);
+  return profile.name || 'Aiva';
 }
 
 async function startWakeWord(): Promise<void> {
@@ -979,7 +979,7 @@ export default function WakeWordSettingsPage() {
   const [status, setStatus] = useState<WakeWordStatus>({
     enabled: false,
     active: false,
-    keyword: 'Shrew',
+    keyword: 'Aiva',
   });
   const [silenceTimeout, setSilenceTimeout] = useState(3);
   const [loading, setLoading] = useState(false);

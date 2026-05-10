@@ -98,8 +98,8 @@ export function buildSdkEnv(providerKey: string, apiKey: string, modelRole: stri
     }
   }
 
-  // Point Claude Agent SDK to Shrew's own config directory
-  env.CLAUDE_CONFIG_DIR = `${process.env.HOME}/.shrew`;
+  // Point Claude Agent SDK to Aiva's own config directory
+  env.CLAUDE_CONFIG_DIR = `${process.env.HOME}/.aiva`;
 
   // Set auth based on provider style
   if (provider.authStyle === 'auth_token') {

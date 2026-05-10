@@ -2,7 +2,7 @@
 
 ## 背景
 
-当前 Shrew 的技能导入只支持选择文件夹（必须包含 `SKILL.md`）。用户无法导入单个 `.md` 技能文件或 `.zip` 压缩包。
+当前 Aiva 的技能导入只支持选择文件夹（必须包含 `SKILL.md`）。用户无法导入单个 `.md` 技能文件或 `.zip` 压缩包。
 
 ## 设计
 
@@ -14,9 +14,9 @@
 
 | 选中类型 | 处理 |
 |---------|------|
-| `.md` 文件 | 读 frontmatter 取 `name` → 创建 `~/.shrew/skills/<name>/SKILL.md` |
-| `.zip` 文件 | 解压到临时目录 → 找 SKILL.md（根目录或一层子目录）→ 读 frontmatter 取 `name` → 复制整个目录到 `~/.shrew/skills/<name>/` |
-| 文件夹 | 现有逻辑：检查根目录有 SKILL.md → 复制到 `~/.shrew/skills/<name>/` |
+| `.md` 文件 | 读 frontmatter 取 `name` → 创建 `~/.aiva/skills/<name>/SKILL.md` |
+| `.zip` 文件 | 解压到临时目录 → 找 SKILL.md（根目录或一层子目录）→ 读 frontmatter 取 `name` → 复制整个目录到 `~/.aiva/skills/<name>/` |
+| 文件夹 | 现有逻辑：检查根目录有 SKILL.md → 复制到 `~/.aiva/skills/<name>/` |
 
 ### 文件夹命名规则
 

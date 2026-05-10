@@ -28,8 +28,8 @@ interface EvalResult {
   summary: string;
 }
 
-export function appendDailyMemory(shrewDir: string, date: string, time: string, title: string, summary: string): void {
-  const dir = getDailyMemoryDir(shrewDir);
+export function appendDailyMemory(aivaDir: string, date: string, time: string, title: string, summary: string): void {
+  const dir = getDailyMemoryDir(aivaDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -45,7 +45,7 @@ export function appendDailyMemory(shrewDir: string, date: string, time: string, 
 }
 
 export async function evaluateAndWriteDailyMemory(
-  shrewDir: string,
+  aivaDir: string,
   userMessage: string,
   assistantMessage: string,
   apiKey: string,
@@ -101,7 +101,7 @@ export async function evaluateAndWriteDailyMemory(
     const dateStr = toLocalDate(now);
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    appendDailyMemory(shrewDir, dateStr, timeStr, result.title, result.summary);
+    appendDailyMemory(aivaDir, dateStr, timeStr, result.title, result.summary);
     log.info('每日记忆已写入:', result.title);
   } catch (err) {
     log.error('每日记忆评估异常:', err);

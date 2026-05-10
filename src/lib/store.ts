@@ -22,7 +22,7 @@ export type RightCommandAction =
 
 export type StateChangeCallback = (state: { appState: AppState; sdkSubState: SdkSubState }) => void;
 
-export class ShrewStore {
+export class AivaStore {
   private _appState: AppState = 'idle';
   private _sdkSubState: SdkSubState = null;
   private _previousSdkSubState: SdkSubState = null;

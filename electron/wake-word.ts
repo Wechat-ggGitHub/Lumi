@@ -17,9 +17,15 @@ export class WakeWordEngine {
   }
 
   init(keyword: string): void {
+    if (!/[一-鿿]/.test(keyword)) {
+      throw new Error('唤醒词必须包含中文字符，请在 Persona 设置中修改为中文名称');
+    }
+
     let KeywordSpotter: any;
     try {
+      log.info('WakeWordEngine: 加载 sherpa-onnx-node...');
       KeywordSpotter = require('sherpa-onnx-node').KeywordSpotter;
+      log.info('WakeWordEngine: sherpa-onnx-node 加载成功');
     } catch (err) {
       log.error('WakeWordEngine: 无法加载 sherpa-onnx-node:', err);
       throw new Error('唤醒词引擎加载失败，请确认 sherpa-onnx-node 已正确安装');
@@ -29,26 +35,34 @@ export class WakeWordEngine {
       ? path.join(process.resourcesPath, 'sherpa-onnx', 'kws')
       : path.join(app.getAppPath(), 'resources', 'sherpa-onnx', 'kws');
 
+    log.info('WakeWordEngine: 模型目录:', resourcesDir, '目录存在:', fs.existsSync(resourcesDir));
+
     // Write keywords to temp file
-    this.keywordsFilePath = path.join(os.tmpdir(), `shrew-keywords-${Date.now()}.txt`);
+    this.keywordsFilePath = path.join(os.tmpdir(), `aiva-keywords-${Date.now()}.txt`);
     this.keyword = keyword;
     this.writeKeywordsFile(keyword);
 
-    this.kws = new KeywordSpotter({
-      modelConfig: {
-        transducer: {
-          encoder: path.join(resourcesDir, 'encoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
-          decoder: path.join(resourcesDir, 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
-          joiner: path.join(resourcesDir, 'joiner-epoch-12-avg-2-chunk-16-left-64.onnx'),
+    log.info('WakeWordEngine: 创建 KeywordSpotter...');
+    try {
+      this.kws = new KeywordSpotter({
+        modelConfig: {
+          transducer: {
+            encoder: path.join(resourcesDir, 'encoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
+            decoder: path.join(resourcesDir, 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
+            joiner: path.join(resourcesDir, 'joiner-epoch-12-avg-2-chunk-16-left-64.onnx'),
+          },
+          tokens: path.join(resourcesDir, 'tokens.txt'),
         },
-        tokens: path.join(resourcesDir, 'tokens.txt'),
-      },
-      keywordsFile: this.keywordsFilePath,
-      keywordsScore: 1.0,
-      keywordsThreshold: 0.25,
-      maxActivePaths: 4,
-      numTrailingBlanks: 1,
-    });
+        keywordsFile: this.keywordsFilePath,
+        keywordsScore: 1.0,
+        keywordsThreshold: 0.25,
+        maxActivePaths: 4,
+        numTrailingBlanks: 1,
+      });
+    } catch (err) {
+      log.error('WakeWordEngine: KeywordSpotter 创建失败:', err);
+      throw new Error('唤醒词引擎初始化失败: ' + (err instanceof Error ? err.message : String(err)));
+    }
 
     this.stream = this.kws.createStream();
     log.info('WakeWordEngine: 初始化完成, 关键词:', keyword);

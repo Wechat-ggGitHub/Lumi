@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将分身设定从预定义字段简化为自由编辑的 markdown 文件 (`~/.shrew/persona.md`)。
+**Goal:** 将分身设定从预定义字段简化为自由编辑的 markdown 文件 (`~/.aiva/persona.md`)。
 
-**Architecture:** 保留数据库 persona 表（仅 `id` + `name`），新增文件 `~/.shrew/persona.md` 存储全部人格设定内容。启动时自动从旧字段迁移。UI 简化为名称 + markdown 编辑器。`buildShrewContext()` 改为读文件内容直接注入。
+**Architecture:** 保留数据库 persona 表（仅 `id` + `name`），新增文件 `~/.aiva/persona.md` 存储全部人格设定内容。启动时自动从旧字段迁移。UI 简化为名称 + markdown 编辑器。`buildAivaContext()` 改为读文件内容直接注入。
 
 **Tech Stack:** Electron IPC, Next.js 页面, better-sqlite3, Node.js fs
 
@@ -15,7 +15,7 @@
 | 文件 | 操作 | 职责 |
 |------|------|------|
 | `src/lib/persona-file.ts` | **新建** | persona.md 的读写、解析、默认模板生成、迁移逻辑 |
-| `src/lib/shrew-context.ts` | **修改** | `buildShrewContext()` 签名改为接收 `content: string` |
+| `src/lib/aiva-context.ts` | **修改** | `buildAivaContext()` 签名改为接收 `content: string` |
 | `src/lib/db.ts` | **修改** | 删除旧列迁移，简化 `getPersona()`/`updatePersona()` |
 | `src/types/index.ts` | **修改** | `Persona` 接口精简，IPC 类型更新 |
 | `src/app/persona/page.tsx` | **重写** | 页面简化为名称 + 编辑器 |
@@ -35,18 +35,18 @@ import fs from 'fs';
 import path from 'path';
 import type Database from 'better-sqlite3';
 
-const DEFAULT_CONTENT = `# Shrew
+const DEFAULT_CONTENT = `# Aiva
 
 你是一个专业、高效的编程助手。`;
 
 const PERSONA_FILENAME = 'persona.md';
 
-export function getPersonaFilePath(shrewDir: string): string {
-  return path.join(shrewDir, PERSONA_FILENAME);
+export function getPersonaFilePath(aivaDir: string): string {
+  return path.join(aivaDir, PERSONA_FILENAME);
 }
 
-export function readPersonaFile(shrewDir: string): { name: string; content: string } {
-  const filePath = getPersonaFilePath(shrewDir);
+export function readPersonaFile(aivaDir: string): { name: string; content: string } {
+  const filePath = getPersonaFilePath(aivaDir);
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, DEFAULT_CONTENT, 'utf-8');
     return parsePersonaContent(DEFAULT_CONTENT);
@@ -55,22 +55,22 @@ export function readPersonaFile(shrewDir: string): { name: string; content: stri
   return parsePersonaContent(raw);
 }
 
-export function writePersonaFile(shrewDir: string, name: string, content: string): void {
+export function writePersonaFile(aivaDir: string, name: string, content: string): void {
   const fullContent = `# ${name}\n\n${content}`;
-  fs.writeFileSync(getPersonaFilePath(shrewDir), fullContent, 'utf-8');
+  fs.writeFileSync(getPersonaFilePath(aivaDir), fullContent, 'utf-8');
 }
 
 export function parsePersonaContent(raw: string): { name: string; content: string } {
   const lines = raw.split('\n');
   const firstLine = lines[0] || '';
   const nameMatch = firstLine.match(/^#\s+(.+)$/);
-  const name = nameMatch ? nameMatch[1].trim() : 'Shrew';
+  const name = nameMatch ? nameMatch[1].trim() : 'Aiva';
   const content = lines.slice(1).join('\n').trim();
   return { name, content };
 }
 
-export function migratePersonaFromDb(shrewDir: string, db: Database.Database): void {
-  const filePath = getPersonaFilePath(shrewDir);
+export function migratePersonaFromDb(aivaDir: string, db: Database.Database): void {
+  const filePath = getPersonaFilePath(aivaDir);
   if (fs.existsSync(filePath)) return;
 
   const row = db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Record<string, unknown> | undefined;
@@ -80,7 +80,7 @@ export function migratePersonaFromDb(shrewDir: string, db: Database.Database): v
   }
 
   const parts: string[] = [];
-  const name = String(row.name || 'Shrew');
+  const name = String(row.name || 'Aiva');
 
   if (row.bio) parts.push(String(row.bio));
 
@@ -115,19 +115,19 @@ git commit -m "feat: add persona-file module for reading/writing persona.md"
 
 ---
 
-### Task 2: 简化 shrew-context.ts
+### Task 2: 简化 aiva-context.ts
 
 **Files:**
-- Modify: `src/lib/shrew-context.ts`
+- Modify: `src/lib/aiva-context.ts`
 
-- [ ] **Step 1: 重写 shrew-context.ts**
+- [ ] **Step 1: 重写 aiva-context.ts**
 
-将 `buildShrewContext` 的签名从 `(persona: Persona, memoryLines: string[])` 改为 `(personaContent: string, memoryLines: string[])`。移除 `Persona` 类型导入。
+将 `buildAivaContext` 的签名从 `(persona: Persona, memoryLines: string[])` 改为 `(personaContent: string, memoryLines: string[])`。移除 `Persona` 类型导入。
 
 ```typescript
 import Database from 'better-sqlite3';
 
-export function buildShrewContext(personaContent: string, memoryLines: string[]): string {
+export function buildAivaContext(personaContent: string, memoryLines: string[]): string {
   const parts: string[] = [];
 
   if (personaContent.trim()) {
@@ -162,8 +162,8 @@ export function getPinnedMemories(db: Database.Database): string[] {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/lib/shrew-context.ts
-git commit -m "refactor: simplify buildShrewContext to accept raw content string"
+git add src/lib/aiva-context.ts
+git commit -m "refactor: simplify buildAivaContext to accept raw content string"
 ```
 
 ---
@@ -257,7 +257,7 @@ git commit -m "refactor: simplify Persona type and drop deprecated columns"
 
 ```typescript
   // 迁移 persona 旧字段到 persona.md
-  migratePersonaFromDb(shrewDir, db);
+  migratePersonaFromDb(aivaDir, db);
 ```
 
 - [ ] **Step 3: 更新 executePrompt 中的 persona 读取**
@@ -267,15 +267,15 @@ git commit -m "refactor: simplify Persona type and drop deprecated columns"
 ```typescript
   const persona = getPersona(db);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(persona, memoryLines);
+  const aivaContext = buildAivaContext(persona, memoryLines);
 ```
 
 替换为：
 
 ```typescript
-  const { content: personaContent } = readPersonaFile(shrewDir);
+  const { content: personaContent } = readPersonaFile(aivaDir);
   const memoryLines = getActiveMemories(db);
-  const shrewContext = buildShrewContext(personaContent, memoryLines);
+  const aivaContext = buildAivaContext(personaContent, memoryLines);
 ```
 
 - [ ] **Step 4: 更新 persona IPC handler**
@@ -284,12 +284,12 @@ git commit -m "refactor: simplify Persona type and drop deprecated columns"
 
 ```typescript
   ipcMain.handle('persona:load', () => {
-    const { name, content } = readPersonaFile(shrewDir);
+    const { name, content } = readPersonaFile(aivaDir);
     return { name, content };
   });
 
   ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
-    writePersonaFile(shrewDir, name, content);
+    writePersonaFile(aivaDir, name, content);
     updatePersonaName(db, name);
     return { name, content };
   });
@@ -329,7 +329,7 @@ interface PersonaData {
 }
 
 export default function PersonaPage() {
-  const [name, setName] = useState('Shrew');
+  const [name, setName] = useState('Aiva');
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState(false);
   const ipcRenderer = typeof window !== 'undefined' ? getIpcRenderer() : null;
@@ -403,7 +403,7 @@ npm run build:electron
 - [ ] **Step 2: 手动验证**
 
 1. 启动 `npm run electron:dev`
-2. 检查 `~/.shrew/persona.md` 是否自动生成（旧字段内容应已迁移）
+2. 检查 `~/.aiva/persona.md` 是否自动生成（旧字段内容应已迁移）
 3. 打开分身设定页面，确认名称和编辑器正确显示
 4. 编辑内容并保存，确认文件已更新
 5. 发送一条消息，检查 Agent 收到的 prompt 中包含 persona 内容

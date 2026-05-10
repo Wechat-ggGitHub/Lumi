@@ -112,7 +112,7 @@ export class VoiceEndpoint {
 
   private complete(samples: Float32Array): void {
     const wavBuffer = createWavBuffer(samples, 16000);
-    const tmpDir = path.join(os.homedir(), '.shrew', 'tmp');
+    const tmpDir = path.join(os.homedir(), '.aiva', 'tmp');
     fs.mkdirSync(tmpDir, { recursive: true });
     const wavPath = path.join(tmpDir, `wake-recording-${Date.now()}.wav`);
     const chunks = this.chunks;

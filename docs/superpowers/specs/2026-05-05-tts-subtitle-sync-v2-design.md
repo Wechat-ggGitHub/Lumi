@@ -100,7 +100,7 @@ visible: boolean          — 淡入控制
 - 当前句子滚动定位到容器高度的 1/3 处（视觉居中偏上）
 
 头像数据来源：
-- 主进程在发送音频数据时一并传 `personaName`（从 `readProfile(shrewDir).name` 获取）
+- 主进程在发送音频数据时一并传 `personaName`（从 `readProfile(aivaDir).name` 获取）
 - 字幕页用名称首字母渲染头像
 
 ### IPC 协议

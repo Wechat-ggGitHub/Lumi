@@ -1,4 +1,4 @@
-# Shrew UI Bugfixes + Summary Detail Implementation Plan
+# Aiva UI Bugfixes + Summary Detail Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -42,7 +42,7 @@ Add to `src/__tests__/store.test.ts`:
 
 ```typescript
 test('transcribing can transition to idle (empty transcription scenario)', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.transition('recording');
   store.transition('transcribing');
   store.transition('idle');
@@ -397,7 +397,7 @@ function createDotIcon(color: DotColor): Electron.NativeImage {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
-export class ShrewTray {
+export class AivaTray {
   private tray: Tray;
   private dotIcons: Record<DotColor, Electron.NativeImage>;
   private baseIcon: Electron.NativeImage;
@@ -414,17 +414,17 @@ export class ShrewTray {
     };
 
     this.tray = new Tray(this.baseIcon);
-    this.tray.setToolTip('Shrew - 待命中');
+    this.tray.setToolTip('Aiva - 待命中');
     this.updateDot('gray');
 
     // Build context menu but do NOT use setContextMenu()
     // On macOS, setContextMenu() overrides left-click behavior
     this.contextMenu = Menu.buildFromTemplate([
-      { label: 'Shrew', type: 'normal', enabled: false },
+      { label: 'Aiva', type: 'normal', enabled: false },
       { type: 'separator' },
       { label: '设置...', click: () => this.openSettings() },
       { type: 'separator' },
-      { label: '退出 Shrew', role: 'quit' },
+      { label: '退出 Aiva', role: 'quit' },
     ]);
 
     // Left click: toggle summary popup
@@ -441,11 +441,11 @@ export class ShrewTray {
     this.tray.setImage(dot);
 
     const tooltips: Record<DotColor, string> = {
-      gray: 'Shrew - 待命中',
-      blue: 'Shrew - 执行中',
-      green: 'Shrew - 已完成',
-      red: 'Shrew - 出错了',
-      yellow: 'Shrew - 等待中',
+      gray: 'Aiva - 待命中',
+      blue: 'Aiva - 执行中',
+      green: 'Aiva - 已完成',
+      red: 'Aiva - 出错了',
+      yellow: 'Aiva - 等待中',
     };
     this.tray.setToolTip(tooltips[color]);
   }
@@ -483,7 +483,7 @@ In `electron/main.ts`, the tray initialization section (around lines 506-515) st
 1. Run `npm run electron:dev`
 2. Left-click tray icon → summary popup opens
 3. Left-click again → summary popup closes (toggle)
-4. Right-click tray icon → context menu appears with "设置..." and "退出 Shrew"
+4. Right-click tray icon → context menu appears with "设置..." and "退出 Aiva"
 5. Click "设置..." → settings window opens
 6. Verify: left-click still works after using right-click menu
 

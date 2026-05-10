@@ -1,5 +1,5 @@
-appId: com.shrew.app
-productName: Shrew
+appId: com.aiva.app
+productName: Aiva
 directories:
   output: release
 mac:

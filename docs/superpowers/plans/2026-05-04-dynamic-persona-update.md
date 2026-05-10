@@ -27,7 +27,7 @@ import os from 'os';
 import { buildPersonaContext, writeProfile, writePersonaMarkdown, ensurePersonaDir } from '@/lib/persona-file';
 
 describe('buildPersonaContext', () => {
-  const tmpDir = path.join(os.tmpdir(), `shrew-test-persona-${Date.now()}`);
+  const tmpDir = path.join(os.tmpdir(), `aiva-test-persona-${Date.now()}`);
 
   beforeAll(() => {
     ensurePersonaDir(tmpDir);
@@ -55,7 +55,7 @@ describe('buildPersonaContext', () => {
   });
 
   it('includes persona vs memory boundary rule', () => {
-    writeProfile(tmpDir, { name: 'Shrew', avatar: null });
+    writeProfile(tmpDir, { name: 'Aiva', avatar: null });
     writePersonaMarkdown(tmpDir, '你好。');
 
     const result = buildPersonaContext(tmpDir);
@@ -76,14 +76,14 @@ Expected: FAIL — `buildPersonaContext` does not yet include self-update instru
 Modify `src/lib/persona-file.ts` — replace the `buildPersonaContext` function (lines 122-129):
 
 ```ts
-export function buildPersonaContext(shrewDir: string): string {
-  const profile = readProfile(shrewDir);
-  const markdown = readPersonaMarkdown(shrewDir);
+export function buildPersonaContext(aivaDir: string): string {
+  const profile = readProfile(aivaDir);
+  const markdown = readPersonaMarkdown(aivaDir);
   const parts: string[] = [];
   if (profile.name) parts.push(`你的名称是${profile.name}。`);
   if (markdown.trim()) parts.push(markdown.trim());
 
-  const personaDir = getPersonaDir(shrewDir);
+  const personaDir = getPersonaDir(aivaDir);
   parts.push(`## 自我更新权限
 
 你可以通过写入文件来更新自己的名称和性格设定。
@@ -128,8 +128,8 @@ In `electron/main.ts`, add a module-level variable for the watcher and a setup f
 let personaWatcher: fs.FSWatcher | null = null;
 
 function startPersonaWatcher(): void {
-  const personaDir = getPersonaDir(shrewDir);
-  ensurePersonaDir(shrewDir);
+  const personaDir = getPersonaDir(aivaDir);
+  ensurePersonaDir(aivaDir);
 
   personaWatcher = fs.watch(personaDir, (eventType, filename) => {
     if (!filename) return;
@@ -138,7 +138,7 @@ function startPersonaWatcher(): void {
     log.info(`Persona 文件变更: ${filename} (${eventType})`);
 
     try {
-      const profile = readProfile(shrewDir);
+      const profile = readProfile(aivaDir);
       if (!profile.name) {
         log.warn('Persona watcher: profile.json 缺少 name 字段，跳过广播');
         return;
@@ -165,7 +165,7 @@ function startPersonaWatcher(): void {
 
 - [ ] **Step 2: Start watcher after persona migration**
 
-In the `app.whenReady().then(...)` callback, after `migratePersona(shrewDir, db);` (line 945) and `initDb(db);` (line 947), add:
+In the `app.whenReady().then(...)` callback, after `migratePersona(aivaDir, db);` (line 945) and `initDb(db);` (line 947), add:
 
 ```ts
   startPersonaWatcher();
@@ -350,14 +350,14 @@ Run: `npm run electron:dev`
 - [ ] **Step 3: Test AI-initiated persona update**
 
 1. In the chat, send: "请把你的名字改成小助手"
-2. Verify the AI writes to `~/.shrew/persona/profile.json`
+2. Verify the AI writes to `~/.aiva/persona/profile.json`
 3. Verify the chat header name updates to "小助手"
-4. Check `~/.shrew/persona/profile.json` to confirm the change persisted
+4. Check `~/.aiva/persona/profile.json` to confirm the change persisted
 
 - [ ] **Step 4: Test persona.md update**
 
 1. In the chat, send: "说话轻松点，不要太正式"
-2. Verify the AI writes to `~/.shrew/persona/persona.md`
+2. Verify the AI writes to `~/.aiva/persona/persona.md`
 3. Go to `/persona` page and verify the markdown content updated
 4. Send another message and verify the AI's tone changed
 

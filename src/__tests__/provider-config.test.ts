@@ -140,9 +140,9 @@ test('buildSdkEnv for glm-global uses correct base URL', () => {
   expect(env.ANTHROPIC_BASE_URL).toBe('https://api.z.ai/api/anthropic');
 });
 
-test('buildSdkEnv sets CLAUDE_CONFIG_DIR to ~/.shrew', () => {
+test('buildSdkEnv sets CLAUDE_CONFIG_DIR to ~/.aiva', () => {
   const env = buildSdkEnv('glm-cn', 'key', 'opus');
-  expect(env.CLAUDE_CONFIG_DIR).toBe(`${process.env.HOME}/.shrew`);
+  expect(env.CLAUDE_CONFIG_DIR).toBe(`${process.env.HOME}/.aiva`);
 });
 
 // ─── provider model consistency ─────────────────────────

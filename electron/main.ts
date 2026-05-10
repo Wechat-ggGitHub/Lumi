@@ -2,11 +2,11 @@ import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, nativeTh
 import path from 'path';
 import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
-import { ShrewTray } from './tray';
+import { AivaTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
-import { ShrewStore } from '../src/lib/store';
+import { AivaStore } from '../src/lib/store';
 import { TtsService, TtsResult } from './tts';
 import { SubtitlePopup } from './subtitle-popup';
 import { WakeWordEngine } from './wake-word';
@@ -19,7 +19,7 @@ import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provid
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
-import { buildShrewContext } from '../src/lib/shrew-context';
+import { buildAivaContext } from '../src/lib/aiva-context';
 import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
 import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 import { evaluateAndWriteCoreMemory } from '../src/lib/core-memory-evaluator';
@@ -30,13 +30,13 @@ import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatM
 import Database from 'better-sqlite3';
 
 const isDev = !app.isPackaged;
-const shrewDir = path.join(app.getPath('home'), '.shrew');
-const settingsPath = path.join(shrewDir, 'settings.json');
-const dbPath = path.join(shrewDir, 'shrew.db');
+const aivaDir = path.join(app.getPath('home'), '.aiva');
+const settingsPath = path.join(aivaDir, 'settings.json');
+const dbPath = path.join(aivaDir, 'aiva.db');
 
 let db: Database.Database;
-let store: ShrewStore;
-let tray: ShrewTray;
+let store: AivaStore;
+let tray: AivaTray;
 let voiceBar: VoiceBarWindow;
 let shortcutManager: ShortcutManager;
 let recorder: AudioRecorder;
@@ -73,8 +73,8 @@ function clearVoiceBarHideTimer(): void {
 }
 
 function startPersonaWatcher(): void {
-  const personaDir = getPersonaDir(shrewDir);
-  ensurePersonaDir(shrewDir);
+  const personaDir = getPersonaDir(aivaDir);
+  ensurePersonaDir(aivaDir);
 
   personaWatcher = fs.watch(personaDir, (eventType, filename) => {
     if (!filename) return;
@@ -83,7 +83,7 @@ function startPersonaWatcher(): void {
     log.info(`Persona 文件变更: ${filename} (${eventType})`);
 
     try {
-      const profile = readProfile(shrewDir);
+      const profile = readProfile(aivaDir);
       if (!profile.name) {
         log.warn('Persona watcher: profile.json 缺少 name 字段，跳过广播');
         return;
@@ -258,8 +258,8 @@ function isWakeWordEnabled(): boolean {
 }
 
 function getKeyword(): string {
-  const profile = readProfile(shrewDir);
-  return profile.name || 'Shrew';
+  const profile = readProfile(aivaDir);
+  return profile.name || 'Aiva';
 }
 
 async function startWakeWord(): Promise<void> {
@@ -643,6 +643,10 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
   }
 
   const cwd = settings.defaultCwd.replace('~', app.getPath('home'));
+  if (!fs.existsSync(cwd)) {
+    fs.mkdirSync(cwd, { recursive: true });
+    log.info(`已创建工作目录: ${cwd}`);
+  }
   const providerKey = settings.provider || 'glm-cn';
   const modelPreset = settings.modelPreset || 'opus';
 
@@ -691,16 +695,16 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
   let assistantMessageId: string | null = null;
 
   // 构建 persona + 每日记忆上下文
-  const personaContent = buildPersonaContext(shrewDir);
-  const shrewContext = buildShrewContext(shrewDir, personaContent);
+  const personaContent = buildPersonaContext(aivaDir);
+  const aivaContext = buildAivaContext(aivaDir, personaContent);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
-    path.join(shrewDir, 'skills'),
+    path.join(aivaDir, 'skills'),
     settings.disabledSkills || []
   );
 
-  const fullPrompt = shrewContext ? shrewContext + '\n\n' + prompt : prompt;
+  const fullPrompt = aivaContext ? aivaContext + '\n\n' + prompt : prompt;
 
   const resumeSessionId = segment.sdk_session_id ?? undefined;
 
@@ -845,11 +849,11 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
         const assistantContent = conversationMessages
           .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
         evaluateAndWriteDailyMemory(
-          shrewDir, prompt, result.summary || assistantContent,
+          aivaDir, prompt, result.summary || assistantContent,
           ak, providerKey,
         ).catch(err => log.error('每日记忆写入异常:', err));
         evaluateAndWriteCoreMemory(
-          shrewDir, prompt, assistantContent,
+          aivaDir, prompt, assistantContent,
           ak, providerKey,
         ).catch(err => log.error('核心记忆评估异常:', err));
       }
@@ -923,7 +927,7 @@ async function speakResult(summary: string): Promise<void> {
 
   try {
     const trayBounds = tray.getBounds();
-    const profile = readProfile(shrewDir);
+    const profile = readProfile(aivaDir);
     const controller = ttsAbortController;
 
     // Prepare subtitle popup while synthesizing
@@ -965,7 +969,7 @@ async function speakResult(summary: string): Promise<void> {
     const audioBuffer = fs.readFileSync(ttsResult.audioPath);
 
     // Read avatar as base64 data URL
-    const avatarPath = getAvatarPath(shrewDir);
+    const avatarPath = getAvatarPath(aivaDir);
     let personaAvatar: string | null = null;
     if (avatarPath && fs.existsSync(avatarPath)) {
       const data = fs.readFileSync(avatarPath);
@@ -1017,7 +1021,7 @@ async function speakResult(summary: string): Promise<void> {
             updateTrayDot();
           }
           continuousChatTimer = null;
-        }, 5000);
+        }, 3000);
       } else {
         store.transition('idle');
       }
@@ -1120,29 +1124,45 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey?: string }) => {
     const provider = getProvider(providerKey || 'glm-cn');
+    log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${provider.validateEndpoint}`);
     const headers: Record<string, string> = {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     };
-    if (provider.authStyle === 'auth_token') {
-      headers['x-api-key'] = key;
-    } else {
-      headers['x-api-key'] = key;
+    headers['x-api-key'] = key;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    try {
+      response = await fetch(provider.validateEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: provider.defaultModels[2].modelId,
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        log.error('API Key 验证超时 (15s)');
+        throw new Error('验证请求超时，请检查网络连接');
+      }
+      log.error('API Key 验证网络错误:', e.message);
+      throw new Error('网络请求失败，请检查网络连接');
+    } finally {
+      clearTimeout(timeout);
     }
-    const response = await fetch(provider.validateEndpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: provider.defaultModels[2].modelId,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      }),
-    });
-    if (!response.ok) throw new Error('Invalid API key');
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      log.error(`API Key 验证失败, status: ${response.status}, body: ${body}`);
+      throw new Error('Invalid API key');
+    }
     saveApiKey(key);
-    // Save provider selection
     const settings = loadSettings();
     saveSettings({ ...settings, provider: provider.key });
+    log.info('API Key 验证成功并已保存');
   });
 
   ipcMain.handle('onboarding:finish', (_, { defaultCwd }: { defaultCwd: string }) => {
@@ -1160,9 +1180,9 @@ function registerIpcHandlers(): void {
 
   // persona
   ipcMain.handle('persona:load', () => {
-    const profile = readProfile(shrewDir);
-    const content = readPersonaMarkdown(shrewDir);
-    const avatarPath = getAvatarPath(shrewDir);
+    const profile = readProfile(aivaDir);
+    const content = readPersonaMarkdown(aivaDir);
+    const avatarPath = getAvatarPath(aivaDir);
     let avatarDataUrl: string | null = null;
     if (avatarPath && fs.existsSync(avatarPath)) {
       const data = fs.readFileSync(avatarPath);
@@ -1178,8 +1198,8 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
-    writeProfile(shrewDir, { name });
-    writePersonaMarkdown(shrewDir, content);
+    writeProfile(aivaDir, { name });
+    writePersonaMarkdown(aivaDir, content);
     return { name, content };
   });
 
@@ -1202,22 +1222,22 @@ function registerIpcHandlers(): void {
     if (!matches) return null;
     const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
     const buffer = Buffer.from(matches[2], 'base64');
-    ensurePersonaDir(shrewDir);
+    ensurePersonaDir(aivaDir);
     const filename = `avatar.${ext}`;
-    fs.writeFileSync(path.join(getPersonaDir(shrewDir), filename), buffer);
-    writeProfile(shrewDir, { avatar: filename });
+    fs.writeFileSync(path.join(getPersonaDir(aivaDir), filename), buffer);
+    writeProfile(aivaDir, { avatar: filename });
     return dataUrl;
   });
 
   ipcMain.handle('persona:avatar:remove', () => {
-    removeAvatarFile(shrewDir);
-    writeProfile(shrewDir, { avatar: null });
+    removeAvatarFile(aivaDir);
+    writeProfile(aivaDir, { avatar: null });
   });
 
   // skills
   ipcMain.handle('skills:list', () => {
     const settings = loadSettings();
-    return scanSkills(path.join(shrewDir, 'skills'), settings.disabledSkills || []);
+    return scanSkills(path.join(aivaDir, 'skills'), settings.disabledSkills || []);
   });
 
   ipcMain.handle('skills:import', async () => {
@@ -1230,7 +1250,7 @@ function registerIpcHandlers(): void {
 
     const selected = result.filePaths[0];
     const stat = fs.statSync(selected);
-    const skillsDir = path.join(shrewDir, 'skills');
+    const skillsDir = path.join(aivaDir, 'skills');
 
     let imported: boolean;
     if (stat.isDirectory()) {
@@ -1257,40 +1277,40 @@ function registerIpcHandlers(): void {
       if (!disabled.includes(name)) disabled.push(name);
     }
     saveSettings({ ...settings, disabledSkills: disabled });
-    return scanSkills(path.join(shrewDir, 'skills'), disabled);
+    return scanSkills(path.join(aivaDir, 'skills'), disabled);
   });
 
   ipcMain.handle('skills:delete', (_, { name }) => {
-    deleteSkill(name, path.join(shrewDir, 'skills'));
+    deleteSkill(name, path.join(aivaDir, 'skills'));
     const settings = loadSettings();
     const disabled = (settings.disabledSkills || []).filter((s: string) => s !== name);
     saveSettings({ ...settings, disabledSkills: disabled });
-    return scanSkills(path.join(shrewDir, 'skills'), disabled);
+    return scanSkills(path.join(aivaDir, 'skills'), disabled);
   });
 
   ipcMain.handle('skills:read', (_, { name }) => {
-    return readSkillContent(name, path.join(shrewDir, 'skills'));
+    return readSkillContent(name, path.join(aivaDir, 'skills'));
   });
 
   // services
   ipcMain.handle('services:list', () => {
-    return loadMcpServers(shrewDir);
+    return loadMcpServers(aivaDir);
   });
 
   ipcMain.handle('services:add', (_, config) => {
-    return addMcpServer(shrewDir, config);
+    return addMcpServer(aivaDir, config);
   });
 
   ipcMain.handle('services:update', (_, { id, ...updates }) => {
-    return updateMcpServer(shrewDir, id, updates);
+    return updateMcpServer(aivaDir, id, updates);
   });
 
   ipcMain.handle('services:remove', (_, { id }) => {
-    return removeMcpServer(shrewDir, id);
+    return removeMcpServer(aivaDir, id);
   });
 
   ipcMain.handle('services:test', async (_, { id }) => {
-    const servers = loadMcpServers(shrewDir);
+    const servers = loadMcpServers(aivaDir);
     const server = servers.find(s => s.id === id);
     if (!server) throw new Error('服务未找到');
     // 基本可用性检查：命令是否能找到
@@ -1316,7 +1336,7 @@ function registerIpcHandlers(): void {
 
   // memory (file-based)
   ipcMain.handle('memory:list-core', () => {
-    const memoriesDir = path.join(shrewDir, 'memories');
+    const memoriesDir = path.join(aivaDir, 'memories');
     if (!fs.existsSync(memoriesDir)) return [];
     const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
     return files.map(f => {
@@ -1327,7 +1347,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
     if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
-    const memoriesDir = path.join(shrewDir, 'memories');
+    const memoriesDir = path.join(aivaDir, 'memories');
     const filePath = path.join(memoriesDir, filename);
     if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
     fs.writeFileSync(filePath, content);
@@ -1336,7 +1356,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
     if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
-    const memoriesDir = path.join(shrewDir, 'memories');
+    const memoriesDir = path.join(aivaDir, 'memories');
     const filePath = path.join(memoriesDir, filename);
     if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
     fs.unlinkSync(filePath);
@@ -1344,12 +1364,12 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('memory:list-daily', () => {
-    return listDailyMemoryDates(shrewDir);
+    return listDailyMemoryDates(aivaDir);
   });
 
   ipcMain.handle('memory:read-daily', (_, { date }: { date: string }) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-    return readDailyMemory(shrewDir, date);
+    return readDailyMemory(aivaDir, date);
   });
 
   // navigation
@@ -1384,13 +1404,12 @@ function registerIpcHandlers(): void {
 
   // Wake word IPC handlers
   ipcMain.handle('wake-word:toggle', async (_event, { enabled }: { enabled: boolean }) => {
-    const settings = loadSettings();
-    settings.wakeWordEnabled = enabled;
-    saveSettings(settings);
-
     if (enabled) {
       try {
         await startWakeWord();
+        const settings = loadSettings();
+        settings.wakeWordEnabled = true;
+        saveSettings(settings);
         return { success: true };
       } catch (err: any) {
         log.error('启动唤醒词失败:', err);
@@ -1398,6 +1417,9 @@ function registerIpcHandlers(): void {
       }
     } else {
       destroyWakeWord();
+      const settings = loadSettings();
+      settings.wakeWordEnabled = false;
+      saveSettings(settings);
       return { success: true };
     }
   });
@@ -1417,25 +1439,52 @@ function registerIpcHandlers(): void {
   });
 }
 
-// 启动应用
+// 启动应用 — 单实例锁 + 崩溃清理
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
+process.on('exit', () => {
+  if (nextServer) {
+    nextServer.kill();
+    nextServer = null;
+  }
+});
+
+if (gotTheLock) {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isDestroyed()) {
+        createMainWindow();
+      } else {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    } else {
+      createMainWindow();
+    }
+  });
+
 app.whenReady().then(async () => {
-  initLogger(path.join(shrewDir, 'logs'));
-  fs.mkdirSync(shrewDir, { recursive: true });
-  fs.mkdirSync(path.join(shrewDir, 'skills'), { recursive: true });
-  fs.mkdirSync(path.join(shrewDir, 'mcp'), { recursive: true });
-  log.info('=== Shrew 应用启动 ===');
+  initLogger(path.join(aivaDir, 'logs'));
+  fs.mkdirSync(aivaDir, { recursive: true });
+  fs.mkdirSync(path.join(aivaDir, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(aivaDir, 'mcp'), { recursive: true });
+  log.info('=== Aiva 应用启动 ===');
   log.info('日志文件:', log.logPath);
   log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
-  log.info('shrewDir:', shrewDir);
+  log.info('aivaDir:', aivaDir);
 
-  // 迁移旧数据到 ~/.shrew/
+  // 迁移旧数据到 ~/.aiva/
   const oldDir = app.getPath('userData');
-  const markerFile = path.join(shrewDir, '.migrated');
+  const markerFile = path.join(aivaDir, '.migrated');
   if (fs.existsSync(oldDir) && !fs.existsSync(markerFile)) {
-    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', shrewDir);
+    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', aivaDir);
     try {
       // 迁移数据库
-      const oldDb = path.join(oldDir, 'shrew.db');
+      const oldDb = path.join(oldDir, 'aiva.db');
       if (fs.existsSync(oldDb)) {
         fs.copyFileSync(oldDb, dbPath);
         for (const ext of ['-wal', '-shm']) {
@@ -1457,22 +1506,22 @@ app.whenReady().then(async () => {
       // 迁移 MCP 配置
       const oldMcp = path.join(oldDir, 'config', 'mcp-servers.json');
       if (fs.existsSync(oldMcp)) {
-        fs.mkdirSync(path.join(shrewDir, 'mcp'), { recursive: true });
-        fs.copyFileSync(oldMcp, path.join(shrewDir, 'mcp', 'servers.json'));
+        fs.mkdirSync(path.join(aivaDir, 'mcp'), { recursive: true });
+        fs.copyFileSync(oldMcp, path.join(aivaDir, 'mcp', 'servers.json'));
         log.info('迁移: MCP 配置');
       }
 
       // 迁移加密凭据
       const oldSecure = path.join(oldDir, 'secure');
       if (fs.existsSync(oldSecure)) {
-        fs.cpSync(oldSecure, path.join(shrewDir, 'secure'), { recursive: true });
+        fs.cpSync(oldSecure, path.join(aivaDir, 'secure'), { recursive: true });
         log.info('迁移: 凭据');
       }
 
       // 迁移日志
       const oldLogs = path.join(oldDir, 'logs');
       if (fs.existsSync(oldLogs)) {
-        fs.cpSync(oldLogs, path.join(shrewDir, 'logs'), { recursive: true });
+        fs.cpSync(oldLogs, path.join(aivaDir, 'logs'), { recursive: true });
         log.info('迁移: 日志');
       }
 
@@ -1504,11 +1553,11 @@ app.whenReady().then(async () => {
   db = new Database(dbPath);
 
   // 迁移 persona 旧字段到 persona.md（必须在 initDb 删列之前）
-  migratePersona(shrewDir, db);
+  migratePersona(aivaDir, db);
 
   initDb(db);
 
-  migrateMemoryItems(db, shrewDir);
+  migrateMemoryItems(db, aivaDir);
 
   startPersonaWatcher();
 
@@ -1516,7 +1565,7 @@ app.whenReady().then(async () => {
   migrateKeyFile();
 
   // 初始化状态管理
-  store = new ShrewStore();
+  store = new AivaStore();
   store.onChange(() => {
     updateTrayDot();
     broadcastChatState();
@@ -1532,7 +1581,7 @@ app.whenReady().then(async () => {
   });
 
   // 创建菜单栏 Tray
-  tray = new ShrewTray();
+  tray = new AivaTray();
   tray.onPopupRequested = () => {
     store.clearCompletedState();
     updateTrayDot();
@@ -1578,6 +1627,10 @@ app.whenReady().then(async () => {
       log.info('唤醒词功能已启动');
     } catch (err) {
       log.error('启动唤醒词功能失败:', err);
+      const settings = loadSettings();
+      settings.wakeWordEnabled = false;
+      saveSettings(settings);
+      log.info('已自动关闭唤醒词设置，防止启动崩溃循环');
     }
   }
 
@@ -1617,6 +1670,7 @@ app.whenReady().then(async () => {
     }
   });
 });
+} // end if (gotTheLock)
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -1635,6 +1689,15 @@ function createMainWindow(): void {
   });
   mainWindow.loadURL(`http://127.0.0.1:${serverPort}/chat`);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      log.warn('ready-to-show did not fire, showing window after did-finish-load');
+      mainWindow.show();
+    }
+  });
+  mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
+    log.error('Main window page load failed:', code, desc);
+  });
 
   mainWindow.on('close', (event) => {
     if (isQuitting) return;
@@ -1667,6 +1730,15 @@ function createOnboardingWindow(): void {
   });
   mainWindow.loadURL(`http://127.0.0.1:${serverPort}/onboarding`);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      log.warn('ready-to-show did not fire, showing window after did-finish-load');
+      mainWindow.show();
+    }
+  });
+  mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
+    log.error('Onboarding page load failed:', code, desc);
+  });
 }
 
 app.on('window-all-closed', () => {

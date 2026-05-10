@@ -254,7 +254,7 @@ function readExistingMemories(memoriesDir: string): string {
 }
 
 export async function evaluateAndWriteCoreMemory(
-  shrewDir: string,
+  aivaDir: string,
   userMessage: string,
   assistantMessage: string,
   apiKey: string,
@@ -264,7 +264,7 @@ export async function evaluateAndWriteCoreMemory(
     const provider = getProvider(providerKey);
     const modelId = resolveModel(providerKey, 'haiku');
 
-    const memoriesDir = path.resolve(path.join(os.homedir(), '.shrew', 'memories'));
+    const memoriesDir = path.resolve(path.join(os.homedir(), '.aiva', 'memories'));
     const existingMemories = readExistingMemories(memoriesDir);
 
     const conversation = `用户: ${userMessage}\n\n助手: ${assistantMessage.slice(0, 2000)}`;
@@ -358,7 +358,7 @@ At lines 846-849, after the existing `evaluateAndWriteDailyMemory` call:
 
 ```ts
         evaluateAndWriteDailyMemory(
-          shrewDir, prompt, result.summary || assistantContent,
+          aivaDir, prompt, result.summary || assistantContent,
           ak, providerKey,
         ).catch(err => log.error('每日记忆写入异常:', err));
 ```
@@ -367,7 +367,7 @@ Add:
 
 ```ts
         evaluateAndWriteCoreMemory(
-          shrewDir, prompt, assistantContent,
+          aivaDir, prompt, assistantContent,
           ak, providerKey,
         ).catch(err => log.error('核心记忆评估异常:', err));
 ```
@@ -398,7 +398,7 @@ Say something like: "我以后都用英文回复" or "我是做前端的，主�
 
 - [ ] **Step 3: Check if core memory was updated**
 
-Run: `ls -la ~/.shrew/memories/ && cat ~/.shrew/memories/*.md`
+Run: `ls -la ~/.aiva/memories/ && cat ~/.aiva/memories/*.md`
 
 Expected: A new or updated `.md` file reflecting the preference/background information from the conversation.
 

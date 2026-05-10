@@ -45,11 +45,14 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const validateApiKey = async () => {
     setError('');
+    setSaving(true);
     try {
       await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim(), providerKey: 'glm-cn' });
       setStep('cwd');
     } catch {
       setError('API Key 验证失败，请检查后重试');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -62,8 +65,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const steps: Record<Step, React.ReactNode> = {
     welcome: (
       <OnboardingStep
-        title="欢迎使用 Shrew"
-        description="Shrew 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
+        title="欢迎使用 Aiva"
+        description="Aiva 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
         buttonText="开始设置"
         onAction={() => setStep('accessibility')}
       />
@@ -71,7 +74,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     accessibility: (
       <OnboardingStep
         title="辅助功能权限"
-        description="为了响应右 Command 键唤起语音，Shrew 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Shrew 只会监听右 Command 键，不会记录任何其他按键。"
+        description="为了响应右 Command 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Command 键，不会记录任何其他按键。"
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
@@ -90,7 +93,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     volcengine: (
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">语音识别配置</h2>
-        <p className="text-body text-text-muted mb-6">Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
+        <p className="text-body text-text-muted mb-6">Aiva 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
         <SingleLineInput
           type="text"
           value={volcAppId}
@@ -120,8 +123,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           placeholder="从 open.bigmodel.cn 获取您的 API Key"
         />
         {error && <p className="text-body-sm text-danger mb-2">{error}</p>}
-        <Button variant="primary" onClick={validateApiKey} disabled={!apiKey.trim()}>
-          验证并保存
+        <Button variant="primary" onClick={validateApiKey} disabled={saving || !apiKey.trim()}>
+          {saving ? '验证中...' : '验证并保存'}
         </Button>
       </div>
     ),
@@ -149,7 +152,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     done: (
       <OnboardingStep
         title="设置完成！"
-        description="按下右 Command 开始使用 Shrew。"
+        description="按下右 Command 开始使用 Aiva。"
         buttonText="开始使用"
         onAction={onComplete}
       />

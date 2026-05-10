@@ -4,7 +4,7 @@ import os from 'os';
 import { buildPersonaContext, writeProfile, writePersonaMarkdown, ensurePersonaDir, getPersonaDir } from '@/lib/persona-file';
 
 describe('buildPersonaContext', () => {
-  const tmpDir = path.join(os.tmpdir(), `shrew-test-persona-${Date.now()}`);
+  const tmpDir = path.join(os.tmpdir(), `aiva-test-persona-${Date.now()}`);
 
   beforeAll(() => {
     ensurePersonaDir(tmpDir);
@@ -33,7 +33,7 @@ describe('buildPersonaContext', () => {
   });
 
   it('includes persona vs memory boundary rule', () => {
-    writeProfile(tmpDir, { name: 'Shrew', avatar: null });
+    writeProfile(tmpDir, { name: 'Aiva', avatar: null });
     writePersonaMarkdown(tmpDir, '你好。');
 
     const result = buildPersonaContext(tmpDir);
@@ -43,7 +43,7 @@ describe('buildPersonaContext', () => {
   });
 
   it('instructs AI to keep name only in profile.json', () => {
-    writeProfile(tmpDir, { name: 'Shrew', avatar: null });
+    writeProfile(tmpDir, { name: 'Aiva', avatar: null });
     writePersonaMarkdown(tmpDir, '你好。');
 
     const result = buildPersonaContext(tmpDir);

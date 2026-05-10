@@ -2,7 +2,7 @@
 
 ## Background
 
-Shrew 的 persona 系统（名称 + persona.md + 头像）目前是单向的：用户在 `/persona` 页面手动编辑，AI 在每次对话时读取。AI 无法主动更新自己的 persona 设定。
+Aiva 的 persona 系统（名称 + persona.md + 头像）目前是单向的：用户在 `/persona` 页面手动编辑，AI 在每次对话时读取。AI 无法主动更新自己的 persona 设定。
 
 ## Goal
 
@@ -21,8 +21,8 @@ AI 只在用户**直接描述/调整 AI 人设**时更新 persona，不处理用
 
 | 文件 | 内容 | 更新场景示例 |
 |------|------|-------------|
-| `~/.shrew/persona/profile.json` | AI 名称 | 用户说「叫你小助手吧」 |
-| `~/.shrew/persona/persona.md` | 性格/语气/态度/风格 | 用户说「说话轻松点」「像资深工程师的口吻」 |
+| `~/.aiva/persona/profile.json` | AI 名称 | 用户说「叫你小助手吧」 |
+| `~/.aiva/persona/persona.md` | 性格/语气/态度/风格 | 用户说「说话轻松点」「像资深工程师的口吻」 |
 
 ### 不触发的场景
 
@@ -51,13 +51,13 @@ AI 只在用户**直接描述/调整 AI 人设**时更新 persona，不处理用
 - 更新性格/语气/态度/风格：将完整的 markdown 内容写入 {personaMdPath}
 ```
 
-路径使用绝对路径（`~/.shrew/persona/` 展开为实际路径），因为 Claude Code 执行时 cwd 是用户的项目目录。
+路径使用绝对路径（`~/.aiva/persona/` 展开为实际路径），因为 Claude Code 执行时 cwd 是用户的项目目录。
 
 **实现位置**：修改 `buildPersonaContext()` 函数，在返回的字符串中追加指令段落。
 
 ### 2. File Watcher
 
-在 `electron/main.ts` 中添加对 `~/.shrew/persona/` 目录的 `fs.watch`：
+在 `electron/main.ts` 中添加对 `~/.aiva/persona/` 目录的 `fs.watch`：
 
 - 监听 `profile.json` 和 `persona.md` 的 `change` 和 `rename` 事件
 - 检测到变更后：

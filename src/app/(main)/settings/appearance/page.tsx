@@ -23,7 +23,7 @@ export default function AppearanceSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="外观" subtitle="选择 Shrew 的外观模式" onBack={() => window.history.back()} />
+      <PageHeader title="外观" subtitle="选择 Aiva 的外观模式" onBack={() => window.history.back()} />
       <div className="flex-1 px-page-x pt-page-top">
         <SectionHeader title="外观模式" description="选择你偏好的配色方案。选择后立即生效。" />
         <div className="mt-widget-gap">

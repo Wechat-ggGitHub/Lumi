@@ -19,7 +19,7 @@
 | `electron/tts.ts` | 新建 | 火山引擎 TTS WebSocket 客户端 |
 | `electron/subtitle-popup.ts` | 新建 | tray 下方字幕弹窗 |
 | `electron/main.ts` | 修改 | executePrompt 完成后调用 TTS、handleRightCommand 增加 stop-speaking 分支 |
-| `src/lib/shrew-context.ts` | 修改 | buildShrewContext 增加交付方式指令 |
+| `src/lib/aiva-context.ts` | 修改 | buildAivaContext 增加交付方式指令 |
 | `src/__tests__/store.test.ts` | 修改 | 增加 speaking 相关测试 |
 
 ---
@@ -37,12 +37,12 @@
 
 ```typescript
 test('speaking flag defaults to false', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   expect(store.speaking).toBe(false);
 });
 
 test('setSpeaking updates the flag and notifies listeners', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
   store.onChange((state) => changes.push({ ...state }));
 
@@ -56,13 +56,13 @@ test('setSpeaking updates the flag and notifies listeners', () => {
 });
 
 test('getRightCommandAction returns stop-speaking when speaking is true', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   store.setSpeaking(true);
   expect(store.getRightCommandAction()).toBe('stop-speaking');
 });
 
 test('getRightCommandAction returns start-recording when idle and not speaking', () => {
-  const store = new ShrewStore();
+  const store = new AivaStore();
   expect(store.getRightCommandAction()).toBe('start-recording');
 });
 ```
@@ -198,7 +198,7 @@ export class TtsService {
     }
 
     const tempDir = os.tmpdir();
-    const tempFile = path.join(tempDir, `shrew-tts-${Date.now()}.mp3`);
+    const tempFile = path.join(tempDir, `aiva-tts-${Date.now()}.mp3`);
     this.tempFile = tempFile;
 
     return new Promise<string | null>((resolve) => {
@@ -257,7 +257,7 @@ export class TtsService {
         log.info('TTS: WebSocket 已连接, 文本长度:', text.length);
 
         const config = JSON.stringify({
-          user: { uid: 'shrew-app' },
+          user: { uid: 'aiva-app' },
           audio: {
             voice_type: 'zh_female_cancan',
             encoding: 'mp3',
@@ -509,7 +509,7 @@ export default function SubtitlePage() {
         >
           <span style={{ fontSize: '6px', color: 'white' }}>▶</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#888' }}>Shrew 正在朗读...</span>
+        <span style={{ fontSize: '10px', color: '#888' }}>Aiva 正在朗读...</span>
       </div>
       <div style={{ fontSize: '13px', lineHeight: '1.6', wordBreak: 'break-word' }}>
         {text}
@@ -536,11 +536,11 @@ git commit -m "feat: add subtitle display page"
 ### Task 5: System Prompt 增加交付方式指令
 
 **Files:**
-- Modify: `src/lib/shrew-context.ts`
+- Modify: `src/lib/aiva-context.ts`
 
 - [ ] **Step 1: Add delivery instruction to context**
 
-In `src/lib/shrew-context.ts`, update `buildShrewContext` function:
+In `src/lib/aiva-context.ts`, update `buildAivaContext` function:
 
 ```typescript
 import Database from 'better-sqlite3';
@@ -550,7 +550,7 @@ const DELIVERY_INSTRUCTION = `## 结果交付方式
 - 如果结果是简短说明（如"已更新配置"、"创建完成"），直接用文字回复
 - 如果结果较长或包含复杂内容（如代码修改总结、多步骤操作、详细分析），将完整内容整理成文件写入 ~/Desktop/ 目录，然后用一两句话告诉用户你做了什么以及文件位置`;
 
-export function buildShrewContext(personaContent: string, memoryLines: string[]): string {
+export function buildAivaContext(personaContent: string, memoryLines: string[]): string {
   const parts: string[] = [];
 
   if (personaContent.trim()) {
@@ -587,7 +587,7 @@ export function getPinnedMemories(db: Database.Database): string[] {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/lib/shrew-context.ts
+git add src/lib/aiva-context.ts
 git commit -m "feat: add delivery instruction to system context"
 ```
 

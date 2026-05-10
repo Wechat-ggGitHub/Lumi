@@ -2,7 +2,7 @@
 
 ## Problem
 
-Core memory (`~/.shrew/memories/`) relies entirely on Claude Agent SDK's `autoMemoryEnabled` feature, which rarely triggers in short voice conversations. The result: core memories are barely updated, and users have no voice-accessible way to manage them.
+Core memory (`~/.aiva/memories/`) relies entirely on Claude Agent SDK's `autoMemoryEnabled` feature, which rarely triggers in short voice conversations. The result: core memories are barely updated, and users have no voice-accessible way to manage them.
 
 Daily memory works reliably because it has an independent post-conversation evaluation step. Core memory lacks an equivalent mechanism.
 
@@ -23,7 +23,7 @@ Conversation completes
 **Function signature:**
 ```ts
 evaluateAndWriteCoreMemory(
-  shrewDir: string,
+  aivaDir: string,
   userMessage: string,
   assistantMessage: string,
   apiKey: string,
@@ -32,7 +32,7 @@ evaluateAndWriteCoreMemory(
 ```
 
 **Flow:**
-1. Read all `.md` files from `~/.shrew/memories/` (excluding `MEMORY.md`)
+1. Read all `.md` files from `~/.aiva/memories/` (excluding `MEMORY.md`)
 2. Build a summary of existing memories (filename + content)
 3. Send conversation + existing memory summary to haiku
 4. Parse JSON response with actions array
@@ -99,7 +99,7 @@ for (const action of actions) {
 Same protection as existing IPC handlers:
 
 ```ts
-const memoriesDir = path.resolve(path.join(os.homedir(), '.shrew', 'memories'));
+const memoriesDir = path.resolve(path.join(os.homedir(), '.aiva', 'memories'));
 const targetPath = path.resolve(memoriesDir, action.filename);
 if (!targetPath.startsWith(memoriesDir)) continue; // skip path traversal attempts
 ```
@@ -108,7 +108,7 @@ if (!targetPath.startsWith(memoriesDir)) continue; // skip path traversal attemp
 
 | Case | Handling |
 |------|----------|
-| `~/.shrew/memories/` doesn't exist | `mkdirSync({ recursive: true })` |
+| `~/.aiva/memories/` doesn't exist | `mkdirSync({ recursive: true })` |
 | No existing memories | Prompt notes "暂无现有记忆" |
 | Unparseable JSON from haiku | Skip, log warn (same as daily memory) |
 | `update` target file doesn't exist | Downgrade to `create` |
@@ -120,7 +120,7 @@ if (!targetPath.startsWith(memoriesDir)) continue; // skip path traversal attemp
 In `electron/main.ts`, after `evaluateAndWriteDailyMemory()` call (around line 841):
 
 ```ts
-evaluateAndWriteCoreMemory(shrewDir, prompt, assistantContent, ak, providerKey).catch(err => {
+evaluateAndWriteCoreMemory(aivaDir, prompt, assistantContent, ak, providerKey).catch(err => {
   log.error('核心记忆评估异常:', err);
 });
 ```
@@ -132,4 +132,4 @@ Both evaluators run in parallel, neither blocks the other.
 - SDK's `autoMemoryEnabled` / `autoDreamEnabled` settings remain as-is (coexistence)
 - `/memory` page UI unchanged (already supports manual management)
 - No voice commands added (fully automatic evaluation is sufficient)
-- `src/lib/shrew-context.ts` unchanged (daily memory injection works as-is)
+- `src/lib/aiva-context.ts` unchanged (daily memory injection works as-is)

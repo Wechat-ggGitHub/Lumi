@@ -60,7 +60,7 @@ export async function executeClaude(
       preset: 'claude_code',
       ...(skillCatalog ? { append: skillCatalog } : {}),
     },
-    autoMemoryDirectory: '~/.shrew/memories',
+    autoMemoryDirectory: '~/.aiva/memories',
     autoMemoryEnabled: true,
     autoDreamEnabled: true,
     ...(resumeSessionId ? { resume: resumeSessionId } : {}),

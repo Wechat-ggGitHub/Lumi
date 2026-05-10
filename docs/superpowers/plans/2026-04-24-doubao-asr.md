@@ -144,7 +144,7 @@ export class DoubaoASR {
 
         // 1. Send full client request (JSON config, gzip compressed)
         const config = JSON.stringify({
-          user: { uid: 'shrew-app' },
+          user: { uid: 'aiva-app' },
           audio: {
             format: 'wav',
             rate: SAMPLE_RATE,
@@ -267,11 +267,11 @@ function mapErrorCode(code: number, serverMsg: string): string {
 
 - [ ] **Step 2: 安装 ws 类型定义**
 
-Run: `cd /Users/rikiwang/Documents/Agent/Shrew/Shrew && npm ls ws 2>/dev/null || echo "ws not found"`
+Run: `cd /Users/rikiwang/Documents/Agent/Aiva/Aiva && npm ls ws 2>/dev/null || echo "ws not found"`
 
 如果 ws 未安装（Electron 内置 WebSocket 在主进程中可用，但 Node.js 的 `ws` 包提供更完整的客户端 API），检查 Electron 版本是否自带 WebSocket。Electron 主进程有 `WebSocket` 全局对象，但为了稳定性和类型安全，使用 `ws` 包。
 
-Run: `cd /Users/rikiwang/Documents/Agent/Shrew/Shrew && npm install ws && npm install -D @types/ws`
+Run: `cd /Users/rikiwang/Documents/Agent/Aiva/Aiva && npm install ws && npm install -D @types/ws`
 
 - [ ] **Step 3: Commit**
 
@@ -641,8 +641,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const steps: Record<Step, React.ReactNode> = {
     welcome: (
       <OnboardingStep
-        title="欢迎使用 Shrew"
-        description="Shrew 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
+        title="欢迎使用 Aiva"
+        description="Aiva 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
         buttonText="开始设置"
         onAction={() => setStep('accessibility')}
       />
@@ -650,7 +650,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     accessibility: (
       <OnboardingStep
         title="辅助功能权限"
-        description="为了响应右 Command 键唤起语音，Shrew 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Shrew 只会监听右 Command 键，不会记录任何其他按键。"
+        description="为了响应右 Command 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Command 键，不会记录任何其他按键。"
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
@@ -670,7 +670,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       <div style={stepStyle}>
         <h2 style={titleStyle}>语音识别配置</h2>
         <p style={descStyle}>
-          Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。
+          Aiva 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。
         </p>
         <input
           type="text"
@@ -740,7 +740,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     done: (
       <OnboardingStep
         title="设置完成！"
-        description="按下右 Command 开始使用 Shrew。"
+        description="按下右 Command 开始使用 Aiva。"
         buttonText="开始使用"
         onAction={onComplete}
       />

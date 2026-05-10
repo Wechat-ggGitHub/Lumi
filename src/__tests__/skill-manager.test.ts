@@ -8,7 +8,7 @@ describe('skill-manager', () => {
   let skillsDir: string;
 
   beforeEach(() => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-test-'));
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-test-'));
     skillsDir = path.join(tmp, 'skills');
     fs.mkdirSync(skillsDir);
   });
@@ -94,7 +94,7 @@ describe('skill-manager', () => {
 
   describe('importSkill', () => {
     it('将源文件夹复制到 skills 目录', () => {
-      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-src-'));
+      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-src-'));
       fs.writeFileSync(path.join(srcTmp, 'SKILL.md'), '---\nname: my-skill\ndescription: desc\n---\n# 指令');
       const result = importSkill(srcTmp, skillsDir);
       expect(result).toBe(true);
@@ -103,7 +103,7 @@ describe('skill-manager', () => {
     });
 
     it('目录名取自 SKILL.md 的 name 字段', () => {
-      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-src-'));
+      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-src-'));
       fs.writeFileSync(path.join(srcTmp, 'SKILL.md'), '---\nname: my-skill\ndescription: desc\n---\n# 指令');
       importSkill(srcTmp, skillsDir);
       expect(fs.existsSync(path.join(skillsDir, 'my-skill'))).toBe(true);
@@ -111,14 +111,14 @@ describe('skill-manager', () => {
     });
 
     it('导入失败当源目录没有 SKILL.md', () => {
-      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-src-'));
+      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-src-'));
       const result = importSkill(srcTmp, skillsDir);
       expect(result).toBe(false);
       fs.rmSync(srcTmp, { recursive: true, force: true });
     });
 
     it('导入失败当目标已存在同名 skill', () => {
-      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-src-'));
+      const srcTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-src-'));
       fs.writeFileSync(path.join(srcTmp, 'SKILL.md'), '---\nname: my-skill\ndescription: desc\n---\n# 指令');
       importSkill(srcTmp, skillsDir);
       const result = importSkill(srcTmp, skillsDir);

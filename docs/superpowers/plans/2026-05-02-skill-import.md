@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让 Shrew 技能导入支持 `.md` 文件和 `.zip` 压缩包，不再局限于文件夹。
+**Goal:** 让 Aiva 技能导入支持 `.md` 文件和 `.zip` 压缩包，不再局限于文件夹。
 
 **Architecture:** 在 `skill-manager.ts` 中新增 `importSkillFromMd` 和 `importSkillFromZip` 两个函数，IPC handler 根据文件类型分派。zip 使用 `adm-zip` 解压到临时目录后复用现有目录导入逻辑。
 
@@ -254,7 +254,7 @@ function findSkillRootInZip(extractDir: string): string | null {
 export function importSkillFromZip(filePath: string, skillsDir: string): boolean {
   let extractDir = '';
   try {
-    extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shrew-skill-'));
+    extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-skill-'));
     const zip = new AdmZip(filePath);
     zip.extractAllTo(extractDir, true);
 
@@ -329,7 +329,7 @@ ipcMain.handle('skills:import', async () => {
 
   const selected = result.filePaths[0];
   const stat = fs.statSync(selected);
-  const skillsDir = path.join(shrewDir, 'skills');
+  const skillsDir = path.join(aivaDir, 'skills');
 
   let imported: boolean;
   if (stat.isDirectory()) {

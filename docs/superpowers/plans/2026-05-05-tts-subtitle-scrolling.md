@@ -267,7 +267,7 @@ function SubtitleContent() {
         >
           <span style={{ fontSize: '6px', color: 'white' }}>▶</span>
         </div>
-        <span style={{ fontSize: '10px', color: '#888' }}>Shrew 正在朗读...</span>
+        <span style={{ fontSize: '10px', color: '#888' }}>Aiva 正在朗读...</span>
       </div>
       <div
         ref={scrollRef}

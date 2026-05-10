@@ -12,7 +12,7 @@
 当前代码里 voice-bar 的 BrowserWindow 是 `transparent: true` 且页面/容器都没有背景，`VoiceInput.tsx` 也没有承载容器。结果：屏幕上看到的不是一根"语音条"，而是一段悬浮的蓝色波浪 + 一个几乎看不见的 × 按钮（`rgba(255,255,255,0.1)` 背景 + `rgba(255,255,255,0.5)` 文字）。用户主诉"波浪和关闭按钮都没显示在底部语音条上"——**根因是缺承载容器**。
 
 ### 问题 ② — "唤醒后说一句、停 3 秒、不发到 agent"
-日志（`~/.shrew/logs/shrew-2026-05-07.log`）拉出三段印证：
+日志（`~/.aiva/logs/aiva-2026-05-07.log`）拉出三段印证：
 - **22:38:19 那次**：唤醒 → VAD 在 22:38:29 输出 segment(4.73s) → 转写时豆包 ASR 报 `WebSocket was closed before the connection was established` → 走静默 catch，**voice bar 不显示任何错误**。用户看到的是"啥都没发生"。
 - **19:16:52 那次**：唤醒后 VAD **9.73 秒不自动收尾**，最后用户手动按右 Option 才结束。
 - **22:12:29 那次**：唤醒后 VoiceEndpoint 启动，再无后续日志（应用被重启）。

@@ -1,8 +1,8 @@
-# Shrew Icon Design Implementation Plan
+# Aiva Icon Design Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 替换 Shrew 的 Dock 图标和菜单栏 Tray 图标为设计稿中的光球风格。
+**Goal:** 替换 Aiva 的 Dock 图标和菜单栏 Tray 图标为设计稿中的光球风格。
 
 **Architecture:** Dock 图标通过生成 1024x1024 PNG 替换 `resources/icon.png`；Tray 图标通过修改 `electron/tray.ts` 中的像素绘制逻辑实现 4 层渐变圆盘 + 右上角状态点。
 

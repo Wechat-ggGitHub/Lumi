@@ -1,6 +1,6 @@
 type ThemePreference = 'system' | 'light' | 'dark';
 
-const STORAGE_KEY = 'shrew-theme-preference';
+const STORAGE_KEY = 'aiva-theme-preference';
 
 export function getThemePreference(): ThemePreference {
   if (typeof window === 'undefined') return 'system';

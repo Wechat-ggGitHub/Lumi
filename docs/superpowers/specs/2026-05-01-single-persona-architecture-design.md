@@ -1,6 +1,6 @@
-# Shrew 单分身架构设计方案
+# Aiva 单分身架构设计方案
 
-> 基于 PRD `docs/prd/shrew-single-persona-prd.md` v0.1，确认日期 2026-05-01
+> 基于 PRD `docs/prd/aiva-single-persona-prd.md` v0.1，确认日期 2026-05-01
 
 ## 1. 核心决策记录
 
@@ -9,10 +9,10 @@
 | 1 | 持久化策略 | 保留 SQLite，扩展表结构 | 项目已有 SQLite (WAL 模式)，统一持久化方案避免 JSON 并发写入问题 |
 | 2 | 主窗口路由 | 单 BrowserWindow + Next.js 客户端路由 | 窗口内路由切换无白屏，体验流畅 |
 | 3 | 聊天数据模型 | `chat_message` + `context_segment_id` 后台分段 | 参考了 OpenClaw 的 JSONL transcript + 时间策略重置方案，简化为 SQLite 实现 |
-| 4 | 技能管理范围 | 管理 Shrew 自己的配置，不碰用户项目文件 | 避免与用户本地 Claude Code 配置冲突 |
+| 4 | 技能管理范围 | 管理 Aiva 自己的配置，不碰用户项目文件 | 避免与用户本地 Claude Code 配置冲突 |
 | 5 | Memory 实现 | LLM 提炼 + SQLite + CLAUDE.md 注入 | Claude Agent SDK 没有自动记忆能力，需自建 |
-| 6 | 分身人格注入 | 通过 prompt 前缀注入 persona + memory 上下文 | SDK 默认从 cwd 读 CLAUDE.md，但 Shrew 不碰用户项目文件。通过 prompt 前缀注入更可控 |
-| 7 | MCP 配置存储 | Shrew 独立配置目录 | 与技能管理同理，隔离于用户项目 |
+| 6 | 分身人格注入 | 通过 prompt 前缀注入 persona + memory 上下文 | SDK 默认从 cwd 读 CLAUDE.md，但 Aiva 不碰用户项目文件。通过 prompt 前缀注入更可控 |
+| 7 | MCP 配置存储 | Aiva 独立配置目录 | 与技能管理同理，隔离于用户项目 |
 | 8 | 实施路径 | 渐进式重构（方案 A） | 在现有代码基础上逐步改造，每阶段可独立验收 |
 
 ## 2. 数据层设计
@@ -56,7 +56,7 @@ CREATE INDEX idx_chat_message_segment ON chat_message(segment_id, created_at);
 ```sql
 CREATE TABLE persona (
   id INTEGER PRIMARY KEY DEFAULT 1,
-  name TEXT NOT NULL DEFAULT 'Shrew',
+  name TEXT NOT NULL DEFAULT 'Aiva',
   avatar TEXT,
   bio TEXT,
   personality TEXT DEFAULT '专业',
@@ -91,14 +91,14 @@ CREATE INDEX idx_memory_item_status ON memory_item(status);
 
 ### 2.2 JSON 配置文件
 
-存储在 `~/Library/Application Support/Shrew/config/` 目录下：
+存储在 `~/Library/Application Support/Aiva/config/` 目录下：
 
 | 文件 | 用途 |
 |------|------|
 | `settings.json` | 系统设置（模型、API Key 配置、语音凭证、快捷键、工作目录、权限模式） |
 | `skills.json` | 技能启用状态与参数 |
 | `mcp-servers.json` | MCP 服务连接配置 |
-| `claude.md` | Shrew persona 配置备份（非 SDK 直接读取，作为 prompt 前缀注入） |
+| `claude.md` | Aiva persona 配置备份（非 SDK 直接读取，作为 prompt 前缀注入） |
 
 敏感信息（API Key、Token）继续使用 Electron safeStorage 加密存储在 `secure/` 目录。
 
@@ -253,7 +253,7 @@ SDK 子状态用于驱动前台 `正在思考` vs `正在执行` 的切换：`sd
 2. 写入 chat_message (role='user')
 3. 状态机: idle → thinking
 4. 构建 system prompt:
-   - 从 Shrew 配置目录读取 claude.md（含 persona + memory 摘要）
+   - 从 Aiva 配置目录读取 claude.md（含 persona + memory 摘要）
    - 当前 context_segment 的 SDK session ID（resume 或 new）
 5. 调用 SDK query() 发起执行
 6. 流式返回:
@@ -318,17 +318,17 @@ SDK 子状态用于驱动前台 `正在思考` vs `正在执行` 的切换：`sd
 4. 作为 prompt 前缀注入到 SDK query() 调用
 ```
 
-同时维护一份 `~/Library/Application Support/Shrew/config/claude.md` 作为备份，记录当前 persona 配置的完整内容。
+同时维护一份 `~/Library/Application Support/Aiva/config/claude.md` 作为备份，记录当前 persona 配置的完整内容。
 
 ### 6.6 SDK 调用配置
 
-每次调用 SDK `query()` 时，需要在用户消息前拼接 Shrew 的 persona 上下文：
+每次调用 SDK `query()` 时，需要在用户消息前拼接 Aiva 的 persona 上下文：
 
 ```typescript
-const shrewContext = buildShrewContext(persona, memories);
+const aivaContext = buildAivaContext(persona, memories);
 
 query({
-  prompt: shrewContext + '\n\n' + userMessage,
+  prompt: aivaContext + '\n\n' + userMessage,
   options: {
     cwd: userConfiguredWorkDir,
     model: selectedModel,
@@ -337,7 +337,7 @@ query({
 })
 ```
 
-**注意**：SDK 默认从 cwd 读取 CLAUDE.md。Shrew 的 persona + memory 信息不写入用户项目的 CLAUDE.md，而是通过 prompt 前缀注入。如果 SDK 支持 `systemPrompt` 或类似选项，优先使用该选项。需要在实现阶段验证 SDK 的 exact API。
+**注意**：SDK 默认从 cwd 读取 CLAUDE.md。Aiva 的 persona + memory 信息不写入用户项目的 CLAUDE.md，而是通过 prompt 前缀注入。如果 SDK 支持 `systemPrompt` 或类似选项，优先使用该选项。需要在实现阶段验证 SDK 的 exact API。
 
 ### 6.7 流式消息持久化策略
 

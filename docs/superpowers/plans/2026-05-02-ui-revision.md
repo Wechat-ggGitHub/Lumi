@@ -1,8 +1,8 @@
-# Shrew UI Revision Implementation Plan
+# Aiva UI Revision Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rewrite all Shrew desktop pages using a unified Tailwind + CSS variables design system, 12 shared UI components, and consistent deep dark visual language per the approved spec.
+**Goal:** Rewrite all Aiva desktop pages using a unified Tailwind + CSS variables design system, 12 shared UI components, and consistent deep dark visual language per the approved spec.
 
 **Architecture:** Component-first approach — build the design token foundation and shared component library first, then rewrite pages one by one. All IPC contracts preserved. No backend changes.
 
@@ -186,7 +186,7 @@ Replace `src/app/layout.tsx` entirely:
 ```tsx
 import './globals.css';
 
-export const metadata = { title: 'Shrew' };
+export const metadata = { title: 'Aiva' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -893,7 +893,7 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, onSettingsC
         S
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-card-title text-text-primary">Shrew</div>
+        <div className="text-card-title text-text-primary">Aiva</div>
         {isActive && (
           <div className="text-label-xs text-text-muted flex items-center gap-1 mt-0.5">
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor} animate-pulse-blue`} />
@@ -912,7 +912,7 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, onSettingsC
 - [ ] **Step 2: Verify chat page renders**
 
 Run: `npm run dev`
-Expected: Chat page loads, header shows "Shrew" with new brand-soft avatar style.
+Expected: Chat page loads, header shows "Aiva" with new brand-soft avatar style.
 
 - [ ] **Step 3: Commit**
 
@@ -1018,7 +1018,7 @@ export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
       {isStreaming && (
         <div className="flex items-center gap-2 py-1">
           <div className="w-3 h-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-          <span className="text-label text-text-muted">Shrew 正在回复...</span>
+          <span className="text-label text-text-muted">Aiva 正在回复...</span>
         </div>
       )}
     </div>
@@ -2147,7 +2147,7 @@ export default function MemoryPage() {
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader
         title="记忆管理"
-        subtitle="Shrew 记住了什么"
+        subtitle="Aiva 记住了什么"
         onBack={() => window.history.back()}
         actions={
           <Button variant="primary" size="sm" onClick={() => setShowAdd(!showAdd)}>
@@ -2160,7 +2160,7 @@ export default function MemoryPage() {
         {/* Memory Overview */}
         {memories.length > 0 && (
           <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
-            <h3 className="text-card-title text-text-primary mb-2">Shrew 当前记住了 {activeMemories.length} 条信息</h3>
+            <h3 className="text-card-title text-text-primary mb-2">Aiva 当前记住了 {activeMemories.length} 条信息</h3>
             {overviewBullets.length > 0 && (
               <ul className="text-body-sm text-text-muted space-y-1">
                 {overviewBullets.map((bullet, i) => (
@@ -2363,7 +2363,7 @@ export default function SkillsPage() {
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader
         title="技能管理"
-        subtitle="Shrew 当前具备的技能"
+        subtitle="Aiva 当前具备的技能"
         onBack={() => window.history.back()}
       />
 
@@ -2555,7 +2555,7 @@ export default function ServicesPage() {
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader
         title="服务连接"
-        subtitle="Shrew 能访问的外部服务"
+        subtitle="Aiva 能访问的外部服务"
         onBack={() => window.history.back()}
         actions={
           <Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>
@@ -2568,7 +2568,7 @@ export default function ServicesPage() {
         {/* Description Card */}
         <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
           <p className="text-body-sm text-text-secondary">
-            服务连接让 Shrew 通过标准协议访问外部工具和数据源，例如 GitHub、数据库、搜索引擎等。
+            服务连接让 Aiva 通过标准协议访问外部工具和数据源，例如 GitHub、数据库、搜索引擎等。
           </p>
         </div>
 
@@ -2634,7 +2634,7 @@ export default function ServicesPage() {
         {servers.length === 0 && !showForm && (
           <EmptyState
             title="还没有连接任何服务"
-            description="服务连接让 Shrew 访问外部工具和数据源。添加第一个服务连接来开始使用。"
+            description="服务连接让 Aiva 访问外部工具和数据源。添加第一个服务连接来开始使用。"
             action={<Button variant="primary" size="sm" onClick={() => setShowForm(true)}>添加第一个连接</Button>}
           />
         )}
@@ -2733,8 +2733,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const steps: Record<Step, React.ReactNode> = {
     welcome: (
       <OnboardingStep
-        title="欢迎使用 Shrew"
-        description="Shrew 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
+        title="欢迎使用 Aiva"
+        description="Aiva 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
         buttonText="开始设置"
         onAction={() => setStep('accessibility')}
       />
@@ -2742,7 +2742,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     accessibility: (
       <OnboardingStep
         title="辅助功能权限"
-        description="为了响应右 Command 键唤起语音，Shrew 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Shrew 只会监听右 Command 键，不会记录任何其他按键。"
+        description="为了响应右 Command 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Command 键，不会记录任何其他按键。"
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
@@ -2761,7 +2761,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     volcengine: (
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">语音识别配置</h2>
-        <p className="text-body text-text-muted mb-6">Shrew 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
+        <p className="text-body text-text-muted mb-6">Aiva 使用豆包语音大模型进行在线语音识别。请填写火山引擎的凭证。</p>
         <input
           type="text"
           value={volcAppId}
@@ -2824,7 +2824,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     done: (
       <OnboardingStep
         title="设置完成！"
-        description="按下右 Command 开始使用 Shrew。"
+        description="按下右 Command 开始使用 Aiva。"
         buttonText="开始使用"
         onAction={onComplete}
       />
