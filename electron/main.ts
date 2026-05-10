@@ -14,7 +14,7 @@ import { AudioListener } from './audio-listener';
 import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
-import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
+import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
@@ -618,7 +618,7 @@ function cancelContinuousChat(): void {
 async function executePrompt(prompt: string, isVoice = false): Promise<void> {
   log.info('executePrompt 开始, prompt:', prompt.slice(0, 100));
   const settings = loadSettings();
-  const apiKey = loadApiKey();
+  const apiKey = loadApiKey(settings.provider || 'glm-cn');
 
   // 无论 API key 是否存在，都先推送用户消息
   const segment = getActiveSegment(db);
@@ -844,7 +844,7 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
 
     // 异步写入每日记忆（不阻塞主流程）
     if (result.status === 'completed') {
-      const ak = loadApiKey();
+      const ak = loadApiKey(providerKey);
       if (ak) {
         const assistantContent = conversationMessages
           .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
@@ -1078,7 +1078,7 @@ function registerIpcHandlers(): void {
   // settings
   ipcMain.handle('settings:load', () => {
     const settings = loadSettings();
-    return { ...settings, hasApiKey: hasApiKey() };
+    return { ...settings, hasApiKey: hasApiKey(settings.provider || 'glm-cn') };
   });
 
   ipcMain.handle('settings:save-api-key', async (_, { key }: { key: string }) => {
@@ -1098,7 +1098,7 @@ function registerIpcHandlers(): void {
       }),
     });
     if (!response.ok) throw new Error('Invalid API key');
-    saveApiKey(key);
+    saveApiKey(key, settings.provider || 'glm-cn');
   });
 
   ipcMain.handle('settings:save', (_, data: Partial<AppSettings>) => {
@@ -1159,7 +1159,7 @@ function registerIpcHandlers(): void {
       log.error(`API Key 验证失败, status: ${response.status}, body: ${body}`);
       throw new Error('Invalid API key');
     }
-    saveApiKey(key);
+    saveApiKey(key, providerKey || 'glm-cn');
     const settings = loadSettings();
     saveSettings({ ...settings, provider: provider.key });
     log.info('API Key 验证成功并已保存');
@@ -1562,7 +1562,7 @@ app.whenReady().then(async () => {
   startPersonaWatcher();
 
   // 迁移旧的 API key 文件
-  migrateKeyFile();
+  migrateKeyFiles(loadSettings().provider || 'glm-cn');
 
   // 初始化状态管理
   store = new AivaStore();
@@ -1653,7 +1653,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
 
   // 检查是否需要引导
-  const needsOnboarding = !hasApiKey();
+  const needsOnboarding = !hasApiKey(loadSettings().provider || 'glm-cn');
   log.info('启动完成, 需要引导:', needsOnboarding);
   if (needsOnboarding) {
     createOnboardingWindow();

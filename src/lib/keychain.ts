@@ -7,38 +7,52 @@ import path from 'path';
 import { app } from 'electron';
 
 const KEYCHAIN_DIR = path.join(app.getPath('home'), '.aiva', 'secure');
-const API_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
 const LEGACY_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
+const OLD_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
 
-// One-time migration: rename legacy key file to new name
-export function migrateKeyFile(): void {
-  if (fs.existsSync(LEGACY_KEY_FILE) && !fs.existsSync(API_KEY_FILE)) {
-    fs.renameSync(LEGACY_KEY_FILE, API_KEY_FILE);
+function keyPath(providerKey: string): string {
+  if (!/^[a-z0-9-]+$/.test(providerKey)) throw new Error(`Invalid provider key: ${providerKey}`);
+  return path.join(KEYCHAIN_DIR, `api-key-${providerKey}.enc`);
+}
+
+// One-time migration: rename legacy key file chain
+// anthropic-key.enc → api-key.enc → api-key-{currentProvider}.enc
+export function migrateKeyFiles(currentProviderKey: string): void {
+  // Step 1: legacy anthropic-key.enc → api-key.enc
+  if (fs.existsSync(LEGACY_KEY_FILE) && !fs.existsSync(OLD_KEY_FILE)) {
+    fs.renameSync(LEGACY_KEY_FILE, OLD_KEY_FILE);
+  }
+  // Step 2: api-key.enc → api-key-{currentProvider}.enc
+  const newPath = keyPath(currentProviderKey);
+  if (fs.existsSync(OLD_KEY_FILE) && !fs.existsSync(newPath)) {
+    fs.renameSync(OLD_KEY_FILE, newPath);
   }
 }
 
-export function saveApiKey(key: string): void {
+export function saveApiKey(key: string, providerKey: string): void {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error('Encryption not available on this system');
   }
   if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
   const encrypted = safeStorage.encryptString(key);
-  fs.writeFileSync(API_KEY_FILE, encrypted);
+  fs.writeFileSync(keyPath(providerKey), encrypted);
 }
 
-export function loadApiKey(): string | null {
-  if (!fs.existsSync(API_KEY_FILE)) return null;
+export function loadApiKey(providerKey: string): string | null {
+  const filePath = keyPath(providerKey);
+  if (!fs.existsSync(filePath)) return null;
   if (!safeStorage.isEncryptionAvailable()) return null;
-  const encrypted = fs.readFileSync(API_KEY_FILE);
+  const encrypted = fs.readFileSync(filePath);
   return safeStorage.decryptString(encrypted);
 }
 
-export function deleteApiKey(): void {
-  if (fs.existsSync(API_KEY_FILE)) fs.unlinkSync(API_KEY_FILE);
+export function deleteApiKey(providerKey: string): void {
+  const filePath = keyPath(providerKey);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
-export function hasApiKey(): boolean {
-  return fs.existsSync(API_KEY_FILE);
+export function hasApiKey(providerKey: string): boolean {
+  return fs.existsSync(keyPath(providerKey));
 }
 
 const VOLCENGINE_CRED_FILE = path.join(KEYCHAIN_DIR, 'volcengine.json');
