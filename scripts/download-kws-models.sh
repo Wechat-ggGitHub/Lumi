@@ -10,15 +10,15 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 KWS_DIR="$PROJECT_ROOT/resources/sherpa-onnx/kws"
 VAD_DIR="$PROJECT_ROOT/resources/sherpa-onnx/vad"
 
-KWS_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2"
-KWS_TARBALL="sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2"
+KWS_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2"
+KWS_TARBALL="sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2"
 
 VAD_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
 
 echo "=== Downloading KWS and VAD models ==="
 
 # --- KWS model ---
-if [ -f "$KWS_DIR/encoder-epoch-12-avg-2-chunk-16-left-64.onnx" ] && [ -f "$KWS_DIR/decoder-epoch-12-avg-2-chunk-16-left-64.onnx" ] && [ -f "$KWS_DIR/joiner-epoch-12-avg-2-chunk-16-left-64.onnx" ]; then
+if [ -f "$KWS_DIR/encoder-epoch-13-avg-2-chunk-16-left-64.onnx" ] && [ -f "$KWS_DIR/decoder-epoch-13-avg-2-chunk-16-left-64.onnx" ] && [ -f "$KWS_DIR/joiner-epoch-13-avg-2-chunk-16-left-64.onnx" ]; then
   echo "[KWS] Model files already exist in $KWS_DIR, skipping."
 else
   echo "[KWS] Downloading model..."
@@ -27,8 +27,8 @@ else
   curl -L --progress-bar -o "$TMPDIR_KWS/$KWS_TARBALL" "$KWS_URL"
   echo "[KWS] Extracting..."
   tar -xjf "$TMPDIR_KWS/$KWS_TARBALL" -C "$TMPDIR_KWS"
-  # The tarball extracts into a directory named sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/
-  cp -r "$TMPDIR_KWS/sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/"* "$KWS_DIR/"
+  # The tarball extracts into a directory named sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/
+  cp -r "$TMPDIR_KWS/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"* "$KWS_DIR/"
   rm -rf "$TMPDIR_KWS"
   echo "[KWS] Done. Files saved to $KWS_DIR"
 fi
