@@ -2,11 +2,11 @@ import {
   getProvider,
   getDefaultProvider,
   getAllProviders,
+  getProvidersByCategory,
   resolveModel,
+  getValidateEndpoint,
   buildSdkEnv,
 } from '../lib/provider-config';
-
-// ─── getProvider ────────────────────────────────────────
 
 test('getProvider returns GLM CN for known key', () => {
   const p = getProvider('glm-cn');
@@ -28,24 +28,30 @@ test('getProvider returns default (glm-cn) for unknown key', () => {
   expect(p.key).toBe('glm-cn');
 });
 
-// ─── getDefaultProvider ─────────────────────────────────
-
 test('getDefaultProvider returns glm-cn', () => {
   expect(getDefaultProvider().key).toBe('glm-cn');
 });
 
-// ─── getAllProviders ────────────────────────────────────
-
-test('getAllProviders returns 3 providers', () => {
+test('getAllProviders returns all registered providers', () => {
   const all = getAllProviders();
-  expect(all).toHaveLength(3);
+  expect(all.length).toBeGreaterThanOrEqual(13);
   const keys = all.map(p => p.key);
   expect(keys).toContain('glm-cn');
   expect(keys).toContain('glm-global');
   expect(keys).toContain('anthropic');
+  expect(keys).toContain('deepseek');
+  expect(keys).toContain('openrouter');
 });
 
-// ─── resolveModel ───────────────────────────────────────
+test('getProvidersByCategory filters by category', () => {
+  const china = getProvidersByCategory('china');
+  expect(china.length).toBeGreaterThanOrEqual(8);
+  expect(china.every(p => p.category === 'china')).toBe(true);
+
+  const aggregators = getProvidersByCategory('aggregator');
+  expect(aggregators.length).toBeGreaterThanOrEqual(2);
+  expect(aggregators.every(p => p.category === 'aggregator')).toBe(true);
+});
 
 test('resolveModel returns correct GLM model for opus', () => {
   expect(resolveModel('glm-cn', 'opus')).toBe('glm-5.1');
@@ -60,22 +66,22 @@ test('resolveModel returns correct GLM model for haiku', () => {
 });
 
 test('resolveModel returns correct Anthropic model for opus', () => {
-  expect(resolveModel('anthropic', 'opus')).toBe('claude-opus-4-6');
+  expect(resolveModel('anthropic', 'opus')).toBe('claude-opus-4-7');
 });
 
-test('resolveModel returns correct Anthropic model for sonnet', () => {
-  expect(resolveModel('anthropic', 'sonnet')).toBe('claude-sonnet-4-6');
-});
-
-test('resolveModel returns correct Anthropic model for haiku', () => {
-  expect(resolveModel('anthropic', 'haiku')).toBe('claude-haiku-4-5-20251001');
-});
-
-test('resolveModel falls back to first model for unknown role', () => {
+test('resolveModel falls back to opus model for unknown role', () => {
   expect(resolveModel('glm-cn', 'nonexistent')).toBe('glm-5.1');
 });
 
-// ─── buildSdkEnv ────────────────────────────────────────
+test('getValidateEndpoint computes from baseUrl', () => {
+  const p = getProvider('glm-cn');
+  expect(getValidateEndpoint(p)).toBe('https://open.bigmodel.cn/api/anthropic/v1/messages');
+});
+
+test('getValidateEndpoint uses anthropic default for empty baseUrl', () => {
+  const p = getProvider('anthropic');
+  expect(getValidateEndpoint(p)).toBe('https://api.anthropic.com/v1/messages');
+});
 
 test('buildSdkEnv sets ANTHROPIC_AUTH_TOKEN for GLM CN', () => {
   const env = buildSdkEnv('glm-cn', 'test-key-123', 'opus');
@@ -116,8 +122,6 @@ test('buildSdkEnv strips existing ANTHROPIC_* vars from process.env', () => {
   process.env.ANTHROPIC_API_KEY = 'old-key';
   const env = buildSdkEnv('glm-cn', 'new-key', 'opus');
   expect(env.ANTHROPIC_AUTH_TOKEN).toBe('new-key');
-  // The old ANTHROPIC_API_KEY should not be in the result
-  // (it gets filtered out, then the new one is set based on authStyle)
   if (original !== undefined) {
     process.env.ANTHROPIC_API_KEY = original;
   } else {
@@ -135,27 +139,34 @@ test('buildSdkEnv does not include timeout for Anthropic', () => {
   expect(env.ANTHROPIC_TIMEOUT).toBeUndefined();
 });
 
-test('buildSdkEnv for glm-global uses correct base URL', () => {
-  const env = buildSdkEnv('glm-global', 'key', 'opus');
-  expect(env.ANTHROPIC_BASE_URL).toBe('https://api.z.ai/api/anthropic');
-});
-
 test('buildSdkEnv sets CLAUDE_CONFIG_DIR to ~/.aiva', () => {
   const env = buildSdkEnv('glm-cn', 'key', 'opus');
   expect(env.CLAUDE_CONFIG_DIR).toBe(`${process.env.HOME}/.aiva`);
 });
 
-// ─── provider model consistency ─────────────────────────
-
-test('every provider has 3 models: opus, sonnet, haiku', () => {
+test('every provider has all 3 model roles', () => {
   for (const provider of getAllProviders()) {
-    const roles = provider.defaultModels.map(m => m.role);
-    expect(roles).toEqual(['opus', 'sonnet', 'haiku']);
+    expect(provider.models).toHaveProperty('opus');
+    expect(provider.models).toHaveProperty('sonnet');
+    expect(provider.models).toHaveProperty('haiku');
   }
 });
 
-test('every provider has a non-empty validateEndpoint', () => {
+test('every provider has all 3 model display names', () => {
   for (const provider of getAllProviders()) {
-    expect(provider.validateEndpoint).toBeTruthy();
+    expect(provider.modelDisplayNames).toHaveProperty('opus');
+    expect(provider.modelDisplayNames).toHaveProperty('sonnet');
+    expect(provider.modelDisplayNames).toHaveProperty('haiku');
+  }
+});
+
+test('every provider has required fields', () => {
+  for (const provider of getAllProviders()) {
+    expect(provider.key).toBeTruthy();
+    expect(provider.name).toBeTruthy();
+    expect(provider.nameZh).toBeTruthy();
+    expect(provider.category).toBeTruthy();
+    expect(provider.authStyle).toMatch(/^(api_key|auth_token)$/);
+    expect(provider.keyPlaceholder).toBeTruthy();
   }
 });

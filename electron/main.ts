@@ -15,7 +15,7 @@ import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFile, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
-import { getProvider, getDefaultProvider, resolveModel } from '../src/lib/provider-config';
+import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
@@ -1084,7 +1084,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('settings:save-api-key', async (_, { key }: { key: string }) => {
     const settings = loadSettings();
     const provider = getProvider(settings.provider || 'glm-cn');
-    const response = await fetch(provider.validateEndpoint, {
+    const response = await fetch(getValidateEndpoint(provider), {
       method: 'POST',
       headers: {
         'x-api-key': key,
@@ -1092,7 +1092,7 @@ function registerIpcHandlers(): void {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: provider.defaultModels[2].modelId,
+        model: provider.models.haiku,
         max_tokens: 1,
         messages: [{ role: 'user', content: 'hi' }],
       }),
@@ -1124,7 +1124,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey?: string }) => {
     const provider = getProvider(providerKey || 'glm-cn');
-    log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${provider.validateEndpoint}`);
+    log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${getValidateEndpoint(provider)}`);
     const headers: Record<string, string> = {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
@@ -1134,11 +1134,11 @@ function registerIpcHandlers(): void {
     const timeout = setTimeout(() => controller.abort(), 15000);
     let response: Response;
     try {
-      response = await fetch(provider.validateEndpoint, {
+      response = await fetch(getValidateEndpoint(provider), {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: provider.defaultModels[2].modelId,
+          model: provider.models.haiku,
           max_tokens: 1,
           messages: [{ role: 'user', content: 'hi' }],
         }),
