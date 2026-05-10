@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { app } from 'electron';
-import { chineseToKeyword } from '../src/lib/pinyin-keyword';
+import { nameToKeyword, loadPhoneDict } from '../src/lib/pinyin-keyword';
 import { log } from '../src/lib/logger';
 
 export class WakeWordEngine {
@@ -11,14 +11,15 @@ export class WakeWordEngine {
   private keyword: string = '';
   private keywordsFilePath: string = '';
   private active = false;
+  private phoneDict: Map<string, string> | null = null;
 
   get isEnabled(): boolean {
     return this.kws !== null;
   }
 
   init(keyword: string): void {
-    if (!/[一-鿿]/.test(keyword)) {
-      throw new Error('唤醒词必须包含中文字符，请在 Persona 设置中修改为中文名称');
+    if (!keyword || !keyword.trim()) {
+      throw new Error('唤醒词不能为空');
     }
 
     let KeywordSpotter: any;
@@ -37,6 +38,12 @@ export class WakeWordEngine {
 
     log.info('WakeWordEngine: 模型目录:', resourcesDir, '目录存在:', fs.existsSync(resourcesDir));
 
+    const phoneDictPath = path.join(resourcesDir, 'en.phone');
+    this.phoneDict = loadPhoneDict(phoneDictPath);
+    if (this.phoneDict.size === 0) {
+      log.warn('WakeWordEngine: en.phone 未找到或为空，英文唤醒词将使用逐字母回退');
+    }
+
     // Write keywords to temp file
     this.keywordsFilePath = path.join(os.tmpdir(), `aiva-keywords-${Date.now()}.txt`);
     this.keyword = keyword;
@@ -47,14 +54,14 @@ export class WakeWordEngine {
       this.kws = new KeywordSpotter({
         modelConfig: {
           transducer: {
-            encoder: path.join(resourcesDir, 'encoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
-            decoder: path.join(resourcesDir, 'decoder-epoch-12-avg-2-chunk-16-left-64.onnx'),
-            joiner: path.join(resourcesDir, 'joiner-epoch-12-avg-2-chunk-16-left-64.onnx'),
+            encoder: path.join(resourcesDir, 'encoder-epoch-13-avg-2-chunk-16-left-64.onnx'),
+            decoder: path.join(resourcesDir, 'decoder-epoch-13-avg-2-chunk-16-left-64.onnx'),
+            joiner: path.join(resourcesDir, 'joiner-epoch-13-avg-2-chunk-16-left-64.onnx'),
           },
           tokens: path.join(resourcesDir, 'tokens.txt'),
         },
         keywordsFile: this.keywordsFilePath,
-        keywordsScore: 1.0,
+        keywordsScore: /^[A-Za-z\s]+$/.test(keyword.trim()) ? 1.5 : 1.0,
         keywordsThreshold: 0.25,
         maxActivePaths: 4,
         numTrailingBlanks: 1,
@@ -65,11 +72,12 @@ export class WakeWordEngine {
     }
 
     this.stream = this.kws.createStream();
-    log.info('WakeWordEngine: 初始化完成, 关键词:', keyword);
+    const lang = /[一-鿿]/.test(keyword) ? '中文' : '英文';
+    log.info('WakeWordEngine: 初始化完成, 关键词:', keyword, '语言:', lang);
   }
 
   private writeKeywordsFile(keyword: string): void {
-    const keywordStr = chineseToKeyword(keyword);
+    const keywordStr = nameToKeyword(keyword, this.phoneDict ?? undefined);
     fs.writeFileSync(this.keywordsFilePath, keywordStr + '\n', 'utf-8');
   }
 
