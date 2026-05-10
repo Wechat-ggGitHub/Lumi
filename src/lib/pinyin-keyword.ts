@@ -53,10 +53,9 @@ const LETTER_PHONES: Record<string, string> = {
 
 export function letterToPhone(text: string): string[] {
   const phones: string[] = [];
-  for (const ch of text.toUpperCase()) {
-    if (LETTER_PHONES[ch.toLowerCase()]) {
-      phones.push(LETTER_PHONES[ch.toLowerCase()]);
-    }
+  for (const ch of text.toLowerCase()) {
+    const phone = LETTER_PHONES[ch];
+    if (phone) phones.push(phone);
   }
   return phones;
 }
