@@ -1111,6 +1111,10 @@ function registerIpcHandlers(): void {
     saveApiKey(key, providerKey);
   });
 
+  ipcMain.on('open-external', (_, url: string) => {
+    shell.openExternal(url);
+  });
+
   ipcMain.handle('settings:save', (_, data: Partial<AppSettings>) => {
     const settings = loadSettings();
     saveSettings({ ...settings, ...data });
