@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getIpcRenderer } from '@/lib/electron-ipc'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -55,7 +55,7 @@ const ALIYUN_STEPS: TutorialStep[] = [
   },
 ]
 
-export default function VoiceTutorialPage() {
+function TutorialContent() {
   const searchParams = useSearchParams()
   const initialProvider = searchParams.get('provider') || 'volcengine'
   const [activeTab, setActiveTab] = useState<'volcengine' | 'aliyun'>(
@@ -115,5 +115,13 @@ export default function VoiceTutorialPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VoiceTutorialPage() {
+  return (
+    <Suspense>
+      <TutorialContent />
+    </Suspense>
   )
 }
