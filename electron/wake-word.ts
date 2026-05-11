@@ -61,8 +61,8 @@ export class WakeWordEngine {
           tokens: path.join(resourcesDir, 'tokens.txt'),
         },
         keywordsFile: this.keywordsFilePath,
-        keywordsScore: /^[A-Za-z\s]+$/.test(keyword.trim()) ? 1.5 : 1.0,
-        keywordsThreshold: 0.25,
+        keywordsScore: /^[A-Za-z\s]+$/.test(keyword.trim()) ? 2.0 : 1.0,
+        keywordsThreshold: /^[A-Za-z\s]+$/.test(keyword.trim()) ? 0.15 : 0.25,
         maxActivePaths: 4,
         numTrailingBlanks: 1,
       });

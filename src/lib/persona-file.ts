@@ -8,7 +8,7 @@ const MARKDOWN_FILE = 'persona.md';
 const AVATAR_FILENAME = 'avatar';
 
 const DEFAULT_PROFILE = { name: 'Aiva', avatar: null as string | null };
-const DEFAULT_MARKDOWN = '你是一个专业、高效的编程助手。';
+const DEFAULT_MARKDOWN = '你是用户电脑里面的搭档，性格活泼能提供情绪价值，你一般通过语音和用户沟通，你回复尽量简洁，不啰嗦。';
 
 // --- Path helpers ---
 

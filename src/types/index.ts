@@ -58,7 +58,7 @@ export interface ToolCallRecord {
 }
 
 // 设置
-export type ProviderKey = 'glm-cn' | 'glm-global' | 'anthropic';
+export type ProviderKey = string;
 export type ModelPreset = 'opus' | 'sonnet' | 'haiku';
 
 export interface AppSettings {

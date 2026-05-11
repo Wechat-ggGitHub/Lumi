@@ -18,7 +18,7 @@ const RECORDING_BASE = [6, 10, 14, 8, 12];
 
 export function VoiceInput({ onCancel }: VoiceInputProps) {
   const [state, setState] = useState<VoiceState>('recording');
-  const [message, setMessage] = useState<string>('在听…');
+  const [message, setMessage] = useState<string>('正在听…');
   const volumeRef = useRef(0);
   const barRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const animFrameRef = useRef<number>(0);

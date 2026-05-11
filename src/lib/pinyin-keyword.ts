@@ -42,21 +42,83 @@ export function loadPhoneDict(phoneDictPath: string): Map<string, string> {
   return dict;
 }
 
-const LETTER_PHONES: Record<string, string> = {
-  a: 'EY1', b: 'B IY1', c: 'S IY1', d: 'D IY1', e: 'IY1',
-  f: 'EH1 F', g: 'JH IY1', h: 'EY1 CH', i: 'AY1', j: 'JH EY1',
-  k: 'K EY1', l: 'EH1 L', m: 'EH1 M', n: 'EH1 N', o: 'OW1',
-  p: 'P IY1', q: 'K Y UW1', r: 'AA1 R', s: 'EH1 S', t: 'T IY1',
-  u: 'Y UW1', v: 'V IY1', w: 'D AH1 B AH0 L Y UW0', x: 'EH1 K S',
-  y: 'W AY1', z: 'Z IY1',
+const CONSONANT: Record<string, string> = {
+  b: 'B', d: 'D', f: 'F', g: 'G', h: 'HH', j: 'JH', k: 'K',
+  l: 'L', m: 'M', n: 'N', p: 'P', r: 'R', s: 'S', t: 'T',
+  v: 'V', w: 'W', z: 'Z',
+};
+
+const CONSONANT_DIGRAPH: Record<string, string[]> = {
+  th: ['TH'], sh: ['SH'], ch: ['CH'], ph: ['F'], wh: ['W'],
+  ng: ['NG'], ck: ['K'], qu: ['K', 'W'],
+};
+
+const VOWEL_PAIR: Record<string, string> = {
+  ai: 'AY1', ay: 'EY1', ae: 'EY1',
+  ee: 'IY1', ea: 'IY1', ei: 'EY1', ey: 'EY1',
+  oo: 'UW1', ou: 'AW1', ow: 'AW1',
+  oi: 'OY1', oy: 'OY1',
+  au: 'AO1', aw: 'AO1',
+  ie: 'AY1',
 };
 
 export function letterToPhone(text: string): string[] {
+  const w = text.toLowerCase();
   const phones: string[] = [];
-  for (const ch of text.toLowerCase()) {
-    const phone = LETTER_PHONES[ch];
-    if (phone) phones.push(phone);
+  let i = 0;
+
+  while (i < w.length) {
+    const ch = w[i];
+    const next = i + 1 < w.length ? w[i + 1] : '';
+    const pair = ch + next;
+
+    if (i + 1 < w.length && CONSONANT_DIGRAPH[pair]) {
+      phones.push(...CONSONANT_DIGRAPH[pair]);
+      i += 2;
+      continue;
+    }
+
+    if (i + 1 < w.length && VOWEL_PAIR[pair]) {
+      phones.push(VOWEL_PAIR[pair]);
+      i += 2;
+      continue;
+    }
+
+    if (CONSONANT[ch]) {
+      phones.push(CONSONANT[ch]);
+      i++;
+      continue;
+    }
+
+    if (ch === 'c') {
+      phones.push((next === 'e' || next === 'i' || next === 'y') ? 'S' : 'K');
+      i++;
+      continue;
+    }
+    if (ch === 'x') { phones.push('K', 'S'); i++; continue; }
+    if (ch === 'y') {
+      if (i === 0) phones.push('Y');
+      else if (i === w.length - 1) phones.push('AY1');
+      else phones.push('IH1');
+      i++;
+      continue;
+    }
+
+    const atEnd = i >= w.length - 1;
+    if (ch === 'a') {
+      phones.push(atEnd ? 'AH0' : 'AE1');
+    } else if (ch === 'e') {
+      if (!atEnd) phones.push('EH1');
+    } else if (ch === 'i') {
+      phones.push(atEnd ? 'AY1' : 'IH1');
+    } else if (ch === 'o') {
+      phones.push(atEnd ? 'OW0' : 'AA1');
+    } else if (ch === 'u') {
+      phones.push('AH1');
+    }
+    i++;
   }
+
   return phones;
 }
 
@@ -74,7 +136,7 @@ export function englishToKeyword(text: string, phoneDict: Map<string, string>): 
     }
   }
 
-  return `${phoneParts.join('_')} @${text}`;
+  return `${phoneParts.join(' ')} @${text.replace(/\s+/g, '_')}`;
 }
 
 export function nameToKeyword(text: string, phoneDict?: Map<string, string>): string {
