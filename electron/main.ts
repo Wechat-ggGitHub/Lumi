@@ -7,14 +7,15 @@ import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
 import { AivaStore } from '../src/lib/store';
-import { TtsService, TtsResult } from './tts';
+import { createAsrProvider, createTtsProvider, loadVoiceCredentials } from './voice-providers'
+import type { TtsProvider, TtsResult } from './voice-providers'
 import { SubtitlePopup } from './subtitle-popup';
 import { WakeWordEngine } from './wake-word';
 import { AudioListener } from './audio-listener';
 import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
-import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
+import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials, saveAliyunVoiceCredentials, loadAliyunVoiceCredentials, hasAliyunVoiceCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders, buildAuthHeaders } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
@@ -44,7 +45,7 @@ let mainWindow: BrowserWindow | null = null;
 let serverPort = 3000;
 let nextServer: ChildProcess | null = null;
 let currentAbortController: AbortController | null = null;
-let ttsService: TtsService;
+let ttsService: TtsProvider;
 let subtitlePopup: SubtitlePopup;
 let ttsAbortController: AbortController | null = null;
 let personaWatcher: fs.FSWatcher | null = null;
@@ -69,6 +70,35 @@ function clearVoiceBarHideTimer(): void {
   if (voiceBarHideTimer) {
     clearTimeout(voiceBarHideTimer);
     voiceBarHideTimer = null;
+  }
+}
+
+function initVoiceProviders(): void {
+  const settings = loadSettings();
+
+  // ASR
+  const asrKey = settings.asrProvider || 'volcengine';
+  const asrCreds = loadVoiceCredentials(asrKey);
+  if (asrCreds) {
+    const asrProvider = createAsrProvider(asrKey, asrCreds);
+    recorder = new AudioRecorder(asrProvider);
+    log.info('ASR 初始化:', asrKey, '已配置');
+  } else {
+    recorder = new AudioRecorder(null);
+    log.info('ASR 初始化: 无凭据');
+  }
+
+  // TTS
+  const ttsKey = settings.ttsProvider || 'volcengine';
+  const ttsCreds = loadVoiceCredentials(ttsKey);
+  if (ttsCreds) {
+    ttsService = createTtsProvider(ttsKey, ttsCreds);
+    log.info('TTS 初始化:', ttsKey, '已配置');
+  } else {
+    // Create a no-op placeholder
+    const { VolcengineTts } = require('./voice-providers/volcengine-tts');
+    ttsService = new VolcengineTts('', '');
+    log.info('TTS 初始化: 无凭据');
   }
 }
 
@@ -907,13 +937,6 @@ function finishVoiceExecution(): void {
 }
 
 async function speakResult(summary: string): Promise<void> {
-  const creds = loadVolcengineCredentials();
-  if (!creds) {
-    log.info('TTS: 火山引擎凭证未配置，跳过语音播报');
-    finishVoiceExecution();
-    return;
-  }
-
   if (!summary || summary.trim().length === 0) {
     log.info('TTS: summary 为空，跳过语音播报');
     finishVoiceExecution();
@@ -935,12 +958,7 @@ async function speakResult(summary: string): Promise<void> {
     // Prepare subtitle popup while synthesizing
     const preparePromise = subtitlePopup.prepare(trayBounds);
 
-    let ttsResult = await ttsService.synthesize({
-      appId: creds.appId,
-      accessToken: creds.accessToken,
-      text: summary,
-      signal: controller.signal,
-    });
+    let ttsResult = await ttsService.synthesize(summary, controller.signal);
 
     // Retry once if synthesis failed completely
     if (!ttsResult && !controller.signal.aborted) {
@@ -950,12 +968,7 @@ async function speakResult(summary: string): Promise<void> {
         finishVoiceExecution();
         return;
       }
-      ttsResult = await ttsService.synthesize({
-        appId: creds.appId,
-        accessToken: creds.accessToken,
-        text: summary,
-        signal: controller.signal,
-      });
+      ttsResult = await ttsService.synthesize(summary, controller.signal);
     }
 
     await preparePromise;
@@ -1414,10 +1427,72 @@ function registerIpcHandlers(): void {
     try {
       await asr.validateCredentials();
       saveVolcengineCredentials(appId, accessToken);
-      const creds = loadVolcengineCredentials();
-      recorder = new AudioRecorder(creds);
+      // If current ASR or TTS provider is volcengine, rebuild instances
+      const settings = loadSettings();
+      const creds = { appId, accessToken };
+      if (!settings.asrProvider || settings.asrProvider === 'volcengine') {
+        recorder = new AudioRecorder(createAsrProvider('volcengine', creds));
+      }
+      if (!settings.ttsProvider || settings.ttsProvider === 'volcengine') {
+        ttsService = createTtsProvider('volcengine', creds);
+      }
     } catch (err) {
       console.error('[volcengine] 凭证验证失败:', err);
+      throw err;
+    }
+  });
+
+  // voice provider selection
+  ipcMain.handle('settings:load-voice-provider', (_, { type }: { type: 'asr' | 'tts' }) => {
+    const settings = loadSettings();
+    if (type === 'asr') return settings.asrProvider || 'volcengine';
+    return settings.ttsProvider || 'volcengine';
+  });
+
+  ipcMain.handle('settings:save-voice-provider', async (_, { type, provider }: { type: 'asr' | 'tts'; provider: string }) => {
+    const creds = loadVoiceCredentials(provider);
+    if (!creds || Object.values(creds).every(v => !v)) {
+      throw new Error('请先配置该服务商的密钥');
+    }
+
+    if (type === 'asr') {
+      const asrProvider = createAsrProvider(provider, creds);
+      await asrProvider.validateCredentials();
+      recorder = new AudioRecorder(asrProvider);
+    } else {
+      const ttsProvider = createTtsProvider(provider, creds);
+      await ttsProvider.validateCredentials();
+      ttsService = ttsProvider;
+    }
+
+    const settings = loadSettings();
+    if (type === 'asr') settings.asrProvider = provider;
+    else settings.ttsProvider = provider;
+    saveSettings(settings);
+  });
+
+  // aliyun voice credentials
+  ipcMain.handle('settings:load-aliyun-credentials', () => {
+    const creds = loadAliyunVoiceCredentials();
+    return { hasCredentials: !!creds, apiKey: creds?.apiKey ? '••••' + creds.apiKey.slice(-4) : '' };
+  });
+
+  ipcMain.handle('settings:save-aliyun-credentials', async (_, { apiKey }: { apiKey: string }) => {
+    const { AliyunAsr } = await import('./voice-providers/aliyun-asr');
+    const asr = new AliyunAsr(apiKey);
+    try {
+      await asr.validateCredentials();
+      saveAliyunVoiceCredentials(apiKey);
+      // If current ASR or TTS provider is aliyun, rebuild instances
+      const settings = loadSettings();
+      if (settings.asrProvider === 'aliyun') {
+        recorder = new AudioRecorder(createAsrProvider('aliyun', { apiKey }));
+      }
+      if (settings.ttsProvider === 'aliyun') {
+        ttsService = createTtsProvider('aliyun', { apiKey });
+      }
+    } catch (err) {
+      console.error('[aliyun] 凭证验证失败:', err);
       throw err;
     }
   });
@@ -1626,7 +1701,6 @@ app.whenReady().then(async () => {
 
   // 创建窗口管理器
   voiceBar = new VoiceBarWindow(serverPort);
-  ttsService = new TtsService();
   subtitlePopup = new SubtitlePopup(serverPort);
 
   // 初始化快捷键
@@ -1636,10 +1710,8 @@ app.whenReady().then(async () => {
     shortcutManager.start(() => handleRightOption());
   }
 
-  // 初始化录音器并预创建 voice-bar 窗口
-  const volcengineCreds = loadVolcengineCredentials();
-  log.info('语音识别凭证:', volcengineCreds ? '已配置' : '未配置');
-  recorder = new AudioRecorder(volcengineCreds);
+  // 初始化语音引擎（ASR + TTS）
+  initVoiceProviders();
   voiceBar.preCreate();
   log.info('快捷键:', shortcutReady ? '已就绪' : '未授权');
 
