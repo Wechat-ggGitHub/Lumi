@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { BottomActionBar } from '@/components/ui/BottomActionBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
-  getAllProviders,
   getProvidersByCategory,
   type ProviderPreset,
 } from '@/lib/provider-config';
@@ -65,16 +64,6 @@ export default function ProviderSettingsPage() {
     setKeyInput('');
     setExpandedKey(key);
     setProvider(key);
-    const p = getAllProviders().find(pr => pr.key === key);
-    if (p) {
-      const models = p.models;
-      const current = draftModel;
-      if (models[current]) {
-        setDraftModel(current);
-      } else {
-        setDraftModel('opus');
-      }
-    }
   };
 
   const handleSave = async () => {

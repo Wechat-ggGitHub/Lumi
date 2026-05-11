@@ -10,7 +10,6 @@ export interface ProviderPreset {
   envOverrides?: Record<string, string>;
   keyPlaceholder: string;
   websiteUrl?: string;
-  timeout?: number;
 }
 
 export type ProviderCategory = ProviderPreset['category'];
@@ -304,6 +303,16 @@ export function resolveModel(providerKey: string, role: string): string {
 export function getValidateEndpoint(provider: ProviderPreset): string {
   const base = provider.baseUrl || 'https://api.anthropic.com';
   return `${base}/v1/messages`;
+}
+
+export function buildAuthHeaders(provider: ProviderPreset, apiKey: string): Record<string, string> {
+  return {
+    'content-type': 'application/json',
+    'anthropic-version': '2023-06-01',
+    ...(provider.authStyle === 'auth_token'
+      ? { authorization: `Bearer ${apiKey}` }
+      : { 'x-api-key': apiKey }),
+  };
 }
 
 export function buildSdkEnv(providerKey: string, apiKey: string, modelRole: string): Record<string, string> {

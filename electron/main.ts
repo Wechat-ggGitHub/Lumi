@@ -15,7 +15,7 @@ import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
 import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials } from '../src/lib/keychain';
-import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders } from '../src/lib/provider-config';
+import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders, buildAuthHeaders } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
@@ -1089,25 +1089,36 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('settings:save-api-key', async (_, { key, providerKey }: { key: string; providerKey: string }) => {
     const provider = getProvider(providerKey);
-    const headers: Record<string, string> = {
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    };
-    if (provider.authStyle === 'auth_token') {
-      headers['authorization'] = `Bearer ${key}`;
-    } else {
-      headers['x-api-key'] = key;
+    const headers = buildAuthHeaders(provider, key);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    try {
+      response = await fetch(getValidateEndpoint(provider), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: provider.models.haiku,
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        log.error('API Key 验证超时 (15s)');
+        throw new Error('验证请求超时，请检查网络连接');
+      }
+      log.error('API Key 验证网络错误:', e.message);
+      throw new Error('网络请求失败，请检查网络连接');
+    } finally {
+      clearTimeout(timeout);
     }
-    const response = await fetch(getValidateEndpoint(provider), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: provider.models.haiku,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      }),
-    });
-    if (!response.ok) throw new Error('Invalid API key');
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      log.error(`API Key 验证失败, status: ${response.status}, body: ${body}`);
+      throw new Error('Invalid API key');
+    }
     saveApiKey(key, providerKey);
   });
 
@@ -1139,15 +1150,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey: string }) => {
     const provider = getProvider(providerKey);
     log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${getValidateEndpoint(provider)}`);
-    const headers: Record<string, string> = {
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    };
-    if (provider.authStyle === 'auth_token') {
-      headers['authorization'] = `Bearer ${key}`;
-    } else {
-      headers['x-api-key'] = key;
-    }
+    const headers = buildAuthHeaders(provider, key);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     let response: Response;

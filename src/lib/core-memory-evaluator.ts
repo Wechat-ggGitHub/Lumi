@@ -1,8 +1,7 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { log } from './logger';
-import { getProvider, resolveModel } from './provider-config';
+import { getProvider, resolveModel, buildAuthHeaders } from './provider-config';
 
 export interface CoreMemoryAction {
   action: 'create' | 'update' | 'delete' | 'none';
@@ -105,30 +104,35 @@ export async function evaluateAndWriteCoreMemory(
     const provider = getProvider(providerKey);
     const modelId = resolveModel(providerKey, 'haiku');
 
-    const memoriesDir = path.resolve(path.join(os.homedir(), '.aiva', 'memories'));
+    const memoriesDir = path.resolve(path.join(aivaDir, 'memories'));
     const existingMemories = readExistingMemories(memoriesDir);
 
     const conversation = `用户: ${userMessage}\n\n助手: ${assistantMessage.slice(0, 2000)}`;
     const prompt = EVAL_PROMPT + existingMemories + INSTRUCTION + conversation;
 
-    const headers: Record<string, string> = {
-      'content-type': 'application/json',
-      'anthropic-version': '2023-06-01',
-      ...(provider.authStyle === 'auth_token'
-        ? { 'authorization': `Bearer ${apiKey}` }
-        : { 'x-api-key': apiKey }),
-    };
+    const headers = buildAuthHeaders(provider, apiKey);
 
     const baseUrl = provider.baseUrl || 'https://api.anthropic.com';
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: modelId,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: modelId,
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        signal: controller.signal,
+      });
+    } catch {
+      log.warn('核心记忆评估 API 请求失败');
+      clearTimeout(timeout);
+      return;
+    }
+    clearTimeout(timeout);
 
     if (!response.ok) {
       log.warn('核心记忆评估 API 调用失败:', response.status);
