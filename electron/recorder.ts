@@ -1,29 +1,24 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { DoubaoASR } from '../src/lib/doubao-asr';
+import { AsrProvider } from './voice-providers/types';
 import { log } from '../src/lib/logger';
-
-interface VolcengineCredentials {
-  appId: string;
-  accessToken: string;
-}
 
 export class AudioRecorder {
   private tmpDir: string;
-  private asr: DoubaoASR;
+  private provider: AsrProvider;
   private hasCredentials: boolean;
 
-  constructor(credentials?: VolcengineCredentials | null) {
+  constructor(provider: AsrProvider | null) {
     this.tmpDir = path.join(app.getPath('home'), '.aiva', 'tmp');
     if (!fs.existsSync(this.tmpDir)) fs.mkdirSync(this.tmpDir, { recursive: true });
 
-    if (credentials?.appId && credentials?.accessToken) {
-      this.asr = new DoubaoASR(credentials.appId, credentials.accessToken);
+    if (provider) {
+      this.provider = provider;
       this.hasCredentials = true;
-      log.info('录音器初始化: 凭证已配置, appId:', credentials.appId.slice(0, 4) + '***');
+      log.info('录音器初始化: 凭证已配置');
     } else {
-      this.asr = new DoubaoASR('', '');
+      this.provider = null as unknown as AsrProvider;
       this.hasCredentials = false;
       log.warn('录音器初始化: 未配置语音识别凭证');
     }
@@ -36,7 +31,7 @@ export class AudioRecorder {
   async transcribe(audioPath?: string): Promise<string> {
     if (!this.hasCredentials) {
       log.error('录音器: 未配置语音识别凭证');
-      throw new Error('请先在设置中配置火山引擎语音识别凭证');
+      throw new Error('请先在设置中配置语音识别服务凭证');
     }
 
     const filePath = audioPath || '';
@@ -54,11 +49,11 @@ export class AudioRecorder {
     }
 
     try {
-      const text = await this.asr.transcribe(filePath);
-      log.info('录音器: 转写完成, 结果长度:', text.length, '内容:', text.slice(0, 50));
+      const result = await this.provider.transcribe(filePath);
+      log.info('录音器: 转写完成, 结果长度:', result.text.length, '内容:', result.text.slice(0, 50));
 
       try { fs.unlinkSync(filePath); } catch {}
-      return text;
+      return result.text;
     } catch (err) {
       log.error('录音器: 转写失败:', err);
       try { fs.unlinkSync(filePath); } catch {}
