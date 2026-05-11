@@ -83,3 +83,31 @@ export function loadVolcengineCredentials(): VolcengineCredentials | null {
 export function hasVolcengineCredentials(): boolean {
   return fs.existsSync(VOLCENGINE_CRED_FILE);
 }
+
+const ALIYUN_VOICE_CRED_FILE = path.join(KEYCHAIN_DIR, 'aliyun-voice.json');
+
+interface AliyunVoiceCredentials {
+  apiKey: string;
+}
+
+export function saveAliyunVoiceCredentials(apiKey: string): void {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Encryption not available on this system');
+  }
+  if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
+  const json = JSON.stringify({ apiKey });
+  const encrypted = safeStorage.encryptString(json);
+  fs.writeFileSync(ALIYUN_VOICE_CRED_FILE, encrypted);
+}
+
+export function loadAliyunVoiceCredentials(): AliyunVoiceCredentials | null {
+  if (!fs.existsSync(ALIYUN_VOICE_CRED_FILE)) return null;
+  if (!safeStorage.isEncryptionAvailable()) return null;
+  const encrypted = fs.readFileSync(ALIYUN_VOICE_CRED_FILE);
+  const json = safeStorage.decryptString(encrypted);
+  return JSON.parse(json);
+}
+
+export function hasAliyunVoiceCredentials(): boolean {
+  return fs.existsSync(ALIYUN_VOICE_CRED_FILE);
+}
