@@ -207,11 +207,13 @@ function waitForServer(port: number, maxRetries = 20): Promise<void> {
 function loadSettings(): AppSettings {
   try {
     if (fs.existsSync(settingsPath)) {
-      return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      if (settings.shortcut === 'right_cmd') settings.shortcut = 'right_option';
+      return settings;
     }
   } catch {}
   return {
-    shortcut: 'right_cmd',
+    shortcut: 'right_option',
     claudePermissionMode: 'bypassPermissions',
     defaultCwd: '~/Documents',
     vadTimeout: 2,
@@ -475,15 +477,15 @@ function onRecordingTooShort(): void {
   }, 1200);
 }
 
-// 右 Command 按键处理
-function handleRightCommand(): void {
+// 右 Option 按键处理
+function handleRightOption(): void {
   // 如果正在录音中，手动结束
   if (voiceEndpoint && audioListener?.mode === 'recording') {
     voiceEndpoint.finish();
     return;
   }
 
-  const action = store.getRightCommandAction();
+  const action = store.getRightOptionAction();
 
   switch (action) {
     case 'start-recording':
@@ -1631,7 +1633,7 @@ app.whenReady().then(async () => {
   shortcutManager = new ShortcutManager();
   const shortcutReady = await shortcutManager.init();
   if (shortcutReady) {
-    shortcutManager.start(() => handleRightCommand());
+    shortcutManager.start(() => handleRightOption());
   }
 
   // 初始化录音器并预创建 voice-bar 窗口

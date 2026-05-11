@@ -54,7 +54,7 @@ npm run build
 |---|---|
 | `electron/main.ts` | 核心编排：窗口管理、状态机、语音管线、AI 执行、IPC handlers（~1700 行） |
 | `electron/tray.ts` | 菜单栏托盘 + 状态指示点 |
-| `electron/shortcuts.ts` | 全局快捷键（默认 Right Command） |
+| `electron/shortcuts.ts` | 全局快捷键（默认 Right Option） |
 | `electron/recorder.ts` | 音频录制 + 火山引擎 ASR 转写 |
 | `electron/tts.ts` | 火山引擎 TTS + 句子解析 |
 | `electron/voice-bar.ts` | 浮动语音录制指示条窗口 |

@@ -233,7 +233,7 @@ export default function DetailPage() {
       {!record ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-text-muted text-[13px]">
-            {records.length === 0 ? '按 ⌘ 开始对话' : '选择一个对话'}
+            {records.length === 0 ? '按 ⌥ 开始对话' : '选择一个对话'}
           </p>
         </div>
       ) : (

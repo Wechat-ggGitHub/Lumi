@@ -65,7 +65,7 @@ export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
     <div ref={scrollRef} className="flex-1 overflow-auto px-4 py-4">
       {messages.length === 0 && (
         <div className="h-full flex items-center justify-center text-body-sm text-text-muted">
-          按 ⌘ 开始语音对话，或在下方输入文字
+          按 ⌥ 开始语音对话，或在下方输入文字
         </div>
       )}
       {messages.map((msg, i) => (

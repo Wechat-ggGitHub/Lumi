@@ -74,21 +74,21 @@ test('dotColor mapping', () => {
   expect(store.dotColor).toBe('green');
 });
 
-test('rightCommand behavior per state', () => {
+test('rightOption behavior per state', () => {
   const store = new AivaStore();
 
-  expect(store.getRightCommandAction()).toBe('start-recording');
+  expect(store.getRightOptionAction()).toBe('start-recording');
 
   store.transition('recording');
-  expect(store.getRightCommandAction()).toBe('stop-recording');
+  expect(store.getRightOptionAction()).toBe('stop-recording');
 
   store.transition('transcribing');
-  expect(store.getRightCommandAction()).toBe('none');
+  expect(store.getRightOptionAction()).toBe('none');
 
   // transcribing -> thinking (no more editing)
   store.transition('thinking');
   store.transition('executing');
-  expect(store.getRightCommandAction()).toBe('cancel-execution');
+  expect(store.getRightOptionAction()).toBe('cancel-execution');
 });
 
 test('transcribing can transition to idle (empty transcription scenario)', () => {
@@ -121,15 +121,15 @@ test('setSpeaking updates the flag and notifies listeners', () => {
   expect(changes.length).toBe(2);
 });
 
-test('getRightCommandAction returns stop-speaking when speaking is true', () => {
+test('getRightOptionAction returns stop-speaking when speaking is true', () => {
   const store = new AivaStore();
   store.setSpeaking(true);
-  expect(store.getRightCommandAction()).toBe('stop-speaking');
+  expect(store.getRightOptionAction()).toBe('stop-speaking');
 });
 
-test('getRightCommandAction returns start-recording when idle and not speaking', () => {
+test('getRightOptionAction returns start-recording when idle and not speaking', () => {
   const store = new AivaStore();
-  expect(store.getRightCommandAction()).toBe('start-recording');
+  expect(store.getRightOptionAction()).toBe('start-recording');
 });
 
 test('completed timer does not transition to idle while speaking', () => {

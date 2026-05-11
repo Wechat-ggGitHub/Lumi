@@ -13,7 +13,7 @@ const VALID_TRANSITIONS: ValidTransitions = {
   error: ['idle'],
 };
 
-export type RightCommandAction =
+export type RightOptionAction =
   | 'start-recording'
   | 'stop-recording'
   | 'none'
@@ -108,7 +108,7 @@ export class AivaStore {
     return 'gray';
   }
 
-  getRightCommandAction(): RightCommandAction {
+  getRightOptionAction(): RightOptionAction {
     if (this._speaking) return 'stop-speaking';
     switch (this._appState) {
       case 'idle':

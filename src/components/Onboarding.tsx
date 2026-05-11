@@ -68,7 +68,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     welcome: (
       <OnboardingStep
         title="欢迎使用 Aiva"
-        description="Aiva 让你用语音驱动 Claude Code。按下右 Command，说一句话，Claude 帮你干活。"
+        description="Aiva 让你用语音驱动 Claude Code。按下右 Option，说一句话，Claude 帮你干活。"
         buttonText="开始设置"
         onAction={() => setStep('accessibility')}
       />
@@ -76,7 +76,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     accessibility: (
       <OnboardingStep
         title="辅助功能权限"
-        description="为了响应右 Command 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Command 键，不会记录任何其他按键。"
+        description="为了响应右 Option 键唤起语音，Aiva 需要辅助功能权限。这与 Raycast、Alfred 等应用所需的权限相同。Aiva 只会监听右 Option 键，不会记录任何其他按键。"
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
@@ -196,7 +196,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     done: (
       <OnboardingStep
         title="设置完成！"
-        description="按下右 Command 开始使用 Aiva。"
+        description="按下右 Option 开始使用 Aiva。"
         buttonText="开始使用"
         onAction={onComplete}
       />
