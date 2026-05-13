@@ -6,12 +6,16 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { SummaryCard } from '@/components/ui/SummaryCard';
 import { Button } from '@/components/ui/Button';
 import { getProvider } from '@/lib/provider-config';
+import { VOICE_PROVIDERS } from '@/lib/voice-provider-config';
 
 interface SettingsSummary {
   provider: string;
   modelPreset: string;
   hasApiKey: boolean;
   hasVolcCreds: boolean;
+  hasAliyunCreds: boolean;
+  asrProvider: string;
+  ttsProvider: string;
   defaultCwd: string;
   vadTimeout: number;
 }
@@ -22,6 +26,9 @@ export default function SettingsPage() {
     modelPreset: 'opus',
     hasApiKey: false,
     hasVolcCreds: false,
+    hasAliyunCreds: false,
+    asrProvider: 'volcengine',
+    ttsProvider: 'volcengine',
     defaultCwd: '~/Documents',
     vadTimeout: 2,
   });
@@ -42,6 +49,17 @@ export default function SettingsPage() {
       if (creds) {
         setSummary(prev => ({ ...prev, hasVolcCreds: creds.hasCredentials || false }));
       }
+    });
+    ipcRenderer?.invoke('settings:load-aliyun-credentials').then((creds: any) => {
+      if (creds) {
+        setSummary(prev => ({ ...prev, hasAliyunCreds: creds.hasCredentials || false }));
+      }
+    });
+    ipcRenderer?.invoke('settings:load-voice-provider', { type: 'asr' }).then((p: string) => {
+      setSummary(prev => ({ ...prev, asrProvider: p || 'volcengine' }));
+    });
+    ipcRenderer?.invoke('settings:load-voice-provider', { type: 'tts' }).then((p: string) => {
+      setSummary(prev => ({ ...prev, ttsProvider: p || 'volcengine' }));
     });
   }, []);
 
@@ -64,8 +82,10 @@ export default function SettingsPage() {
     },
     {
       title: '语音',
-      summary: summary.hasVolcCreds ? '豆包语音识别已配置' : '语音识别服务未配置',
-      status: summary.hasVolcCreds ? 'configured' as const : 'unconfigured' as const,
+      summary: (summary.hasVolcCreds || summary.hasAliyunCreds)
+        ? `ASR: ${VOICE_PROVIDERS[summary.asrProvider]?.name || '火山引擎'} · TTS: ${VOICE_PROVIDERS[summary.ttsProvider]?.name || '火山引擎'}`
+        : '语音识别服务未配置',
+      status: (summary.hasVolcCreds || summary.hasAliyunCreds) ? 'configured' as const : 'unconfigured' as const,
       path: '/settings/voice',
     },
     {

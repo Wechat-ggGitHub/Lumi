@@ -73,6 +73,8 @@ export interface AppSettings {
   provider?: ProviderKey;
   modelPreset?: ModelPreset;
   disabledSkills?: string[];
+  asrProvider?: string;
+  ttsProvider?: string;
 }
 
 // 上下文段
