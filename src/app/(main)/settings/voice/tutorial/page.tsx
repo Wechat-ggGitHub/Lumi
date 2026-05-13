@@ -97,7 +97,7 @@ function TutorialContent() {
               {step.link && (
                 <button
                   className="text-body-sm text-brand mt-2 block"
-                  onClick={() => getIpcRenderer()?.send('open-external', { url: step.link!.url })}
+                  onClick={() => getIpcRenderer()?.send('open-external', step.link!.url)}
                 >
                   {step.link.label} →
                 </button>

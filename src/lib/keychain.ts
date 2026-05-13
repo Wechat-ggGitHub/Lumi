@@ -1,18 +1,89 @@
 // 注意：此文件在 Electron main process 中使用
-// safeStorage 在 renderer 中不可用
+// 加密使用 crypto AES-256-GCM（与运行模式无关的确定性密钥）
+// safeStorage 仅用于迁移旧格式数据
 
-import { safeStorage } from 'electron';
+import { safeStorage, app } from 'electron';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
 
 const KEYCHAIN_DIR = path.join(app.getPath('home'), '.aiva', 'secure');
 const LEGACY_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
 const OLD_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
+const ENCRYPTION_VERSION = 2;
 
 function keyPath(providerKey: string): string {
   if (!/^[a-z0-9-]+$/.test(providerKey)) throw new Error(`Invalid provider key: ${providerKey}`);
   return path.join(KEYCHAIN_DIR, `api-key-${providerKey}.enc`);
+}
+
+// 从用户主目录派生稳定密钥，dev 和 production 模式使用相同密钥
+function getEncryptionKey(): Buffer {
+  return crypto.scryptSync(path.join(app.getPath('home'), '.aiva'), 'aiva-secure-storage-v2', 32);
+}
+
+function encryptValue(plaintext: string): Buffer {
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // 格式: [version: 1B] [IV: 16B] [tag: 16B] [encrypted: NB]
+  return Buffer.concat([Buffer.from([ENCRYPTION_VERSION]), iv, tag, encrypted]);
+}
+
+function decryptWithNewFormat(data: Buffer): string | null {
+  try {
+    if (data.length < 33 || data[0] !== ENCRYPTION_VERSION) return null;
+    const key = getEncryptionKey();
+    const iv = data.subarray(1, 17);
+    const tag = data.subarray(17, 33);
+    const encrypted = data.subarray(33);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    return decipher.update(encrypted) + decipher.final('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function decryptWithSafeStorage(data: Buffer): string | null {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    return safeStorage.decryptString(data);
+  } catch {
+    return null;
+  }
+}
+
+function loadEncryptedFile(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) return null;
+  let data: Buffer;
+  try {
+    data = fs.readFileSync(filePath);
+  } catch {
+    return null;
+  }
+
+  // 优先尝试新格式
+  const decrypted = decryptWithNewFormat(data);
+  if (decrypted !== null) return decrypted;
+
+  // 尝试用 safeStorage 解密旧格式并自动迁移
+  const legacy = decryptWithSafeStorage(data);
+  if (legacy !== null) {
+    try {
+      fs.writeFileSync(filePath, encryptValue(legacy));
+    } catch {}
+    return legacy;
+  }
+
+  return null;
+}
+
+function saveEncryptedFile(filePath: string, plaintext: string): void {
+  if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
+  fs.writeFileSync(filePath, encryptValue(plaintext));
 }
 
 // One-time migration: rename legacy key file chain
@@ -30,20 +101,11 @@ export function migrateKeyFiles(currentProviderKey: string): void {
 }
 
 export function saveApiKey(key: string, providerKey: string): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Encryption not available on this system');
-  }
-  if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
-  const encrypted = safeStorage.encryptString(key);
-  fs.writeFileSync(keyPath(providerKey), encrypted);
+  saveEncryptedFile(keyPath(providerKey), key);
 }
 
 export function loadApiKey(providerKey: string): string | null {
-  const filePath = keyPath(providerKey);
-  if (!fs.existsSync(filePath)) return null;
-  if (!safeStorage.isEncryptionAvailable()) return null;
-  const encrypted = fs.readFileSync(filePath);
-  return safeStorage.decryptString(encrypted);
+  return loadEncryptedFile(keyPath(providerKey));
 }
 
 export function deleteApiKey(providerKey: string): void {
@@ -63,21 +125,18 @@ interface VolcengineCredentials {
 }
 
 export function saveVolcengineCredentials(appId: string, accessToken: string): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Encryption not available on this system');
-  }
-  if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
   const json = JSON.stringify({ appId, accessToken });
-  const encrypted = safeStorage.encryptString(json);
-  fs.writeFileSync(VOLCENGINE_CRED_FILE, encrypted);
+  saveEncryptedFile(VOLCENGINE_CRED_FILE, json);
 }
 
 export function loadVolcengineCredentials(): VolcengineCredentials | null {
-  if (!fs.existsSync(VOLCENGINE_CRED_FILE)) return null;
-  if (!safeStorage.isEncryptionAvailable()) return null;
-  const encrypted = fs.readFileSync(VOLCENGINE_CRED_FILE);
-  const json = safeStorage.decryptString(encrypted);
-  return JSON.parse(json);
+  const raw = loadEncryptedFile(VOLCENGINE_CRED_FILE);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export function hasVolcengineCredentials(): boolean {
@@ -91,21 +150,18 @@ interface AliyunVoiceCredentials {
 }
 
 export function saveAliyunVoiceCredentials(apiKey: string): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Encryption not available on this system');
-  }
-  if (!fs.existsSync(KEYCHAIN_DIR)) fs.mkdirSync(KEYCHAIN_DIR, { recursive: true });
   const json = JSON.stringify({ apiKey });
-  const encrypted = safeStorage.encryptString(json);
-  fs.writeFileSync(ALIYUN_VOICE_CRED_FILE, encrypted);
+  saveEncryptedFile(ALIYUN_VOICE_CRED_FILE, json);
 }
 
 export function loadAliyunVoiceCredentials(): AliyunVoiceCredentials | null {
-  if (!fs.existsSync(ALIYUN_VOICE_CRED_FILE)) return null;
-  if (!safeStorage.isEncryptionAvailable()) return null;
-  const encrypted = fs.readFileSync(ALIYUN_VOICE_CRED_FILE);
-  const json = safeStorage.decryptString(encrypted);
-  return JSON.parse(json);
+  const raw = loadEncryptedFile(ALIYUN_VOICE_CRED_FILE);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export function hasAliyunVoiceCredentials(): boolean {
