@@ -736,7 +736,11 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
     settings.disabledSkills || []
   );
 
-  const fullPrompt = aivaContext ? aivaContext + '\n\n' + prompt : prompt;
+  const voiceHint = isVoice
+    ? '\n\n## 输入方式\n用户通过语音输入，经语音识别转写为文字。回复时应考虑口语化表达的特点：指令可能简短、省略上下文、包含语气词或口语习惯。请直接理解用户意图并执行，无需指出或纠正口语化表达。回复尽量简洁，适合语音播报。\n'
+    : '';
+
+  const fullPrompt = aivaContext ? aivaContext + voiceHint + '\n' + prompt : voiceHint + prompt;
 
   const resumeSessionId = segment.sdk_session_id ?? undefined;
 
