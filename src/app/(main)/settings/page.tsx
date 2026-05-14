@@ -82,10 +82,22 @@ export default function SettingsPage() {
     },
     {
       title: '语音',
-      summary: (summary.hasVolcCreds || summary.hasAliyunCreds)
-        ? `ASR: ${VOICE_PROVIDERS[summary.asrProvider]?.name || '火山引擎'} · TTS: ${VOICE_PROVIDERS[summary.ttsProvider]?.name || '火山引擎'}`
-        : '语音识别服务未配置',
-      status: (summary.hasVolcCreds || summary.hasAliyunCreds) ? 'configured' as const : 'unconfigured' as const,
+      summary: (() => {
+        const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+        const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+        if (asrOk && ttsOk) {
+          return `ASR: ${VOICE_PROVIDERS[summary.asrProvider]?.name || '火山引擎'} · TTS: ${VOICE_PROVIDERS[summary.ttsProvider]?.name || '火山引擎'}`;
+        }
+        const missing: string[] = [];
+        if (!asrOk) missing.push('ASR');
+        if (!ttsOk) missing.push('TTS');
+        return `${missing.join('/')} 服务未配置`;
+      })(),
+      status: (() => {
+        const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+        const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+        return (asrOk && ttsOk) ? 'configured' as const : 'unconfigured' as const;
+      })(),
       path: '/settings/voice',
     },
     {

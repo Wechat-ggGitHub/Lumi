@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { Button } from '@/components/ui/Button';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
@@ -17,6 +17,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [selectedProvider, setSelectedProvider] = useState('glm-cn');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   const ipcRenderer = getIpcRenderer();
 
@@ -80,10 +85,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         buttonText="打开系统设置"
         onAction={() => {
           ipcRenderer?.send('onboarding:open-accessibility');
-          const interval = setInterval(async () => {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = setInterval(async () => {
             const granted = await ipcRenderer?.invoke('onboarding:check-accessibility');
             if (granted) {
-              clearInterval(interval);
+              if (pollRef.current) clearInterval(pollRef.current);
               setStep('volcengine');
             }
           }, 1000);
@@ -159,7 +165,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     'api-key': (
       <div className="text-center">
         <h2 className="text-page-title text-text-primary mb-3">API Key</h2>
-        <p className="text-body text-text-muted mb-6">需要 API Key 来调用模型。Key 将安全存储在 macOS 钥匙串中。</p>
+        <p className="text-body text-text-muted mb-6">需要 API Key 来调用模型。Key 将加密存储在本地。</p>
         <SingleLineInput
           type="password"
           value={apiKey}

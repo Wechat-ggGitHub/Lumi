@@ -135,8 +135,13 @@ export class AliyunTts implements TtsProvider {
 
         if (event === 'result-generated') {
           const sentenceText = parsed?.payload?.output?.sentence?.text
+          const startTime = parsed?.payload?.output?.sentence?.start_time
+          const endTime = parsed?.payload?.output?.sentence?.end_time
           if (sentenceText) {
             log.info('AliyunTTS: 句子完成:', sentenceText.slice(0, 30))
+            if (typeof startTime === 'number' && typeof endTime === 'number') {
+              sentences.push({ text: sentenceText, startTime, endTime })
+            }
           }
           return
         }

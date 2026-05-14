@@ -62,7 +62,7 @@ test('resolveModel returns correct GLM model for sonnet', () => {
 });
 
 test('resolveModel returns correct GLM model for haiku', () => {
-  expect(resolveModel('glm-cn', 'haiku')).toBe('glm-4.5-air');
+  expect(resolveModel('glm-cn', 'haiku')).toBe('glm-4.7-flashx');
 });
 
 test('resolveModel returns correct Anthropic model for opus', () => {
@@ -114,7 +114,7 @@ test('buildSdkEnv sets default model overrides per role', () => {
   const env = buildSdkEnv('glm-cn', 'key', 'opus');
   expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('glm-5.1');
   expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('glm-5-turbo');
-  expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('glm-4.5-air');
+  expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('glm-4.7-flashx');
 });
 
 test('buildSdkEnv strips existing ANTHROPIC_* vars from process.env', () => {

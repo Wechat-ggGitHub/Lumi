@@ -30,3 +30,9 @@ export interface TtsProvider {
   stop(): void
   validateCredentials(): Promise<void>
 }
+
+export class NoopTtsProvider implements TtsProvider {
+  async synthesize(): Promise<null> { return null }
+  stop(): void {}
+  async validateCredentials(): Promise<void> { throw new Error('未配置 TTS 服务') }
+}

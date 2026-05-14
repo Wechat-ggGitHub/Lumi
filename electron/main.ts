@@ -96,8 +96,8 @@ function initVoiceProviders(): void {
     log.info('TTS 初始化:', ttsKey, '已配置');
   } else {
     // Create a no-op placeholder
-    const { VolcengineTts } = require('./voice-providers/volcengine-tts');
-    ttsService = new VolcengineTts('', '');
+    const { NoopTtsProvider } = require('./voice-providers/types');
+    ttsService = new NoopTtsProvider();
     log.info('TTS 初始化: 无凭据');
   }
 }

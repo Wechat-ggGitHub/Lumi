@@ -118,8 +118,7 @@ export class AliyunAsr implements AsrProvider {
         if (event === 'result-generated') {
           const sentenceText = parsed?.payload?.output?.sentence?.text
           if (sentenceText) {
-            // Each result-generated may contain partial or full sentence
-            // For simplicity, keep the latest accumulated text
+            // Paraformer sends cumulative text in each result-generated
             fullText = sentenceText
             log.info('AliyunASR: 识别结果:', sentenceText.slice(0, 50))
           }

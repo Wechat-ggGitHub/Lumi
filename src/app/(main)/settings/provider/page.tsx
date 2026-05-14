@@ -231,7 +231,7 @@ function ProviderCard({
               value={keyInput}
               onChange={e => onKeyChange(e.target.value)}
               placeholder={provider.keyPlaceholder}
-              helperText="Key 将安全存储在 macOS 钥匙串中"
+              helperText="Key 将加密存储在本地"
             />
           </div>
           {provider.websiteUrl && (
