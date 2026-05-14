@@ -48,7 +48,6 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
     { label: '分身设定', href: '/persona', icon: '👤' },
     { label: '记忆管理', href: '/memory', icon: '🧠' },
     { label: '技能管理', href: '/skills', icon: '⚡' },
-    { label: '服务连接', href: '/services', icon: '🔗' },
     { label: '设置', href: '/settings', icon: '⚙️' },
   ];
 

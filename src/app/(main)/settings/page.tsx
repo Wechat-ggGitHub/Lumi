@@ -134,7 +134,6 @@ export default function SettingsPage() {
             { path: '/persona', label: '分身设定' },
             { path: '/memory', label: '记忆管理' },
             { path: '/skills', label: '技能管理' },
-            { path: '/services', label: '服务连接' },
           ].map(item => (
             <Button key={item.path} variant="secondary" size="sm" onClick={() => navigate(item.path)}>
               {item.label}
