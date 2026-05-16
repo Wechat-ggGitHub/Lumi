@@ -1,73 +1,43 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { Button } from '@/components/ui/Button';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
-import { getProvider } from '@/lib/provider-config';
+import { OnboardingShell } from '@/components/OnboardingShell';
+import { CompletionScreen } from '@/components/CompletionScreen';
+import { getProvider, getAllProviders } from '@/lib/provider-config';
 
-type Step = 'welcome' | 'accessibility' | 'volcengine' | 'select-provider' | 'api-key' | 'cwd' | 'done';
+type Step = 'welcome' | 'accessibility' | 'volcengine' | 'provider-key' | 'completion';
+
+interface ProviderOption {
+  key: string;
+  name: string;
+}
+
+// 主要 provider（显示在列表顶部）
+const PRIMARY_PROVIDERS: ProviderOption[] = [
+  { key: 'anthropic', name: 'Anthropic' },
+  { key: 'openai', name: 'ChatGPT' },
+  { key: 'glm-cn', name: 'GLM (智谱)' },
+  { key: 'minimax-cn', name: 'MiniMax' },
+  { key: 'moonshot', name: 'Moonshot (Kimi)' },
+  { key: 'deepseek', name: 'DeepSeek' },
+];
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('welcome');
   const [apiKey, setApiKey] = useState('');
   const [volcAppId, setVolcAppId] = useState('');
   const [volcToken, setVolcToken] = useState('');
-  const [defaultCwd, setDefaultCwd] = useState('~/Documents');
-  const [selectedProvider, setSelectedProvider] = useState('glm-cn');
+  const [selectedProvider, setSelectedProvider] = useState('anthropic');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
+  const [showMoreProviders, setShowMoreProviders] = useState(false);
 
   const ipcRenderer = getIpcRenderer();
 
-  const checkAccessibility = async () => {
-    const granted = await ipcRenderer?.invoke('onboarding:check-accessibility');
-    if (granted) setStep('volcengine');
-  };
-
-  const saveVolcengine = async () => {
-    if (!volcAppId.trim() || !volcToken.trim()) {
-      setError('请填写 App ID 和 Access Token');
-      return;
-    }
-    setError('');
-    setSaving(true);
-    try {
-      await ipcRenderer?.invoke('settings:save-volcengine-credentials', {
-        appId: volcAppId.trim(),
-        accessToken: volcToken.trim(),
-      });
-      setStep('select-provider');
-    } catch (e: any) {
-      setError(e.message || '凭证验证失败');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const validateApiKey = async () => {
-    setError('');
-    setSaving(true);
-    try {
-      await ipcRenderer?.invoke('onboarding:validate-api-key', { key: apiKey.trim(), providerKey: selectedProvider });
-      setStep('cwd');
-    } catch {
-      setError('API Key 验证失败，请检查后重试');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const finish = async () => {
-    await ipcRenderer?.invoke('onboarding:finish', { defaultCwd });
-    setStep('done');
-    onComplete();
-  };
+  // 后续步骤会在这里添加...
 
   const steps: Record<Step, React.ReactNode> = {
     welcome: (
