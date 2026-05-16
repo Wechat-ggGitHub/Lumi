@@ -197,6 +197,26 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     keyPlaceholder: '从 bailian.console.aliyun.com 获取您的 API Key',
     websiteUrl: 'https://bailian.console.aliyun.com/',
   },
+  openai: {
+    key: 'openai',
+    name: 'ChatGPT',
+    nameZh: 'ChatGPT',
+    category: 'official',
+    baseUrl: 'https://api.openai.com/v1',
+    authStyle: 'api_key',
+    models: {
+      opus: 'gpt-4o',
+      sonnet: 'gpt-4o-mini',
+      haiku: 'gpt-4o-mini',
+    },
+    modelDisplayNames: {
+      opus: 'GPT-4o — 高性能',
+      sonnet: 'GPT-4o-mini — 均衡',
+      haiku: 'GPT-4o-mini — 快速',
+    },
+    keyPlaceholder: 'sk-...',
+    websiteUrl: 'https://platform.openai.com/api-keys',
+  },
   volcengine: {
     key: 'volcengine',
     name: 'Volcengine',
@@ -283,7 +303,7 @@ export function getProvider(key: string): ProviderPreset {
 }
 
 export function getDefaultProvider(): ProviderPreset {
-  return PROVIDERS['glm-cn'];
+  return PROVIDERS['anthropic'];
 }
 
 export function getAllProviders(): ProviderPreset[] {
