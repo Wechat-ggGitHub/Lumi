@@ -8,6 +8,9 @@ import { OnboardingShell } from '@/components/OnboardingShell';
 import { CompletionScreen } from '@/components/CompletionScreen';
 import { getAllProviders } from '@/lib/provider-config';
 
+// TODO: 替换为实际教程链接
+const VOLCENGINE_TUTORIAL_URL = 'https://TODO_ADD_TUTORIAL_URL';
+
 type Step = 'welcome' | 'accessibility' | 'volcengine' | 'provider-key' | 'completion';
 
 interface ProviderOption {
@@ -224,8 +227,9 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </Button>
           <button
             onClick={() => {
-              // TODO: 打开教程链接
-              console.log('打开火山引擎教程');
+              if (typeof window !== 'undefined') {
+                window.open(VOLCENGINE_TUTORIAL_URL, '_blank');
+              }
             }}
             className="block mx-auto mt-3 bg-transparent border-none text-brand text-body-sm cursor-pointer hover:underline"
           >
