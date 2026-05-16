@@ -13,3 +13,4 @@ resources/sherpa-onnx/
 docs/superpowers/
 aiva-claude-code-ui-revision-spec.md
 CLAUDE.md
+.worktrees/
