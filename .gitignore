@@ -1,16 +1,16 @@
-node_modules/
-dist-electron/
-.next/
-release/
+
+# Claude Code 插件自动生成的过程文档
 *.tsbuildinfo
 .DS_Store
 .build/
-.superpowers/
 .claude/
-resources/sherpa-onnx/
-
-# Claude Code 插件自动生成的过程文档
-docs/superpowers/
-lumi-claude-code-ui-revision-spec.md
-CLAUDE.md
+.next/
+.superpowers/
 .worktrees/
+CLAUDE.md
+dist-electron/
+docs/
+lumi-claude-code-ui-revision-spec.md
+node_modules/
+release/
+resources/sherpa-onnx/
