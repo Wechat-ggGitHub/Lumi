@@ -1,5 +1,3 @@
-[English](./README.md) | **中文**
-
 <h1 align="center">Lumi</h1>
 
 <p align="center"><strong>住在你菜单栏的 AI Agent。</strong></p>
@@ -16,6 +14,8 @@
 <p align="center">
 <img src="assets/banner.png" alt="Lumi Banner" width="800" />
 </p>
+
+<p align="center"><a href="./README.md">English</a> | <strong>中文</strong></p>
 
 Lumi 是一个 macOS 原生桌面语音 AI 助手。住在菜单栏里，你说它听，它干活——查资料、写代码、操作系统，还能记住你们聊过的每一件事。
 

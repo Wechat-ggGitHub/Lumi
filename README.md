@@ -1,5 +1,3 @@
-**English** | [中文](./README_CN.md)
-
 <h1 align="center">Lumi</h1>
 
 <p align="center"><strong>The AI Agent that lives in your menu bar.</strong></p>
@@ -16,6 +14,8 @@
 <p align="center">
 <img src="assets/banner.png" alt="Lumi Banner" width="800" />
 </p>
+
+<p align="center"><strong>English</strong> | <a href="./README_CN.md">中文</a></p>
 
 Lumi is a native macOS voice AI assistant. It lives in your menu bar — you speak, it listens, it gets things done. Search the web, write code, control your system, and it remembers everything you've talked about.
 
