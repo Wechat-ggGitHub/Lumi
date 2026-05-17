@@ -1,9 +1,10 @@
-
 # Claude Code 插件自动生成的过程文档
 *.tsbuildinfo
 .DS_Store
 .build/
 .claude/
+.env
+.env.*
 .next/
 .superpowers/
 .worktrees/
@@ -14,3 +15,4 @@ lumi-claude-code-ui-revision-spec.md
 node_modules/
 release/
 resources/sherpa-onnx/
+ScreenShots/
