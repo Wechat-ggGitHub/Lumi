@@ -10,7 +10,7 @@ export class AudioRecorder {
   private hasCredentials: boolean;
 
   constructor(provider: AsrProvider | null) {
-    this.tmpDir = path.join(app.getPath('home'), '.aiva', 'tmp');
+    this.tmpDir = path.join(app.getPath('home'), '.lumi', 'tmp');
     if (!fs.existsSync(this.tmpDir)) fs.mkdirSync(this.tmpDir, { recursive: true });
 
     if (provider) {

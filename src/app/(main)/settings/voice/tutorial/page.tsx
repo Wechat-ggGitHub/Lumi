@@ -29,7 +29,7 @@ const VOLCENGINE_STEPS: TutorialStep[] = [
   },
   {
     title: '4. 创建应用',
-    description: '应用名称填 aiva，应用简介写「自己用」，接入能力选择「豆包流式语音识别模型 2.0 小时版」，点击确定。',
+    description: '应用名称填 lumi，应用简介写「自己用」，接入能力选择「豆包流式语音识别模型 2.0 小时版」，点击确定。',
   },
   {
     title: '5. 获取密钥',

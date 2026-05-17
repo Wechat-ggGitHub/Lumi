@@ -24,7 +24,7 @@ export class AliyunTts implements TtsProvider {
       return null
     }
 
-    const tempFile = path.join(os.tmpdir(), `aiva-tts-${Date.now()}.mp3`)
+    const tempFile = path.join(os.tmpdir(), `lumi-tts-${Date.now()}.mp3`)
     this.tempFile = tempFile
 
     return new Promise<TtsResult | null>((resolve) => {

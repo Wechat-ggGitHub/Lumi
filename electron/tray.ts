@@ -123,15 +123,15 @@ function generateAnimFrames(): Electron.NativeImage[] {
 }
 
 const TOOLTIPS: Record<DotColor, string> = {
-  gray: 'Aiva - 待命中',
-  blue: 'Aiva - 执行中',
-  green: 'Aiva - 已完成',
-  red: 'Aiva - 出错了',
-  yellow: 'Aiva - 等待中',
-  purple: 'Aiva - 执行中',
+  gray: 'Lumi - 待命中',
+  blue: 'Lumi - 执行中',
+  green: 'Lumi - 已完成',
+  red: 'Lumi - 出错了',
+  yellow: 'Lumi - 等待中',
+  purple: 'Lumi - 执行中',
 };
 
-export class AivaTray {
+export class LumiTray {
   private tray: Tray;
   private dotIcons: Record<string, Electron.NativeImage>;
   private baseIcon: Electron.NativeImage;
@@ -152,7 +152,7 @@ export class AivaTray {
     this.animFrames = generateAnimFrames();
 
     this.tray = new Tray(this.baseIcon);
-    this.tray.setToolTip('Aiva - 待命中');
+    this.tray.setToolTip('Lumi - 待命中');
 
     this.contextMenu = Menu.buildFromTemplate([
       { label: '设置', click: () => this.openSettings() },
@@ -178,13 +178,13 @@ export class AivaTray {
       }
     }
 
-    this.tray.setToolTip(TOOLTIPS[color] || 'Aiva');
+    this.tray.setToolTip(TOOLTIPS[color] || 'Lumi');
   }
 
   startAnimation(): void {
     this.stopAnimation();
     this.animIndex = 0;
-    this.tray.setToolTip('Aiva - 执行中');
+    this.tray.setToolTip('Lumi - 执行中');
 
     this.animTimer = setInterval(() => {
       this.animIndex = (this.animIndex + 1) % ANIM_FRAMES;

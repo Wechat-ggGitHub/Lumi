@@ -17,7 +17,7 @@ interface PersonaData {
 }
 
 export default function PersonaPage() {
-  const [name, setName] = useState('Aiva');
+  const [name, setName] = useState('Lumi');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saved, setSaved] = useState(false);

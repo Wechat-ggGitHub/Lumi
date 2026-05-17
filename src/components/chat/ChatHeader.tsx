@@ -41,7 +41,7 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
   const statusText = getStatusText(appState, sdkSubState, currentToolName);
   const dotColor = getDotColorClass(appState);
   const isActive = appState !== 'idle';
-  const displayName = personaName || 'Aiva';
+  const displayName = personaName || 'Lumi';
   const initial = displayName[0] || 'S';
 
   const menuItems = [

@@ -134,7 +134,7 @@ export class DoubaoASR {
 
         // 1. Send full client request (JSON config, gzip compressed)
         const config = JSON.stringify({
-          user: { uid: 'aiva-app' },
+          user: { uid: 'lumi-app' },
           audio: {
             format: 'pcm',
             rate: SAMPLE_RATE,

@@ -2,11 +2,11 @@ import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, nativeTh
 import path from 'path';
 import fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
-import { AivaTray } from './tray';
+import { LumiTray } from './tray';
 import { VoiceBarWindow } from './voice-bar';
 import { ShortcutManager } from './shortcuts';
 import { AudioRecorder } from './recorder';
-import { AivaStore } from '../src/lib/store';
+import { LumiStore } from '../src/lib/store';
 import { createAsrProvider, createTtsProvider, loadVoiceCredentials } from './voice-providers'
 import type { TtsProvider, TtsResult } from './voice-providers'
 import { SubtitlePopup } from './subtitle-popup';
@@ -15,12 +15,12 @@ import { AudioListener } from './audio-listener';
 import { VoiceEndpoint } from './voice-endpoint';
 import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
 import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
-import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials, saveAliyunVoiceCredentials, loadAliyunVoiceCredentials, hasAliyunVoiceCredentials } from '../src/lib/keychain';
+import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, migrateKeychainEncryption, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials, saveAliyunVoiceCredentials, loadAliyunVoiceCredentials, hasAliyunVoiceCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders, buildAuthHeaders } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
 import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteSkill, buildSkillCatalog, readSkillContent } from '../src/lib/skill-manager';
-import { buildAivaContext } from '../src/lib/aiva-context';
+import { buildLumiContext } from '../src/lib/lumi-context';
 import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
 import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
 import { evaluateAndWriteCoreMemory } from '../src/lib/core-memory-evaluator';
@@ -31,13 +31,13 @@ import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatM
 import Database from 'better-sqlite3';
 
 const isDev = !app.isPackaged;
-const aivaDir = path.join(app.getPath('home'), '.aiva');
-const settingsPath = path.join(aivaDir, 'settings.json');
-const dbPath = path.join(aivaDir, 'aiva.db');
+const lumiDir = path.join(app.getPath('home'), '.lumi');
+const settingsPath = path.join(lumiDir, 'settings.json');
+const dbPath = path.join(lumiDir, 'lumi.db');
 
 let db: Database.Database;
-let store: AivaStore;
-let tray: AivaTray;
+let store: LumiStore;
+let tray: LumiTray;
 let voiceBar: VoiceBarWindow;
 let shortcutManager: ShortcutManager;
 let recorder: AudioRecorder;
@@ -103,8 +103,8 @@ function initVoiceProviders(): void {
 }
 
 function startPersonaWatcher(): void {
-  const personaDir = getPersonaDir(aivaDir);
-  ensurePersonaDir(aivaDir);
+  const personaDir = getPersonaDir(lumiDir);
+  ensurePersonaDir(lumiDir);
 
   personaWatcher = fs.watch(personaDir, (eventType, filename) => {
     if (!filename) return;
@@ -113,7 +113,7 @@ function startPersonaWatcher(): void {
     log.info(`Persona 文件变更: ${filename} (${eventType})`);
 
     try {
-      const profile = readProfile(aivaDir);
+      const profile = readProfile(lumiDir);
       if (!profile.name) {
         log.warn('Persona watcher: profile.json 缺少 name 字段，跳过广播');
         return;
@@ -322,8 +322,8 @@ function isWakeWordEnabled(): boolean {
 }
 
 function getKeyword(): string {
-  const profile = readProfile(aivaDir);
-  return profile.name || 'Aiva';
+  const profile = readProfile(lumiDir);
+  return profile.name || 'Lumi';
 }
 
 async function startWakeWord(): Promise<void> {
@@ -759,12 +759,12 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
   let assistantMessageId: string | null = null;
 
   // 构建 persona + 每日记忆上下文
-  const personaContent = buildPersonaContext(aivaDir);
-  const aivaContext = buildAivaContext(aivaDir, personaContent);
+  const personaContent = buildPersonaContext(lumiDir);
+  const lumiContext = buildLumiContext(lumiDir, personaContent);
 
   // 构建 skill catalog
   const skillCatalog = buildSkillCatalog(
-    path.join(aivaDir, 'skills'),
+    path.join(lumiDir, 'skills'),
     settings.disabledSkills || []
   );
 
@@ -772,7 +772,7 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
     ? '\n\n## 输入方式\n用户通过语音输入，经语音识别转写为文字。回复时应考虑口语化表达的特点：指令可能简短、省略上下文、包含语气词或口语习惯。请直接理解用户意图并执行，无需指出或纠正口语化表达。回复尽量简洁，适合语音播报。\n'
     : '';
 
-  const fullPrompt = aivaContext ? aivaContext + voiceHint + '\n' + prompt : voiceHint + prompt;
+  const fullPrompt = lumiContext ? lumiContext + voiceHint + '\n' + prompt : voiceHint + prompt;
 
   const resumeSessionId = segment.sdk_session_id ?? undefined;
 
@@ -917,11 +917,11 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
         const assistantContent = conversationMessages
           .filter(m => m.role === 'assistant').map(m => m.content).join('\n');
         evaluateAndWriteDailyMemory(
-          aivaDir, prompt, result.summary || assistantContent,
+          lumiDir, prompt, result.summary || assistantContent,
           ak, providerKey,
         ).catch(err => log.error('每日记忆写入异常:', err));
         evaluateAndWriteCoreMemory(
-          aivaDir, prompt, assistantContent,
+          lumiDir, prompt, assistantContent,
           ak, providerKey,
         ).catch(err => log.error('核心记忆评估异常:', err));
       }
@@ -988,7 +988,7 @@ async function speakResult(summary: string): Promise<void> {
 
   try {
     const trayBounds = tray.getBounds();
-    const profile = readProfile(aivaDir);
+    const profile = readProfile(lumiDir);
     const controller = ttsAbortController;
 
     // Prepare subtitle popup while synthesizing
@@ -1020,7 +1020,7 @@ async function speakResult(summary: string): Promise<void> {
     const audioBuffer = fs.readFileSync(ttsResult.audioPath);
 
     // Read avatar as base64 data URL
-    const avatarPath = getAvatarPath(aivaDir);
+    const avatarPath = getAvatarPath(lumiDir);
     let personaAvatar: string | null = null;
     if (avatarPath && fs.existsSync(avatarPath)) {
       const data = fs.readFileSync(avatarPath);
@@ -1263,9 +1263,9 @@ function registerIpcHandlers(): void {
 
   // persona
   ipcMain.handle('persona:load', () => {
-    const profile = readProfile(aivaDir);
-    const content = readPersonaMarkdown(aivaDir);
-    const avatarPath = getAvatarPath(aivaDir);
+    const profile = readProfile(lumiDir);
+    const content = readPersonaMarkdown(lumiDir);
+    const avatarPath = getAvatarPath(lumiDir);
     let avatarDataUrl: string | null = null;
     if (avatarPath && fs.existsSync(avatarPath)) {
       const data = fs.readFileSync(avatarPath);
@@ -1281,8 +1281,8 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('persona:save', (_, { name, content }: { name: string; content: string }) => {
-    writeProfile(aivaDir, { name });
-    writePersonaMarkdown(aivaDir, content);
+    writeProfile(lumiDir, { name });
+    writePersonaMarkdown(lumiDir, content);
     return { name, content };
   });
 
@@ -1305,22 +1305,22 @@ function registerIpcHandlers(): void {
     if (!matches) return null;
     const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
     const buffer = Buffer.from(matches[2], 'base64');
-    ensurePersonaDir(aivaDir);
+    ensurePersonaDir(lumiDir);
     const filename = `avatar.${ext}`;
-    fs.writeFileSync(path.join(getPersonaDir(aivaDir), filename), buffer);
-    writeProfile(aivaDir, { avatar: filename });
+    fs.writeFileSync(path.join(getPersonaDir(lumiDir), filename), buffer);
+    writeProfile(lumiDir, { avatar: filename });
     return dataUrl;
   });
 
   ipcMain.handle('persona:avatar:remove', () => {
-    removeAvatarFile(aivaDir);
-    writeProfile(aivaDir, { avatar: null });
+    removeAvatarFile(lumiDir);
+    writeProfile(lumiDir, { avatar: null });
   });
 
   // skills
   ipcMain.handle('skills:list', () => {
     const settings = loadSettings();
-    return scanSkills(path.join(aivaDir, 'skills'), settings.disabledSkills || []);
+    return scanSkills(path.join(lumiDir, 'skills'), settings.disabledSkills || []);
   });
 
   ipcMain.handle('skills:import', async () => {
@@ -1333,7 +1333,7 @@ function registerIpcHandlers(): void {
 
     const selected = result.filePaths[0];
     const stat = fs.statSync(selected);
-    const skillsDir = path.join(aivaDir, 'skills');
+    const skillsDir = path.join(lumiDir, 'skills');
 
     let imported: boolean;
     if (stat.isDirectory()) {
@@ -1360,40 +1360,40 @@ function registerIpcHandlers(): void {
       if (!disabled.includes(name)) disabled.push(name);
     }
     saveSettings({ ...settings, disabledSkills: disabled });
-    return scanSkills(path.join(aivaDir, 'skills'), disabled);
+    return scanSkills(path.join(lumiDir, 'skills'), disabled);
   });
 
   ipcMain.handle('skills:delete', (_, { name }) => {
-    deleteSkill(name, path.join(aivaDir, 'skills'));
+    deleteSkill(name, path.join(lumiDir, 'skills'));
     const settings = loadSettings();
     const disabled = (settings.disabledSkills || []).filter((s: string) => s !== name);
     saveSettings({ ...settings, disabledSkills: disabled });
-    return scanSkills(path.join(aivaDir, 'skills'), disabled);
+    return scanSkills(path.join(lumiDir, 'skills'), disabled);
   });
 
   ipcMain.handle('skills:read', (_, { name }) => {
-    return readSkillContent(name, path.join(aivaDir, 'skills'));
+    return readSkillContent(name, path.join(lumiDir, 'skills'));
   });
 
   // services
   ipcMain.handle('services:list', () => {
-    return loadMcpServers(aivaDir);
+    return loadMcpServers(lumiDir);
   });
 
   ipcMain.handle('services:add', (_, config) => {
-    return addMcpServer(aivaDir, config);
+    return addMcpServer(lumiDir, config);
   });
 
   ipcMain.handle('services:update', (_, { id, ...updates }) => {
-    return updateMcpServer(aivaDir, id, updates);
+    return updateMcpServer(lumiDir, id, updates);
   });
 
   ipcMain.handle('services:remove', (_, { id }) => {
-    return removeMcpServer(aivaDir, id);
+    return removeMcpServer(lumiDir, id);
   });
 
   ipcMain.handle('services:test', async (_, { id }) => {
-    const servers = loadMcpServers(aivaDir);
+    const servers = loadMcpServers(lumiDir);
     const server = servers.find(s => s.id === id);
     if (!server) throw new Error('服务未找到');
     // 基本可用性检查：命令是否能找到
@@ -1419,7 +1419,7 @@ function registerIpcHandlers(): void {
 
   // memory (file-based)
   ipcMain.handle('memory:list-core', () => {
-    const memoriesDir = path.join(aivaDir, 'memories');
+    const memoriesDir = path.join(lumiDir, 'memories');
     if (!fs.existsSync(memoriesDir)) return [];
     const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
     return files.map(f => {
@@ -1430,7 +1430,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
     if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
-    const memoriesDir = path.join(aivaDir, 'memories');
+    const memoriesDir = path.join(lumiDir, 'memories');
     const filePath = path.join(memoriesDir, filename);
     if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
     fs.writeFileSync(filePath, content);
@@ -1439,7 +1439,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
     if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
-    const memoriesDir = path.join(aivaDir, 'memories');
+    const memoriesDir = path.join(lumiDir, 'memories');
     const filePath = path.join(memoriesDir, filename);
     if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
     fs.unlinkSync(filePath);
@@ -1447,12 +1447,12 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('memory:list-daily', () => {
-    return listDailyMemoryDates(aivaDir);
+    return listDailyMemoryDates(lumiDir);
   });
 
   ipcMain.handle('memory:read-daily', (_, { date }: { date: string }) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-    return readDailyMemory(aivaDir, date);
+    return readDailyMemory(lumiDir, date);
   });
 
   // navigation
@@ -1613,20 +1613,34 @@ if (gotTheLock) {
   });
 
 app.whenReady().then(async () => {
-  initLogger(path.join(aivaDir, 'logs'));
-  fs.mkdirSync(aivaDir, { recursive: true });
-  fs.mkdirSync(path.join(aivaDir, 'skills'), { recursive: true });
-  fs.mkdirSync(path.join(aivaDir, 'mcp'), { recursive: true });
-  log.info('=== Aiva 应用启动 ===');
+  // 一次性迁移：~/.aiva/ → ~/.lumi/
+  const legacyDir = path.join(app.getPath('home'), '.aiva');
+  if (fs.existsSync(legacyDir) && !fs.existsSync(lumiDir)) {
+    try {
+      fs.renameSync(legacyDir, lumiDir);
+      const oldDb = path.join(lumiDir, 'aiva.db');
+      const newDb = path.join(lumiDir, 'lumi.db');
+      if (fs.existsSync(oldDb)) fs.renameSync(oldDb, newDb);
+      console.log('数据目录迁移完成: ~/.aiva/ → ~/.lumi/');
+    } catch (err) {
+      console.error('数据目录迁移失败:', err);
+    }
+  }
+
+  initLogger(path.join(lumiDir, 'logs'));
+  fs.mkdirSync(lumiDir, { recursive: true });
+  fs.mkdirSync(path.join(lumiDir, 'skills'), { recursive: true });
+  fs.mkdirSync(path.join(lumiDir, 'mcp'), { recursive: true });
+  log.info('=== Lumi 应用启动 ===');
   log.info('日志文件:', log.logPath);
   log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
-  log.info('aivaDir:', aivaDir);
+  log.info('lumiDir:', lumiDir);
 
-  // 迁移旧数据到 ~/.aiva/
+  // 迁移旧数据到 ~/.lumi/
   const oldDir = app.getPath('userData');
-  const markerFile = path.join(aivaDir, '.migrated');
+  const markerFile = path.join(lumiDir, '.migrated');
   if (fs.existsSync(oldDir) && !fs.existsSync(markerFile)) {
-    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', aivaDir);
+    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', lumiDir);
     try {
       // 迁移数据库
       const oldDb = path.join(oldDir, 'aiva.db');
@@ -1651,22 +1665,22 @@ app.whenReady().then(async () => {
       // 迁移 MCP 配置
       const oldMcp = path.join(oldDir, 'config', 'mcp-servers.json');
       if (fs.existsSync(oldMcp)) {
-        fs.mkdirSync(path.join(aivaDir, 'mcp'), { recursive: true });
-        fs.copyFileSync(oldMcp, path.join(aivaDir, 'mcp', 'servers.json'));
+        fs.mkdirSync(path.join(lumiDir, 'mcp'), { recursive: true });
+        fs.copyFileSync(oldMcp, path.join(lumiDir, 'mcp', 'servers.json'));
         log.info('迁移: MCP 配置');
       }
 
       // 迁移加密凭据
       const oldSecure = path.join(oldDir, 'secure');
       if (fs.existsSync(oldSecure)) {
-        fs.cpSync(oldSecure, path.join(aivaDir, 'secure'), { recursive: true });
+        fs.cpSync(oldSecure, path.join(lumiDir, 'secure'), { recursive: true });
         log.info('迁移: 凭据');
       }
 
       // 迁移日志
       const oldLogs = path.join(oldDir, 'logs');
       if (fs.existsSync(oldLogs)) {
-        fs.cpSync(oldLogs, path.join(aivaDir, 'logs'), { recursive: true });
+        fs.cpSync(oldLogs, path.join(lumiDir, 'logs'), { recursive: true });
         log.info('迁移: 日志');
       }
 
@@ -1708,7 +1722,7 @@ app.whenReady().then(async () => {
   // 迁移 persona 旧字段到 persona.md（在 initDb 之后，确保表已创建）
   log.info('迁移 Persona...');
   try {
-    migratePersona(aivaDir, db);
+    migratePersona(lumiDir, db);
     log.info('migratePersona 执行完成');
   } catch (err) {
     log.error('migratePersona 异常:', err);
@@ -1716,7 +1730,7 @@ app.whenReady().then(async () => {
   log.info('Persona 迁移完成');
 
   log.info('迁移记忆项...');
-  migrateMemoryItems(db, aivaDir);
+  migrateMemoryItems(db, lumiDir);
   log.info('记忆项迁移完成');
 
   log.info('启动 Persona watcher...');
@@ -1726,11 +1740,12 @@ app.whenReady().then(async () => {
   // 迁移旧的 API key 文件
   log.info('迁移 API key 文件...');
   migrateKeyFiles(loadSettings().provider || 'glm-cn');
+  migrateKeychainEncryption();
   log.info('API key 文件迁移完成');
 
   // 初始化状态管理
   log.info('初始化状态管理...');
-  store = new AivaStore();
+  store = new LumiStore();
   log.info('状态管理已初始化');
   store.onChange(() => {
     updateTrayDot();
@@ -1748,7 +1763,7 @@ app.whenReady().then(async () => {
 
   // 创建菜单栏 Tray
   log.info('创建菜单栏 Tray...');
-  tray = new AivaTray();
+  tray = new LumiTray();
   log.info('菜单栏 Tray 已创建');
   log.info('设置 Tray 回调...');
   tray.onPopupRequested = () => {

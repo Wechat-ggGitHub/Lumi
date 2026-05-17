@@ -107,7 +107,7 @@ export class TtsService {
     }
 
     const tempDir = os.tmpdir();
-    const tempFile = path.join(tempDir, `aiva-tts-${Date.now()}.mp3`);
+    const tempFile = path.join(tempDir, `lumi-tts-${Date.now()}.mp3`);
     this.tempFile = tempFile;
 
     return new Promise<TtsResult | null>((resolve) => {
@@ -254,9 +254,9 @@ export class TtsService {
           switch (eventCode) {
             case EVENT_CONNECTION_STARTED:
               // Connection established, start session
-              sessionId = `aiva-${Date.now()}`;
+              sessionId = `lumi-${Date.now()}`;
               const sessionPayload = {
-                user: { uid: 'aiva-app' },
+                user: { uid: 'lumi-app' },
                 event: EVENT_START_SESSION,
                 namespace: 'BidirectionalTTS',
                 req_params: {

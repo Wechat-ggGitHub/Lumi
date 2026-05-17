@@ -7,34 +7,34 @@ const PROFILE_FILE = 'profile.json';
 const MARKDOWN_FILE = 'persona.md';
 const AVATAR_FILENAME = 'avatar';
 
-const DEFAULT_PROFILE = { name: 'Aiva', avatar: null as string | null };
+const DEFAULT_PROFILE = { name: 'Lumi', avatar: null as string | null };
 const DEFAULT_MARKDOWN = '你是用户电脑里面的搭档，性格活泼能提供情绪价值，你一般通过语音和用户沟通，你回复尽量简洁，不啰嗦。';
 
 // --- Path helpers ---
 
-export function getPersonaDir(aivaDir: string): string {
-  return path.join(aivaDir, PERSONA_DIR);
+export function getPersonaDir(lumiDir: string): string {
+  return path.join(lumiDir, PERSONA_DIR);
 }
 
-function profilePath(aivaDir: string): string {
-  return path.join(getPersonaDir(aivaDir), PROFILE_FILE);
+function profilePath(lumiDir: string): string {
+  return path.join(getPersonaDir(lumiDir), PROFILE_FILE);
 }
 
-function markdownPath(aivaDir: string): string {
-  return path.join(getPersonaDir(aivaDir), MARKDOWN_FILE);
+function markdownPath(lumiDir: string): string {
+  return path.join(getPersonaDir(lumiDir), MARKDOWN_FILE);
 }
 
-export function getAvatarPath(aivaDir: string): string | null {
-  const dir = getPersonaDir(aivaDir);
-  const profile = readProfile(aivaDir);
+export function getAvatarPath(lumiDir: string): string | null {
+  const dir = getPersonaDir(lumiDir);
+  const profile = readProfile(lumiDir);
   if (!profile.avatar) return null;
   return path.join(dir, profile.avatar);
 }
 
 // --- Ensure directory exists ---
 
-export function ensurePersonaDir(aivaDir: string): void {
-  const dir = getPersonaDir(aivaDir);
+export function ensurePersonaDir(lumiDir: string): void {
+  const dir = getPersonaDir(lumiDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -47,8 +47,8 @@ interface PersonaProfile {
   avatar: string | null;
 }
 
-export function readProfile(aivaDir: string): PersonaProfile {
-  const filePath = profilePath(aivaDir);
+export function readProfile(lumiDir: string): PersonaProfile {
+  const filePath = profilePath(lumiDir);
   if (!fs.existsSync(filePath)) {
     return { ...DEFAULT_PROFILE };
   }
@@ -60,43 +60,43 @@ export function readProfile(aivaDir: string): PersonaProfile {
   }
 }
 
-export function writeProfile(aivaDir: string, profile: Partial<PersonaProfile>): void {
-  ensurePersonaDir(aivaDir);
-  const current = readProfile(aivaDir);
+export function writeProfile(lumiDir: string, profile: Partial<PersonaProfile>): void {
+  ensurePersonaDir(lumiDir);
+  const current = readProfile(lumiDir);
   const merged = { ...current, ...profile };
-  fs.writeFileSync(profilePath(aivaDir), JSON.stringify(merged, null, 2), 'utf-8');
+  fs.writeFileSync(profilePath(lumiDir), JSON.stringify(merged, null, 2), 'utf-8');
 }
 
 // --- Markdown (persona.md) ---
 
-export function readPersonaMarkdown(aivaDir: string): string {
-  const filePath = markdownPath(aivaDir);
+export function readPersonaMarkdown(lumiDir: string): string {
+  const filePath = markdownPath(lumiDir);
   if (!fs.existsSync(filePath)) {
     return DEFAULT_MARKDOWN;
   }
   return fs.readFileSync(filePath, 'utf-8');
 }
 
-export function writePersonaMarkdown(aivaDir: string, content: string): void {
-  ensurePersonaDir(aivaDir);
-  fs.writeFileSync(markdownPath(aivaDir), content, 'utf-8');
+export function writePersonaMarkdown(lumiDir: string, content: string): void {
+  ensurePersonaDir(lumiDir);
+  fs.writeFileSync(markdownPath(lumiDir), content, 'utf-8');
 }
 
 // --- Avatar file ---
 
 const ALLOWED_AVATAR_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
-export function saveAvatarFile(aivaDir: string, sourcePath: string): string {
-  ensurePersonaDir(aivaDir);
+export function saveAvatarFile(lumiDir: string, sourcePath: string): string {
+  ensurePersonaDir(lumiDir);
   const ext = path.extname(sourcePath).toLowerCase();
   if (!ALLOWED_AVATAR_EXTENSIONS.includes(ext)) {
     throw new Error(`Unsupported avatar format: ${ext}`);
   }
   const filename = `${AVATAR_FILENAME}${ext}`;
-  const dest = path.join(getPersonaDir(aivaDir), filename);
+  const dest = path.join(getPersonaDir(lumiDir), filename);
 
   // Remove old avatar files
-  const dir = getPersonaDir(aivaDir);
+  const dir = getPersonaDir(lumiDir);
   for (const file of fs.readdirSync(dir)) {
     if (file.startsWith(AVATAR_FILENAME + '.')) {
       fs.unlinkSync(path.join(dir, file));
@@ -107,8 +107,8 @@ export function saveAvatarFile(aivaDir: string, sourcePath: string): string {
   return filename;
 }
 
-export function removeAvatarFile(aivaDir: string): void {
-  const dir = getPersonaDir(aivaDir);
+export function removeAvatarFile(lumiDir: string): void {
+  const dir = getPersonaDir(lumiDir);
   if (!fs.existsSync(dir)) return;
   for (const file of fs.readdirSync(dir)) {
     if (file.startsWith(AVATAR_FILENAME + '.')) {
@@ -119,14 +119,14 @@ export function removeAvatarFile(aivaDir: string): void {
 
 // --- Full context for Claude (used by executePrompt) ---
 
-export function buildPersonaContext(aivaDir: string): string {
-  const profile = readProfile(aivaDir);
-  const markdown = readPersonaMarkdown(aivaDir);
+export function buildPersonaContext(lumiDir: string): string {
+  const profile = readProfile(lumiDir);
+  const markdown = readPersonaMarkdown(lumiDir);
   const parts: string[] = [];
   if (profile.name) parts.push(`你的名称是${profile.name}。`);
   if (markdown.trim()) parts.push(markdown.trim());
 
-  const personaDir = getPersonaDir(aivaDir);
+  const personaDir = getPersonaDir(lumiDir);
   parts.push(`## 自我更新权限
 
 你可以通过写入文件来更新自己的名称和性格设定。
@@ -145,8 +145,8 @@ export function buildPersonaContext(aivaDir: string): string {
 
 // --- Migration from old single-file and DB ---
 
-export function migratePersona(aivaDir: string, db: Database.Database): void {
-  const personaDir = getPersonaDir(aivaDir);
+export function migratePersona(lumiDir: string, db: Database.Database): void {
+  const personaDir = getPersonaDir(lumiDir);
   if (fs.existsSync(personaDir)) {
     console.log('[migratePersona] persona 目录已存在，跳过');
     return;
@@ -156,19 +156,19 @@ export function migratePersona(aivaDir: string, db: Database.Database): void {
   fs.mkdirSync(personaDir, { recursive: true });
   console.log('[migratePersona] persona 目录已创建');
 
-  // Migrate from old persona.md at ~/.aiva/persona.md
-  const oldFile = path.join(aivaDir, 'persona.md');
+  // Migrate from old persona.md at ~/.lumi/persona.md
+  const oldFile = path.join(lumiDir, 'persona.md');
   console.log('[migratePersona] 检查旧文件:', oldFile);
   if (fs.existsSync(oldFile)) {
     console.log('[migratePersona] 从旧文件迁移...');
     const raw = fs.readFileSync(oldFile, 'utf-8');
     // Extract name from "你的名称是X。" line
     const nameMatch = raw.match(/你的名称是(.+?)。/);
-    const name = nameMatch ? nameMatch[1] : 'Aiva';
+    const name = nameMatch ? nameMatch[1] : 'Lumi';
     // Remove the name line, keep the rest
     const content = raw.replace(/你的名称是.+?\n?/, '').trim();
-    writeProfile(aivaDir, { name, avatar: null });
-    writePersonaMarkdown(aivaDir, content || DEFAULT_MARKDOWN);
+    writeProfile(lumiDir, { name, avatar: null });
+    writePersonaMarkdown(lumiDir, content || DEFAULT_MARKDOWN);
     fs.unlinkSync(oldFile);
     console.log('[migratePersona] 从旧文件迁移完成');
     return;
@@ -180,14 +180,14 @@ export function migratePersona(aivaDir: string, db: Database.Database): void {
   console.log('[migratePersona] DB 查询完成, row:', !!row);
   if (!row) {
     console.log('[migratePersona] DB 中无数据，写入默认值...');
-    writeProfile(aivaDir, DEFAULT_PROFILE);
-    writePersonaMarkdown(aivaDir, DEFAULT_MARKDOWN);
+    writeProfile(lumiDir, DEFAULT_PROFILE);
+    writePersonaMarkdown(lumiDir, DEFAULT_MARKDOWN);
     console.log('[migratePersona] 默认值写入完成');
     return;
   }
 
   console.log('[migratePersona] 从 DB 数据构建 persona...');
-  const name = String(row.name || 'Aiva');
+  const name = String(row.name || 'Lumi');
   const parts: string[] = [];
   if (row.bio) parts.push(String(row.bio));
   const styleParts: string[] = [];
@@ -200,7 +200,7 @@ export function migratePersona(aivaDir: string, db: Database.Database): void {
   if (row.system_prompt) parts.push(String(row.system_prompt));
 
   console.log('[migratePersona] 写入文件...');
-  writeProfile(aivaDir, { name, avatar: null });
-  writePersonaMarkdown(aivaDir, parts.join('\n') || DEFAULT_MARKDOWN);
+  writeProfile(lumiDir, { name, avatar: null });
+  writePersonaMarkdown(lumiDir, parts.join('\n') || DEFAULT_MARKDOWN);
   console.log('[migratePersona] 迁移完成');
 }

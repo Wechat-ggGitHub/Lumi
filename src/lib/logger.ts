@@ -16,7 +16,7 @@ function localDateStr(d: Date): string {
 }
 
 function currentLogFile(): string {
-  return path.join(_logDir!, `aiva-${localDateStr(new Date())}.log`);
+  return path.join(_logDir!, `lumi-${localDateStr(new Date())}.log`);
 }
 
 function timestamp(): string {

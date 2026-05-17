@@ -95,7 +95,7 @@ export class AudioListener {
 
     // data: URL 不是安全上下文，navigator.mediaDevices 不可用
     // 用 file:// 加载以确保 getUserMedia 可用
-    const tmpDir = path.join(app.getPath('temp'), 'aiva');
+    const tmpDir = path.join(app.getPath('temp'), 'lumi');
     fs.mkdirSync(tmpDir, { recursive: true });
     const htmlPath = path.join(tmpDir, 'audio-listener.html');
     fs.writeFileSync(htmlPath, RENDERER_HTML, 'utf-8');

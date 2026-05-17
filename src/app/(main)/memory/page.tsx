@@ -77,7 +77,7 @@ export default function MemoryPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="记忆管理" subtitle="Aiva 记住了什么"
+      <PageHeader title="记忆管理" subtitle="Lumi 记住了什么"
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {/* Tab switcher */}

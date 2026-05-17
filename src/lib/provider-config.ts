@@ -277,7 +277,7 @@ export function buildSdkEnv(providerKey: string, apiKey: string, modelId?: strin
     }
   }
 
-  env.CLAUDE_CONFIG_DIR = `${process.env.HOME}/.aiva`;
+  env.CLAUDE_CONFIG_DIR = `${process.env.HOME}/.lumi`;
 
   if (provider.authStyle === 'auth_token') {
     env.ANTHROPIC_AUTH_TOKEN = apiKey;

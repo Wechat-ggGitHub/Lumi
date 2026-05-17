@@ -42,7 +42,7 @@ describe('loadPhoneDict', () => {
 
   it('parses en.phone into a word-to-phones map', () => {
     const dict = loadPhoneDict(fixturePath);
-    expect(dict.get('AIVA')).toBe('EY2 IY0 V AH0');
+    expect(dict.get('LUMI')).toBe('EY2 IY0 V AH0');
     expect(dict.get('HELLO')).toBe('HH AH L OW1');
     expect(dict.get('JARVIS')).toBe('JH AA1 R V AH0 S');
   });
@@ -116,7 +116,7 @@ describe('englishToKeyword', () => {
   const dict = loadPhoneDict(path.join(__dirname, 'fixtures', 'test-en.phone'));
 
   it('converts known word via dictionary', () => {
-    expect(englishToKeyword('AIVA', dict)).toBe('EY2 IY0 V AH0 @AIVA');
+    expect(englishToKeyword('LUMI', dict)).toBe('EY2 IY0 V AH0 @LUMI');
   });
 
   it('uses CUSTOM_PHONE_ENTRIES when not in dictionary', () => {
@@ -125,11 +125,11 @@ describe('englishToKeyword', () => {
     expect(englishToKeyword('lumi', emptyDict)).toBe('L UW1 M IY0 @lumi');
   });
 
-  it('AIVA falls back to letterToPhone (not in CUSTOM_PHONE_ENTRIES)', () => {
-    // AIVA was removed from CUSTOM_PHONE_ENTRIES because letterToPhone produces
+  it('LUMI falls back to letterToPhone (not in CUSTOM_PHONE_ENTRIES)', () => {
+    // LUMI was removed from CUSTOM_PHONE_ENTRIES because letterToPhone produces
     // the correct phonemes (AY1 V AH0) that the sherpa-onnx model can detect
     const emptyDict = new Map<string, string>();
-    expect(englishToKeyword('aiva', emptyDict)).toBe('AY1 V AH0 @aiva');
+    expect(englishToKeyword('lumi', emptyDict)).toBe('AY1 V AH0 @lumi');
   });
 
   it('converts multi-word name with underscore', () => {
@@ -145,7 +145,7 @@ describe('englishToKeyword', () => {
   });
 
   it('handles lowercase input', () => {
-    expect(englishToKeyword('aiva', dict)).toBe('EY2 IY0 V AH0 @aiva');
+    expect(englishToKeyword('lumi', dict)).toBe('EY2 IY0 V AH0 @lumi');
   });
 });
 
@@ -157,7 +157,7 @@ describe('nameToKeyword', () => {
   });
 
   it('delegates English names to englishToKeyword', () => {
-    expect(nameToKeyword('AIVA', dict)).toBe('EY2 IY0 V AH0 @AIVA');
+    expect(nameToKeyword('LUMI', dict)).toBe('EY2 IY0 V AH0 @LUMI');
   });
 
   it('handles English without dictionary (letter fallback)', () => {
@@ -170,7 +170,7 @@ describe('nameToKeyword', () => {
   });
 
   it('strips special characters before detection', () => {
-    const result = nameToKeyword('Aiva!', dict);
-    expect(result).toContain('@Aiva');
+    const result = nameToKeyword('Lumi!', dict);
+    expect(result).toContain('@Lumi');
   });
 });

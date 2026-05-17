@@ -72,7 +72,7 @@ export class DetailWindow {
       height: WINDOW_HEIGHT,
       x,
       y,
-      title: 'Aiva',
+      title: 'Lumi',
       minWidth: 600,
       minHeight: 400,
       show: false,

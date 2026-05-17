@@ -2,12 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import type { McpServerConfig } from '@/types';
 
-function getMcpDir(aivaDir: string): string {
-  return path.join(aivaDir, 'mcp');
+function getMcpDir(lumiDir: string): string {
+  return path.join(lumiDir, 'mcp');
 }
 
-function ensureMcpDir(aivaDir: string): void {
-  const dir = getMcpDir(aivaDir);
+function ensureMcpDir(lumiDir: string): void {
+  const dir = getMcpDir(lumiDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -15,41 +15,41 @@ function ensureMcpDir(aivaDir: string): void {
 
 // --- MCP Servers ---
 
-export function loadMcpServers(aivaDir: string): McpServerConfig[] {
-  const filePath = path.join(getMcpDir(aivaDir), 'servers.json');
+export function loadMcpServers(lumiDir: string): McpServerConfig[] {
+  const filePath = path.join(getMcpDir(lumiDir), 'servers.json');
   try {
     if (fs.existsSync(filePath)) {
       return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
   } catch {}
-  saveMcpServers(aivaDir, []);
+  saveMcpServers(lumiDir, []);
   return [];
 }
 
-function saveMcpServers(aivaDir: string, servers: McpServerConfig[]): void {
-  ensureMcpDir(aivaDir);
-  const filePath = path.join(getMcpDir(aivaDir), 'servers.json');
+function saveMcpServers(lumiDir: string, servers: McpServerConfig[]): void {
+  ensureMcpDir(lumiDir);
+  const filePath = path.join(getMcpDir(lumiDir), 'servers.json');
   fs.writeFileSync(filePath, JSON.stringify(servers, null, 2));
 }
 
-export function addMcpServer(aivaDir: string, config: Omit<McpServerConfig, 'id'>): McpServerConfig[] {
-  const servers = loadMcpServers(aivaDir);
+export function addMcpServer(lumiDir: string, config: Omit<McpServerConfig, 'id'>): McpServerConfig[] {
+  const servers = loadMcpServers(lumiDir);
   const id = `mcp-${Date.now()}`;
   servers.push({ ...config, id });
-  saveMcpServers(aivaDir, servers);
+  saveMcpServers(lumiDir, servers);
   return servers;
 }
 
-export function updateMcpServer(aivaDir: string, id: string, updates: Partial<Omit<McpServerConfig, 'id'>>): McpServerConfig[] {
-  const servers = loadMcpServers(aivaDir);
+export function updateMcpServer(lumiDir: string, id: string, updates: Partial<Omit<McpServerConfig, 'id'>>): McpServerConfig[] {
+  const servers = loadMcpServers(lumiDir);
   const updated = servers.map(s => s.id === id ? { ...s, ...updates } : s);
-  saveMcpServers(aivaDir, updated);
+  saveMcpServers(lumiDir, updated);
   return updated;
 }
 
-export function removeMcpServer(aivaDir: string, id: string): McpServerConfig[] {
-  const servers = loadMcpServers(aivaDir);
+export function removeMcpServer(lumiDir: string, id: string): McpServerConfig[] {
+  const servers = loadMcpServers(lumiDir);
   const updated = servers.filter(s => s.id !== id);
-  saveMcpServers(aivaDir, updated);
+  saveMcpServers(lumiDir, updated);
   return updated;
 }

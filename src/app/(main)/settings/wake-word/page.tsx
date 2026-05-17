@@ -14,7 +14,7 @@ export default function WakeWordSettingsPage() {
   const [status, setStatus] = useState<WakeWordStatus>({
     enabled: false,
     active: false,
-    keyword: 'Aiva',
+    keyword: 'Lumi',
   });
   const [silenceTimeout, setSilenceTimeout] = useState(3);
   const [loading, setLoading] = useState(false);

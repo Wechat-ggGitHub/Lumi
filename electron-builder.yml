@@ -1,5 +1,5 @@
-appId: com.aiva.app
-productName: Aiva
+appId: com.lumi.app
+productName: Lumi
 directories:
   output: release
 mac:

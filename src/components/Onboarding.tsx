@@ -124,7 +124,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
     >
       {step === 'welcome' && (
         <div className="text-center py-16">
-          <h2 className="text-page-title text-text-primary mb-3">你好，我是 Aiva</h2>
+          <h2 className="text-page-title text-text-primary mb-3">你好，我是 Lumi</h2>
           <p className="text-body text-text-muted leading-relaxed mb-6">
             可以和你语音交流的个人助手
           </p>
@@ -138,7 +138,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         <div className="text-center">
           <h2 className="text-page-title text-text-primary mb-3">开启快捷键监听</h2>
           <p className="text-body text-text-muted leading-relaxed mb-6">
-            Aiva 需要监听键盘事件来响应语音唤起。请在系统设置中授予权限。
+            Lumi 需要监听键盘事件来响应语音唤起。请在系统设置中授予权限。
           </p>
           <Button
             variant="primary"
@@ -180,7 +180,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
         <div className="text-center">
           <h2 className="text-page-title text-text-primary mb-3">语音识别与合成配置</h2>
           <p className="text-body text-text-muted leading-relaxed mb-6">
-            Aiva 使用火山引擎进行语音识别和语音合成。请填写凭证。
+            Lumi 使用火山引擎进行语音识别和语音合成。请填写凭证。
           </p>
           <div className="space-y-3 mb-6">
             <SingleLineInput

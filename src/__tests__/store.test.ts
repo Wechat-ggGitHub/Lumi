@@ -1,13 +1,13 @@
-import { AivaStore } from '../lib/store';
+import { LumiStore } from '../lib/store';
 
 test('initial state is idle with no substate', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   expect(store.appState).toBe('idle');
   expect(store.sdkSubState).toBeNull();
 });
 
 test('transition: idle -> recording -> transcribing -> thinking', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.transition('recording');
   expect(store.appState).toBe('recording');
 
@@ -19,7 +19,7 @@ test('transition: idle -> recording -> transcribing -> thinking', () => {
 });
 
 test('transition: idle -> thinking -> executing -> completed -> idle', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.transition('thinking');
   store.transition('executing');
   store.transition('completed');
@@ -27,13 +27,13 @@ test('transition: idle -> thinking -> executing -> completed -> idle', () => {
 });
 
 test('invalid transitions are ignored', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.transition('executing'); // idle -> executing is invalid
   expect(store.appState).toBe('idle');
 });
 
 test('invalid transitions log a warning', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
   store.transition('executing'); // idle -> executing is invalid
@@ -45,7 +45,7 @@ test('invalid transitions log a warning', () => {
 });
 
 test('sdk substate updates independently', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
   store.onChange((state) => changes.push({ ...state }));
 
@@ -59,7 +59,7 @@ test('sdk substate updates independently', () => {
 });
 
 test('dotColor mapping', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
 
   expect(store.dotColor).toBe('gray');
 
@@ -75,7 +75,7 @@ test('dotColor mapping', () => {
 });
 
 test('rightOption behavior per state', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
 
   expect(store.getRightOptionAction()).toBe('start-recording');
 
@@ -92,7 +92,7 @@ test('rightOption behavior per state', () => {
 });
 
 test('transcribing can transition to idle (empty transcription scenario)', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.transition('recording');
   store.transition('transcribing');
   store.transition('idle');
@@ -103,12 +103,12 @@ test('transcribing can transition to idle (empty transcription scenario)', () =>
 });
 
 test('speaking flag defaults to false', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   expect(store.speaking).toBe(false);
 });
 
 test('setSpeaking updates the flag and notifies listeners', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   const changes: Array<{ appState: string; sdkSubState: string | null }> = [];
   store.onChange((state) => changes.push({ ...state }));
 
@@ -122,19 +122,19 @@ test('setSpeaking updates the flag and notifies listeners', () => {
 });
 
 test('getRightOptionAction returns stop-speaking when speaking is true', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.setSpeaking(true);
   expect(store.getRightOptionAction()).toBe('stop-speaking');
 });
 
 test('getRightOptionAction returns start-recording when idle and not speaking', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   expect(store.getRightOptionAction()).toBe('start-recording');
 });
 
 test('completed timer does not transition to idle while speaking', () => {
   jest.useFakeTimers();
-  const store = new AivaStore();
+  const store = new LumiStore();
   store.transition('thinking');
   store.transition('executing');
   store.transition('completed');
@@ -152,7 +152,7 @@ test('completed timer does not transition to idle while speaking', () => {
 });
 
 test('continuousChatWindow flag', () => {
-  const store = new AivaStore();
+  const store = new LumiStore();
   expect(store.continuousChatWindow).toBe(false);
 
   store.setContinuousChatWindow(true);

@@ -41,16 +41,16 @@ function padWithSilence(samples, silenceSeconds, sampleRate) {
 }
 
 const keywords = [
-  { label: 'CUSTOM (EY2 IY0 V AH0)', phonemes: 'EY2 IY0 V AH0 @Aiva', threshold: 0.15 },
-  { label: 'letterToPhone (AY1 V AH0)', phonemes: 'AY1 V AH0 @Aiva', threshold: 0.15 },
-  { label: 'Lower threshold', phonemes: 'EY2 IY0 V AH0 @Aiva', threshold: 0.05 },
-  { label: 'Very low threshold', phonemes: 'EY2 IY0 V AH0 @Aiva', threshold: 0.01 },
+  { label: 'CUSTOM (EY2 IY0 V AH0)', phonemes: 'EY2 IY0 V AH0 @Lumi', threshold: 0.15 },
+  { label: 'letterToPhone (AY1 V AH0)', phonemes: 'AY1 V AH0 @Lumi', threshold: 0.15 },
+  { label: 'Lower threshold', phonemes: 'EY2 IY0 V AH0 @Lumi', threshold: 0.05 },
+  { label: 'Very low threshold', phonemes: 'EY2 IY0 V AH0 @Lumi', threshold: 0.01 },
 ];
 
 const wavFiles = [
-  { label: 'aiva-default', path: '/tmp/aiva-default.wav' },
-  { label: 'aiva-spelled', path: '/tmp/aiva-spelled.wav' },
-  { label: 'aiva-ayeeva', path: '/tmp/aiva-ayeeva.wav' },
+  { label: 'lumi-default', path: '/tmp/lumi-default.wav' },
+  { label: 'lumi-spelled', path: '/tmp/lumi-spelled.wav' },
+  { label: 'lumi-ayeeva', path: '/tmp/lumi-ayeeva.wav' },
 ];
 
 for (const kw of keywords) {

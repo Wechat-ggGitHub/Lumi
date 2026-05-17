@@ -50,12 +50,12 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="服务连接" subtitle="Aiva 能访问的外部服务"
+      <PageHeader title="服务连接" subtitle="Lumi 能访问的外部服务"
         onBack={() => window.history.back()}
         actions={<Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>{showForm ? '取消' : '+ 新增连接'}</Button>} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
-          <p className="text-body-sm text-text-secondary">服务连接让 Aiva 通过标准协议访问外部工具和数据源，例如 GitHub、数据库、搜索引擎等。</p>
+          <p className="text-body-sm text-text-secondary">服务连接让 Lumi 通过标准协议访问外部工具和数据源，例如 GitHub、数据库、搜索引擎等。</p>
         </div>
         {showForm && (
           <div className="mb-section-gap bg-bg-surface-1 border border-line-default rounded-card p-card-p">
@@ -93,7 +93,7 @@ export default function ServicesPage() {
           </div>
         )}
         {servers.length === 0 && !showForm && (
-          <EmptyState title="还没有连接任何服务" description="服务连接让 Aiva 访问外部工具和数据源。添加第一个服务连接来开始使用。"
+          <EmptyState title="还没有连接任何服务" description="服务连接让 Lumi 访问外部工具和数据源。添加第一个服务连接来开始使用。"
             action={<Button variant="primary" size="sm" onClick={() => setShowForm(true)}>添加第一个连接</Button>} />
         )}
       </div>

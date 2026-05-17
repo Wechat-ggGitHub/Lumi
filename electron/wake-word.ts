@@ -45,7 +45,7 @@ export class WakeWordEngine {
     }
 
     // Write keywords to temp file
-    this.keywordsFilePath = path.join(os.tmpdir(), `aiva-keywords-${Date.now()}.txt`);
+    this.keywordsFilePath = path.join(os.tmpdir(), `lumi-keywords-${Date.now()}.txt`);
     this.keyword = keyword;
     this.writeKeywordsFile(keyword);
 

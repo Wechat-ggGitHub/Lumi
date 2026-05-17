@@ -22,7 +22,7 @@ export type RightOptionAction =
 
 export type StateChangeCallback = (state: { appState: AppState; sdkSubState: SdkSubState }) => void;
 
-export class AivaStore {
+export class LumiStore {
   private _appState: AppState = 'idle';
   private _sdkSubState: SdkSubState = null;
   private _previousSdkSubState: SdkSubState = null;

@@ -24,7 +24,7 @@ export function CompletionScreen({ onComplete }: CompletionScreenProps) {
     <div className="flex justify-center items-center min-h-screen bg-bg-app">
       <div className="text-center">
         <h2 className="text-3xl font-semibold text-text-primary mb-3">配置完成！</h2>
-        <p className="text-body text-text-muted">按右 Option 开始使用 Aiva</p>
+        <p className="text-body text-text-muted">按右 Option 开始使用 Lumi</p>
       </div>
     </div>
   );

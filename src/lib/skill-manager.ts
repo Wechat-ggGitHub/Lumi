@@ -121,7 +121,7 @@ function findSkillRootInZip(extractDir: string): string | null {
 export function importSkillFromZip(filePath: string, skillsDir: string): boolean {
   let extractDir = '';
   try {
-    extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiva-skill-'));
+    extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lumi-skill-'));
     const zip = new AdmZip(filePath);
     const zipEntries = zip.getEntries();
     for (const entry of zipEntries) {

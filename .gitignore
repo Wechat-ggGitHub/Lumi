@@ -11,6 +11,6 @@ resources/sherpa-onnx/
 
 # Claude Code 插件自动生成的过程文档
 docs/superpowers/
-aiva-claude-code-ui-revision-spec.md
+lumi-claude-code-ui-revision-spec.md
 CLAUDE.md
 .worktrees/

@@ -83,7 +83,7 @@ export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
       {isStreaming && (
         <div className="flex items-center gap-2 py-1">
           <div className="w-3 h-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-          <span className="text-label text-text-muted">Aiva 正在回复...</span>
+          <span className="text-label text-text-muted">Lumi 正在回复...</span>
         </div>
       )}
     </div>
