@@ -61,20 +61,6 @@ function saveEncryptedFile(filePath: string, plaintext: string): void {
   fs.writeFileSync(filePath, encryptValue(plaintext));
 }
 
-// One-time migration: rename legacy key file chain
-// anthropic-key.enc → api-key.enc → api-key-{currentProvider}.enc
-export function migrateKeyFiles(currentProviderKey: string): void {
-  // Step 1: legacy anthropic-key.enc → api-key.enc
-  if (fs.existsSync(LEGACY_KEY_FILE) && !fs.existsSync(OLD_KEY_FILE)) {
-    fs.renameSync(LEGACY_KEY_FILE, OLD_KEY_FILE);
-  }
-  // Step 2: api-key.enc → api-key-{currentProvider}.enc
-  const newPath = keyPath(currentProviderKey);
-  if (fs.existsSync(OLD_KEY_FILE) && !fs.existsSync(newPath)) {
-    fs.renameSync(OLD_KEY_FILE, newPath);
-  }
-}
-
 export function saveApiKey(key: string, providerKey: string): void {
   saveEncryptedFile(keyPath(providerKey), key);
 }
