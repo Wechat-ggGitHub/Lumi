@@ -1,7 +1,5 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import type { ExecutionRecord, ConversationMessage, ChatMessage, ContextSegment } from '@/types';
 
 const SCHEMA = `
@@ -83,8 +81,6 @@ export function initDb(db: Database.Database): void {
     db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
   }
 
-  // 注意：不再删除旧列，保留给 migratePersona 读取
-  // 旧列的删除将在未来的版本中通过单独的迁移完成
 }
 
 export function insertExecution(
@@ -248,36 +244,3 @@ export function getLatestAssistantMessage(db: Database.Database, segmentId: stri
   return row ?? null;
 }
 
-export function migrateMemoryItems(db: Database.Database, lumiDir: string): void {
-  const tables = db.pragma('table_info(memory_item)') as { name: string }[];
-  if (tables.length === 0) return;
-
-  const memories = db.prepare(`SELECT * FROM memory_item WHERE status = '生效中'`).all() as Array<{ type: string; content: string }>;
-  if (memories.length === 0) {
-    db.exec('DROP TABLE IF EXISTS memory_item');
-    return;
-  }
-
-  const memoriesDir = path.join(lumiDir, 'memories');
-  fs.mkdirSync(memoriesDir, { recursive: true });
-
-  const indexLines: string[] = [];
-  for (const m of memories) {
-    const slug = m.type.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '-').slice(0, 20);
-    const filename = `${slug}-${Date.now()}.md`;
-    fs.writeFileSync(
-      path.join(memoriesDir, filename),
-      `---\nname: ${m.type}\ndescription: ${m.content.slice(0, 60)}\ntype: user\n---\n${m.content}\n`
-    );
-    indexLines.push(`- [${m.type}](${filename}) — ${m.content.slice(0, 50)}`);
-  }
-
-  const indexPath = path.join(memoriesDir, 'MEMORY.md');
-  if (fs.existsSync(indexPath)) {
-    fs.appendFileSync(indexPath, '\n' + indexLines.join('\n'));
-  } else {
-    fs.writeFileSync(indexPath, indexLines.join('\n') + '\n');
-  }
-
-  db.exec('DROP TABLE IF EXISTS memory_item');
-}

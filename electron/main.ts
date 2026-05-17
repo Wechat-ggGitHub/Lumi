@@ -13,9 +13,9 @@ import { SubtitlePopup } from './subtitle-popup';
 import { WakeWordEngine } from './wake-word';
 import { AudioListener } from './audio-listener';
 import { VoiceEndpoint } from './voice-endpoint';
-import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage, migrateMemoryItems } from '../src/lib/db';
-import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, migratePersona, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
-import { saveApiKey, loadApiKey, hasApiKey, migrateKeyFiles, migrateKeychainEncryption, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials, saveAliyunVoiceCredentials, loadAliyunVoiceCredentials, hasAliyunVoiceCredentials } from '../src/lib/keychain';
+import { initDb, insertExecution, updateExecution, getRecentExecutions, getExecutionById, appendMessages, getActiveExecution, getActiveSegment, endSegment, createSegment, updateSegmentSessionId, insertChatMessage, appendChatMessageContent, getChatMessages, getLatestAssistantMessage } from '../src/lib/db';
+import { readProfile, writeProfile, readPersonaMarkdown, writePersonaMarkdown, saveAvatarFile, removeAvatarFile, getAvatarPath, buildPersonaContext, getPersonaDir, ensurePersonaDir } from '../src/lib/persona-file';
+import { saveApiKey, loadApiKey, hasApiKey, saveVolcengineCredentials, loadVolcengineCredentials, hasVolcengineCredentials, saveAliyunVoiceCredentials, loadAliyunVoiceCredentials, hasAliyunVoiceCredentials } from '../src/lib/keychain';
 import { getProvider, getDefaultProvider, resolveModel, getValidateEndpoint, getAllProviders, buildAuthHeaders } from '../src/lib/provider-config';
 import { executeClaude } from '../src/lib/claude-client';
 import { loadMcpServers, addMcpServer, updateMcpServer, removeMcpServer } from '../src/lib/config-files';
@@ -1613,20 +1613,6 @@ if (gotTheLock) {
   });
 
 app.whenReady().then(async () => {
-  // 一次性迁移：~/.aiva/ → ~/.lumi/
-  const legacyDir = path.join(app.getPath('home'), '.aiva');
-  if (fs.existsSync(legacyDir) && !fs.existsSync(lumiDir)) {
-    try {
-      fs.renameSync(legacyDir, lumiDir);
-      const oldDb = path.join(lumiDir, 'aiva.db');
-      const newDb = path.join(lumiDir, 'lumi.db');
-      if (fs.existsSync(oldDb)) fs.renameSync(oldDb, newDb);
-      console.log('数据目录迁移完成: ~/.aiva/ → ~/.lumi/');
-    } catch (err) {
-      console.error('数据目录迁移失败:', err);
-    }
-  }
-
   initLogger(path.join(lumiDir, 'logs'));
   fs.mkdirSync(lumiDir, { recursive: true });
   fs.mkdirSync(path.join(lumiDir, 'skills'), { recursive: true });
@@ -1635,64 +1621,6 @@ app.whenReady().then(async () => {
   log.info('日志文件:', log.logPath);
   log.info('版本:', app.getVersion(), '模式:', isDev ? '开发' : '生产');
   log.info('lumiDir:', lumiDir);
-
-  // 迁移旧数据到 ~/.lumi/
-  const oldDir = app.getPath('userData');
-  const markerFile = path.join(lumiDir, '.migrated');
-  if (fs.existsSync(oldDir) && !fs.existsSync(markerFile)) {
-    log.info('检测到旧数据目录，开始迁移:', oldDir, '→', lumiDir);
-    try {
-      // 迁移数据库
-      const oldDb = path.join(oldDir, 'aiva.db');
-      if (fs.existsSync(oldDb)) {
-        fs.copyFileSync(oldDb, dbPath);
-        for (const ext of ['-wal', '-shm']) {
-          const src = oldDb + ext;
-          if (fs.existsSync(src)) fs.copyFileSync(src, dbPath + ext);
-        }
-        log.info('迁移: 数据库');
-      }
-
-      // 迁移 settings（并添加 disabledSkills 字段）
-      const oldSettings = path.join(oldDir, 'settings.json');
-      if (fs.existsSync(oldSettings)) {
-        const raw = JSON.parse(fs.readFileSync(oldSettings, 'utf-8'));
-        if (!raw.disabledSkills) raw.disabledSkills = [];
-        fs.writeFileSync(settingsPath, JSON.stringify(raw, null, 2));
-        log.info('迁移: 设置');
-      }
-
-      // 迁移 MCP 配置
-      const oldMcp = path.join(oldDir, 'config', 'mcp-servers.json');
-      if (fs.existsSync(oldMcp)) {
-        fs.mkdirSync(path.join(lumiDir, 'mcp'), { recursive: true });
-        fs.copyFileSync(oldMcp, path.join(lumiDir, 'mcp', 'servers.json'));
-        log.info('迁移: MCP 配置');
-      }
-
-      // 迁移加密凭据
-      const oldSecure = path.join(oldDir, 'secure');
-      if (fs.existsSync(oldSecure)) {
-        fs.cpSync(oldSecure, path.join(lumiDir, 'secure'), { recursive: true });
-        log.info('迁移: 凭据');
-      }
-
-      // 迁移日志
-      const oldLogs = path.join(oldDir, 'logs');
-      if (fs.existsSync(oldLogs)) {
-        fs.cpSync(oldLogs, path.join(lumiDir, 'logs'), { recursive: true });
-        log.info('迁移: 日志');
-      }
-
-      // 不迁移 config/skills.json（旧的 voice-input/auto-memory 不再需要）
-      // 不迁移 config/claude.md（persona+memory 改为通过 SDK 注入）
-
-      fs.writeFileSync(markerFile, new Date().toISOString());
-      log.info('迁移完成');
-    } catch (err) {
-      log.error('迁移失败:', err);
-    }
-  }
 
   // 生产模式：启动 Next.js standalone 服务器
   if (!isDev) {
@@ -1719,29 +1647,9 @@ app.whenReady().then(async () => {
   initDb(db);
   log.info('数据库表初始化完成');
 
-  // 迁移 persona 旧字段到 persona.md（在 initDb 之后，确保表已创建）
-  log.info('迁移 Persona...');
-  try {
-    migratePersona(lumiDir, db);
-    log.info('migratePersona 执行完成');
-  } catch (err) {
-    log.error('migratePersona 异常:', err);
-  }
-  log.info('Persona 迁移完成');
-
-  log.info('迁移记忆项...');
-  migrateMemoryItems(db, lumiDir);
-  log.info('记忆项迁移完成');
-
   log.info('启动 Persona watcher...');
   startPersonaWatcher();
   log.info('Persona watcher 已启动');
-
-  // 迁移旧的 API key 文件
-  log.info('迁移 API key 文件...');
-  migrateKeyFiles(loadSettings().provider || 'glm-cn');
-  migrateKeychainEncryption();
-  log.info('API key 文件迁移完成');
 
   // 初始化状态管理
   log.info('初始化状态管理...');

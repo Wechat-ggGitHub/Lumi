@@ -1,15 +1,12 @@
 // 注意：此文件在 Electron main process 中使用
 // 加密使用 crypto AES-256-GCM（与运行模式无关的确定性密钥）
-// safeStorage 仅用于迁移旧格式数据
 
-import { safeStorage, app } from 'electron';
+import { app } from 'electron';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
 const KEYCHAIN_DIR = path.join(app.getPath('home'), '.lumi', 'secure');
-const LEGACY_KEY_FILE = path.join(KEYCHAIN_DIR, 'anthropic-key.enc');
-const OLD_KEY_FILE = path.join(KEYCHAIN_DIR, 'api-key.enc');
 const ENCRYPTION_VERSION = 2;
 
 function keyPath(providerKey: string): string {
@@ -19,7 +16,7 @@ function keyPath(providerKey: string): string {
 
 // 从用户主目录派生稳定密钥，dev 和 production 模式使用相同密钥
 function getEncryptionKey(): Buffer {
-  return crypto.scryptSync(path.join(app.getPath('home'), '.aiva'), 'lumi-secure-storage-v2', 32);
+  return crypto.scryptSync(path.join(app.getPath('home'), '.lumi'), 'lumi-secure-storage-v2', 32);
 }
 
 function encryptValue(plaintext: string): Buffer {
@@ -32,7 +29,7 @@ function encryptValue(plaintext: string): Buffer {
   return Buffer.concat([Buffer.from([ENCRYPTION_VERSION]), iv, tag, encrypted]);
 }
 
-function decryptWithNewFormat(data: Buffer): string | null {
+function decrypt(data: Buffer): string | null {
   try {
     if (data.length < 33 || data[0] !== ENCRYPTION_VERSION) return null;
     const key = getEncryptionKey();
@@ -47,15 +44,6 @@ function decryptWithNewFormat(data: Buffer): string | null {
   }
 }
 
-function decryptWithSafeStorage(data: Buffer): string | null {
-  try {
-    if (!safeStorage.isEncryptionAvailable()) return null;
-    return safeStorage.decryptString(data);
-  } catch {
-    return null;
-  }
-}
-
 function loadEncryptedFile(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
   let data: Buffer;
@@ -65,20 +53,7 @@ function loadEncryptedFile(filePath: string): string | null {
     return null;
   }
 
-  // 优先尝试新格式
-  const decrypted = decryptWithNewFormat(data);
-  if (decrypted !== null) return decrypted;
-
-  // 尝试用 safeStorage 解密旧格式并自动迁移
-  const legacy = decryptWithSafeStorage(data);
-  if (legacy !== null) {
-    try {
-      fs.writeFileSync(filePath, encryptValue(legacy));
-    } catch {}
-    return legacy;
-  }
-
-  return null;
+  return decrypt(data);
 }
 
 function saveEncryptedFile(filePath: string, plaintext: string): void {
@@ -166,43 +141,4 @@ export function loadAliyunVoiceCredentials(): AliyunVoiceCredentials | null {
 
 export function hasAliyunVoiceCredentials(): boolean {
   return fs.existsSync(ALIYUN_VOICE_CRED_FILE);
-}
-
-const OLD_SALT = 'aiva-secure-storage-v2';
-
-function getOldEncryptionKey(): Buffer {
-  return crypto.scryptSync(path.join(app.getPath('home'), '.aiva'), OLD_SALT, 32);
-}
-
-function decryptWithOldSalt(data: Buffer): string | null {
-  try {
-    if (data.length < 33 || data[0] !== ENCRYPTION_VERSION) return null;
-    const key = getOldEncryptionKey();
-    const iv = data.subarray(1, 17);
-    const tag = data.subarray(17, 33);
-    const encrypted = data.subarray(33);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
-    return decipher.update(encrypted) + decipher.final('utf8');
-  } catch {
-    return null;
-  }
-}
-
-export function migrateKeychainEncryption(): void {
-  if (!fs.existsSync(KEYCHAIN_DIR)) return;
-  const files = fs.readdirSync(KEYCHAIN_DIR).filter(f => f.endsWith('.enc'));
-  for (const file of files) {
-    const filePath = path.join(KEYCHAIN_DIR, file);
-    const data = fs.readFileSync(filePath);
-    // 先尝试用新盐解密（已经迁移过了）
-    const newResult = decryptWithNewFormat(data);
-    if (newResult !== null) continue;
-    // 尝试用旧盐解密
-    const oldResult = decryptWithOldSalt(data);
-    if (oldResult !== null) {
-      // 用新盐重新加密
-      saveEncryptedFile(filePath, oldResult);
-    }
-  }
 }
