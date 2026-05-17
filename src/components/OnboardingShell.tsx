@@ -12,8 +12,8 @@ interface OnboardingShellProps {
 
 export function OnboardingShell({ currentStep, totalSteps, showBack, onBack, children }: OnboardingShellProps) {
   return (
-    <div className="flex justify-center items-center min-h-screen bg-bg-app pt-8">
-      <div className="max-w-md px-10 py-10 w-full">
+    <div className="flex justify-center items-center min-h-screen bg-bg-app pt-8" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+      <div className="max-w-md px-10 py-10 w-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         {/* 顶部栏：返回按钮 + 进度点 */}
         {showBack && (
           <div className="flex items-center justify-between mb-8">

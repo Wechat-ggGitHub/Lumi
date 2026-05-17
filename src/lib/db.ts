@@ -83,14 +83,8 @@ export function initDb(db: Database.Database): void {
     db.prepare(`INSERT INTO persona (id) VALUES (1)`).run();
   }
 
-  // 迁移：删除 persona 表的旧列
-  const personaColumns = db.pragma('table_info(persona)') as { name: string }[];
-  const deprecatedColumns = ['bio', 'personality', 'tone', 'detail_level', 'clarify_pref', 'work_style', 'system_prompt'];
-  for (const col of deprecatedColumns) {
-    if (personaColumns.some(c => c.name === col)) {
-      db.exec(`ALTER TABLE persona DROP COLUMN ${col}`);
-    }
-  }
+  // 注意：不再删除旧列，保留给 migratePersona 读取
+  // 旧列的删除将在未来的版本中通过单独的迁移完成
 }
 
 export function insertExecution(

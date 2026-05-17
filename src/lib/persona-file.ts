@@ -147,13 +147,20 @@ export function buildPersonaContext(aivaDir: string): string {
 
 export function migratePersona(aivaDir: string, db: Database.Database): void {
   const personaDir = getPersonaDir(aivaDir);
-  if (fs.existsSync(personaDir)) return;
+  if (fs.existsSync(personaDir)) {
+    console.log('[migratePersona] persona 目录已存在，跳过');
+    return;
+  }
 
+  console.log('[migratePersona] 创建 persona 目录...');
   fs.mkdirSync(personaDir, { recursive: true });
+  console.log('[migratePersona] persona 目录已创建');
 
   // Migrate from old persona.md at ~/.aiva/persona.md
   const oldFile = path.join(aivaDir, 'persona.md');
+  console.log('[migratePersona] 检查旧文件:', oldFile);
   if (fs.existsSync(oldFile)) {
+    console.log('[migratePersona] 从旧文件迁移...');
     const raw = fs.readFileSync(oldFile, 'utf-8');
     // Extract name from "你的名称是X。" line
     const nameMatch = raw.match(/你的名称是(.+?)。/);
@@ -163,17 +170,23 @@ export function migratePersona(aivaDir: string, db: Database.Database): void {
     writeProfile(aivaDir, { name, avatar: null });
     writePersonaMarkdown(aivaDir, content || DEFAULT_MARKDOWN);
     fs.unlinkSync(oldFile);
+    console.log('[migratePersona] 从旧文件迁移完成');
     return;
   }
 
   // Migrate from DB
+  console.log('[migratePersona] 从数据库迁移...');
   const row = db.prepare(`SELECT * FROM persona WHERE id = 1`).get() as Record<string, unknown> | undefined;
+  console.log('[migratePersona] DB 查询完成, row:', !!row);
   if (!row) {
+    console.log('[migratePersona] DB 中无数据，写入默认值...');
     writeProfile(aivaDir, DEFAULT_PROFILE);
     writePersonaMarkdown(aivaDir, DEFAULT_MARKDOWN);
+    console.log('[migratePersona] 默认值写入完成');
     return;
   }
 
+  console.log('[migratePersona] 从 DB 数据构建 persona...');
   const name = String(row.name || 'Aiva');
   const parts: string[] = [];
   if (row.bio) parts.push(String(row.bio));
@@ -186,6 +199,8 @@ export function migratePersona(aivaDir: string, db: Database.Database): void {
   if (styleParts.length > 0) { parts.push(`## 性格与风格`); parts.push(...styleParts); }
   if (row.system_prompt) parts.push(String(row.system_prompt));
 
+  console.log('[migratePersona] 写入文件...');
   writeProfile(aivaDir, { name, avatar: null });
   writePersonaMarkdown(aivaDir, parts.join('\n') || DEFAULT_MARKDOWN);
+  console.log('[migratePersona] 迁移完成');
 }

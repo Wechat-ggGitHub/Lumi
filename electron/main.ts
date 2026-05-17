@@ -161,6 +161,7 @@ function startNextServer(): Promise<number> {
       const port = (srv.address() as any).port;
       srv.close(() => {
         serverPort = port;
+        log.info(`分配端口: ${port}, 启动服务器进程...`);
 
         const env = {
           ...process.env,
@@ -175,10 +176,13 @@ function startNextServer(): Promise<number> {
           stdio: ['pipe', 'pipe', 'pipe'],
         });
 
+        let resolved = false;
+
         nextServer.stdout?.on('data', (data: Buffer) => {
           const msg = data.toString();
           log.info('[next-server]', msg.trim());
-          if (msg.includes('Ready') || msg.includes('started')) {
+          if (!resolved && (msg.includes('Ready') || msg.includes('started'))) {
+            resolved = true;
             resolve(port);
           }
         });
@@ -198,38 +202,66 @@ function startNextServer(): Promise<number> {
         });
 
         // 超时保护：5秒后如果还没 Ready 就 resolve（可能已经 Ready 了只是输出格式不同）
-        setTimeout(() => resolve(port), 5000);
+        setTimeout(() => {
+          if (!resolved) {
+            log.warn('服务器未在 5 秒内报告 Ready，继续等待健康检查确认');
+            resolved = true;
+            resolve(port);
+          }
+        }, 5000);
       });
     });
   });
 }
 
 // 等待服务器响应
-function waitForServer(port: number, maxRetries = 20): Promise<void> {
+function waitForServer(port: number, maxRetries = 50): Promise<void> {
   return new Promise((resolve, reject) => {
     const http = require('http');
     let attempts = 0;
+    let resolved = false;
     const check = () => {
+      if (resolved) return;
       attempts++;
       const req = http.get(`http://127.0.0.1:${port}/api/health`, (res: any) => {
-        resolve();
-      });
-      req.on('error', () => {
-        if (attempts >= maxRetries) {
-          reject(new Error('Server health check timed out'));
+        if (resolved) return;
+        req.destroy(); // 立即销毁请求，避免超时回调触发
+        if (res.statusCode === 200) {
+          resolved = true;
+          log.info(`健康检查成功 (${attempts}/${maxRetries})`);
+          resolve();
         } else {
-          setTimeout(check, 500);
+          log.warn(`健康检查返回状态码: ${res.statusCode}`);
+          if (attempts >= maxRetries) {
+            resolved = true;
+            reject(new Error(`Server health check failed with status ${res.statusCode}`));
+          } else {
+            setTimeout(check, 300);
+          }
         }
       });
-      req.setTimeout(2000, () => {
-        req.destroy();
+      req.on('error', (err: Error) => {
+        if (resolved) return;
+        log.debug(`健康检查失败 (${attempts}/${maxRetries}): ${err.message}`);
         if (attempts >= maxRetries) {
+          resolved = true;
           reject(new Error('Server health check timed out'));
         } else {
-          setTimeout(check, 500);
+          setTimeout(check, 300);
+        }
+      });
+      req.setTimeout(3000, () => {
+        if (resolved) return;
+        req.destroy();
+        if (attempts >= maxRetries) {
+          resolved = true;
+          reject(new Error('Server health check timed out'));
+        } else {
+          setTimeout(check, 300);
         }
       });
     };
+    log.info('开始健康检查...');
     check();
   });
 }
@@ -248,8 +280,8 @@ function loadSettings(): AppSettings {
     defaultCwd: '~/Documents',
     vadTimeout: 2,
     theme: 'system',
-    provider: 'glm-cn',
-    modelPreset: 'opus',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     disabledSkills: [],
   };
 }
@@ -679,8 +711,8 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
     fs.mkdirSync(cwd, { recursive: true });
     log.info(`已创建工作目录: ${cwd}`);
   }
-  const providerKey = settings.provider || 'glm-cn';
-  const modelPreset = settings.modelPreset || 'opus';
+  const providerKey = settings.provider || 'anthropic';
+  const model = settings.model || 'claude-sonnet-4-6';
 
   // 生产模式下定位 claude 原生二进制（绕过 ASAR）
   let claudeExecutablePath: string | undefined;
@@ -703,7 +735,7 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
     }
   }
 
-  log.info('执行参数:', { cwd, provider: providerKey, model: modelPreset, claudeExecutablePath });
+  log.info('执行参数:', { cwd, provider: providerKey, model, claudeExecutablePath });
 
   const executionId = insertExecution(db, {
     cwd,
@@ -792,7 +824,7 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
       cwd,
       apiKey,
       providerKey,
-      modelPreset,
+      model,
       callbacks,
       currentAbortController.signal,
       claudeExecutablePath,
@@ -812,7 +844,7 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
         cwd,
         apiKey,
         providerKey,
-        modelPreset,
+        model,
         callbacks,
         currentAbortController.signal,
         claudeExecutablePath,
@@ -1117,7 +1149,7 @@ function registerIpcHandlers(): void {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: provider.models.haiku,
+          model: provider.defaultModel,
           max_tokens: 1,
           messages: [{ role: 'user', content: 'hi' }],
         }),
@@ -1166,19 +1198,20 @@ function registerIpcHandlers(): void {
     shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
   });
 
-  ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey }: { key: string; providerKey: string }) => {
+  ipcMain.handle('onboarding:validate-api-key', async (_, { key, providerKey, modelId }: { key: string; providerKey: string; modelId?: string }) => {
     const provider = getProvider(providerKey);
-    log.info(`API Key 验证开始, provider: ${provider.key}, endpoint: ${getValidateEndpoint(provider)}`);
+    const model = modelId && provider.models.some(m => m.id === modelId) ? modelId : provider.defaultModel;
+    log.info(`API Key 验证开始, provider: ${provider.key}, model: ${model}, endpoint: ${getValidateEndpoint(provider)}`);
     const headers = buildAuthHeaders(provider, key);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     let response: Response;
     try {
       response = await fetch(getValidateEndpoint(provider), {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: provider.models.haiku,
+          model,
           max_tokens: 1,
           messages: [{ role: 'user', content: 'hi' }],
         }),
@@ -1186,7 +1219,7 @@ function registerIpcHandlers(): void {
       });
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        log.error('API Key 验证超时 (15s)');
+        log.error('API Key 验证超时 (30s)');
         throw new Error('验证请求超时，请检查网络连接');
       }
       log.error('API Key 验证网络错误:', e.message);
@@ -1197,11 +1230,11 @@ function registerIpcHandlers(): void {
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       log.error(`API Key 验证失败, status: ${response.status}, body: ${body}`);
-      throw new Error('Invalid API key');
+      throw new Error('API Key 验证失败，请检查密钥是否正确');
     }
     saveApiKey(key, providerKey);
     const settings = loadSettings();
-    saveSettings({ ...settings, provider: provider.key });
+    saveSettings({ ...settings, provider: provider.key, model: model || provider.defaultModel });
     log.info('API Key 验证成功并已保存');
   });
 
@@ -1211,6 +1244,11 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.on('onboarding:complete', () => {
+    const settings = loadSettings();
+    if (settings.wakeWordEnabled === undefined) {
+      settings.wakeWordEnabled = true;
+      saveSettings(settings);
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.removeAllListeners('close');
       mainWindow.close();
@@ -1640,9 +1678,11 @@ app.whenReady().then(async () => {
   // 生产模式：启动 Next.js standalone 服务器
   if (!isDev) {
     try {
+      log.info('正在启动 Next.js standalone 服务器...');
       const port = await startNextServer();
+      log.info(`Next.js 服务器已启动在端口 ${port}，开始健康检查...`);
       await waitForServer(port);
-      log.info(`Next.js 服务器就绪, port=${port}`);
+      log.info(`Next.js 服务器完全就绪, port=${port}`);
     } catch (err) {
       log.error('Next.js 服务器启动失败:', err);
       dialog.showErrorBox('启动失败', `无法启动内置服务器: ${err}`);
@@ -1652,22 +1692,41 @@ app.whenReady().then(async () => {
   }
 
   // 初始化数据库
+  log.info('初始化数据库...');
   db = new Database(dbPath);
+  log.info('数据库已创建');
 
-  // 迁移 persona 旧字段到 persona.md（必须在 initDb 删列之前）
-  migratePersona(aivaDir, db);
-
+  log.info('初始化数据库表...');
   initDb(db);
+  log.info('数据库表初始化完成');
 
+  // 迁移 persona 旧字段到 persona.md（在 initDb 之后，确保表已创建）
+  log.info('迁移 Persona...');
+  try {
+    migratePersona(aivaDir, db);
+    log.info('migratePersona 执行完成');
+  } catch (err) {
+    log.error('migratePersona 异常:', err);
+  }
+  log.info('Persona 迁移完成');
+
+  log.info('迁移记忆项...');
   migrateMemoryItems(db, aivaDir);
+  log.info('记忆项迁移完成');
 
+  log.info('启动 Persona watcher...');
   startPersonaWatcher();
+  log.info('Persona watcher 已启动');
 
   // 迁移旧的 API key 文件
+  log.info('迁移 API key 文件...');
   migrateKeyFiles(loadSettings().provider || 'glm-cn');
+  log.info('API key 文件迁移完成');
 
   // 初始化状态管理
+  log.info('初始化状态管理...');
   store = new AivaStore();
+  log.info('状态管理已初始化');
   store.onChange(() => {
     updateTrayDot();
     broadcastChatState();
@@ -1683,7 +1742,10 @@ app.whenReady().then(async () => {
   });
 
   // 创建菜单栏 Tray
+  log.info('创建菜单栏 Tray...');
   tray = new AivaTray();
+  log.info('菜单栏 Tray 已创建');
+  log.info('设置 Tray 回调...');
   tray.onPopupRequested = () => {
     store.clearCompletedState();
     updateTrayDot();
@@ -1704,33 +1766,41 @@ app.whenReady().then(async () => {
   };
 
   // 创建窗口管理器
+  log.info('创建窗口管理器...');
   voiceBar = new VoiceBarWindow(serverPort);
   subtitlePopup = new SubtitlePopup(serverPort);
+  log.info('窗口管理器已创建');
 
   // 初始化快捷键
+  log.info('初始化快捷键...');
   shortcutManager = new ShortcutManager();
+  log.info('等待快捷键管理器 init...');
   const shortcutReady = await shortcutManager.init();
+  log.info('快捷键 init 完成');
   if (shortcutReady) {
     shortcutManager.start(() => handleRightOption());
   }
 
   // 初始化语音引擎（ASR + TTS）
+  log.info('初始化语音引擎...');
   initVoiceProviders();
   voiceBar.preCreate();
   log.info('快捷键:', shortcutReady ? '已就绪' : '未授权');
 
-  // Initialize wake word if enabled
-  if (isWakeWordEnabled()) {
-    try {
-      await startWakeWord();
-      log.info('唤醒词功能已启动');
-    } catch (err) {
-      log.error('启动唤醒词功能失败:', err);
-      const settings = loadSettings();
-      settings.wakeWordEnabled = false;
-      saveSettings(settings);
-      log.info('已自动关闭唤醒词设置，防止启动崩溃循环');
-    }
+  // 注册 IPC
+  registerIpcHandlers();
+  log.info('IPC handlers 已注册');
+
+  // 【关键】优先创建窗口，让用户看到界面
+  const settings = loadSettings();
+  const needsOnboarding = !hasApiKey(settings.provider || 'glm-cn');
+  log.info('启动检查完成, 需要引导:', needsOnboarding, ', provider:', settings.provider);
+  if (needsOnboarding) {
+    log.info('创建 Onboarding 窗口...');
+    createOnboardingWindow();
+  } else {
+    log.info('创建主窗口...');
+    createMainWindow();
   }
 
   // voice-bar 失焦自动关闭（连续对话模式下不响应 blur）
@@ -1748,16 +1818,19 @@ app.whenReady().then(async () => {
     }
   };
 
-  // 注册 IPC
-  registerIpcHandlers();
-
-  // 检查是否需要引导
-  const needsOnboarding = !hasApiKey(loadSettings().provider || 'glm-cn');
-  log.info('启动完成, 需要引导:', needsOnboarding);
-  if (needsOnboarding) {
-    createOnboardingWindow();
-  } else {
-    createMainWindow();
+  // Initialize wake word if enabled (窗口创建后再初始化，避免阻塞)
+  if (isWakeWordEnabled()) {
+    try {
+      log.info('开始初始化唤醒词功能...');
+      await startWakeWord();
+      log.info('唤醒词功能已启动');
+    } catch (err) {
+      log.error('启动唤醒词功能失败:', err);
+      const settings = loadSettings();
+      settings.wakeWordEnabled = false;
+      saveSettings(settings);
+      log.info('已自动关闭唤醒词设置，防止启动崩溃循环');
+    }
   }
 
   app.on('activate', () => {
@@ -1772,6 +1845,7 @@ app.whenReady().then(async () => {
 } // end if (gotTheLock)
 
 function createMainWindow(): void {
+  log.info('创建主窗口...');
   mainWindow = new BrowserWindow({
     width: 920,
     height: 640,
@@ -1786,16 +1860,24 @@ function createMainWindow(): void {
       contextIsolation: false,
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/chat`);
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  const url = `http://127.0.0.1:${serverPort}/chat`;
+  log.info('加载 URL:', url);
+  mainWindow.loadURL(url);
+  mainWindow.once('ready-to-show', () => {
+    log.info('主窗口 ready-to-show 事件触发');
+    mainWindow?.show();
+  });
   mainWindow.webContents.on('did-finish-load', () => {
+    log.info('主页面加载完成');
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       log.warn('ready-to-show did not fire, showing window after did-finish-load');
       mainWindow.show();
     }
   });
   mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
-    log.error('Main window page load failed:', code, desc);
+    log.error('主页面加载失败:', code, desc);
+    // 如果加载失败，显示错误对话框
+    dialog.showErrorBox('页面加载失败', `无法加载主页面: ${desc} (错误码: ${code})`);
   });
 
   mainWindow.on('close', (event) => {
@@ -1814,6 +1896,7 @@ nativeTheme.on('updated', () => {
 });
 
 function createOnboardingWindow(): void {
+  log.info('创建 Onboarding 窗口...');
   mainWindow = new BrowserWindow({
     width: 600,
     height: 500,
@@ -1827,16 +1910,24 @@ function createOnboardingWindow(): void {
       contextIsolation: false,
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${serverPort}/onboarding`);
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  const url = `http://127.0.0.1:${serverPort}/onboarding`;
+  log.info('加载 URL:', url);
+  mainWindow.loadURL(url);
+  mainWindow.once('ready-to-show', () => {
+    log.info('Onboarding 窗口 ready-to-show 事件触发');
+    mainWindow?.show();
+  });
   mainWindow.webContents.on('did-finish-load', () => {
+    log.info('Onboarding 页面加载完成');
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
       log.warn('ready-to-show did not fire, showing window after did-finish-load');
       mainWindow.show();
     }
   });
   mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
-    log.error('Onboarding page load failed:', code, desc);
+    log.error('Onboarding 页面加载失败:', code, desc);
+    // 如果加载失败，显示错误对话框
+    dialog.showErrorBox('页面加载失败', `无法加载 Onboarding 页面: ${desc} (错误码: ${code})`);
   });
 }
 

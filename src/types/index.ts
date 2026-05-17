@@ -59,7 +59,7 @@ export interface ToolCallRecord {
 
 // 设置
 export type ProviderKey = string;
-export type ModelPreset = 'opus' | 'sonnet' | 'haiku';
+export type ModelId = string;
 
 export interface AppSettings {
   shortcut: string;
@@ -71,7 +71,7 @@ export interface AppSettings {
   wakeWordSilenceTimeout?: number; // seconds, default 3
   theme: string;
   provider?: ProviderKey;
-  modelPreset?: ModelPreset;
+  model?: ModelId;
   disabledSkills?: string[];
   asrProvider?: string;
   ttsProvider?: string;

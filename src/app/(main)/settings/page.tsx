@@ -10,7 +10,7 @@ import { VOICE_PROVIDERS } from '@/lib/voice-provider-config';
 
 interface SettingsSummary {
   provider: string;
-  modelPreset: string;
+  model: string;
   hasApiKey: boolean;
   hasVolcCreds: boolean;
   hasAliyunCreds: boolean;
@@ -22,8 +22,8 @@ interface SettingsSummary {
 
 export default function SettingsPage() {
   const [summary, setSummary] = useState<SettingsSummary>({
-    provider: 'glm-cn',
-    modelPreset: 'opus',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     hasApiKey: false,
     hasVolcCreds: false,
     hasAliyunCreds: false,
@@ -38,8 +38,8 @@ export default function SettingsPage() {
     ipcRenderer?.invoke('settings:load').then((settings: any) => {
       setSummary(prev => ({
         ...prev,
-        provider: settings.provider || 'glm-cn',
-        modelPreset: settings.modelPreset || 'opus',
+        provider: settings.provider || 'anthropic',
+        model: settings.model || 'claude-sonnet-4-6',
         hasApiKey: settings.hasApiKey || false,
         defaultCwd: settings.defaultCwd || '~/Documents',
         vadTimeout: settings.vadTimeout || 2,
@@ -67,9 +67,10 @@ export default function SettingsPage() {
     getIpcRenderer()?.send('navigate:route', { path });
   };
 
-  const currentProvider = getProvider(summary.provider || 'glm-cn');
+  const currentProvider = getProvider(summary.provider || 'anthropic');
   const providerName = currentProvider.nameZh;
-  const modelLabel = currentProvider.modelDisplayNames[summary.modelPreset as keyof typeof currentProvider.modelDisplayNames] ?? summary.modelPreset;
+  const currentModel = currentProvider.models.find(m => m.id === summary.model);
+  const modelLabel = currentModel?.name || summary.model;
 
   const settingsGroups = [
     {

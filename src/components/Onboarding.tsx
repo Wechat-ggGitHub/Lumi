@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
 import { OnboardingShell } from '@/components/OnboardingShell';
 import { CompletionScreen } from '@/components/CompletionScreen';
-import { getAllProviders } from '@/lib/provider-config';
+import { getAllProviders, getProvider, type ProviderPreset } from '@/lib/provider-config';
 
 // TODO: 替换为实际教程链接
 const VOLCENGINE_TUTORIAL_URL = 'https://TODO_ADD_TUTORIAL_URL';
@@ -22,9 +22,9 @@ interface ProviderOption {
 const PRIMARY_PROVIDERS: ProviderOption[] = [
   { key: 'anthropic', name: 'Anthropic' },
   { key: 'openai', name: 'ChatGPT' },
-  { key: 'glm-cn', name: 'GLM (智谱)' },
-  { key: 'minimax-cn', name: 'MiniMax' },
-  { key: 'moonshot', name: 'Moonshot (Kimi)' },
+  { key: 'glm-cn', name: '智谱 Coding Plan' },
+  { key: 'minimax-cn', name: 'MiniMax Token Plan' },
+  { key: 'kimi', name: 'Moonshot' },
   { key: 'deepseek', name: 'DeepSeek' },
 ];
 
@@ -34,6 +34,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [volcAppId, setVolcAppId] = useState('');
   const [volcToken, setVolcToken] = useState('');
   const [selectedProvider, setSelectedProvider] = useState('anthropic');
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-6');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showMoreProviders, setShowMoreProviders] = useState(false);
@@ -100,10 +101,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       await ipcRenderer?.invoke('onboarding:validate-api-key', {
         key: apiKey.trim(),
         providerKey: selectedProvider,
+        modelId: selectedModel,
       });
       setStep('completion');
-    } catch {
-      setError('API Key 不正确');
+    } catch (e: any) {
+      setError(e.message || 'API Key 验证失败，请检查后重试');
     } finally {
       setSaving(false);
     }
@@ -134,14 +136,9 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
 
       {step === 'accessibility' && (
         <div className="text-center">
-          <div className="mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-b from-white/10 to-white/5 border border-white/15 text-2xl">
-              ⌥
-            </div>
-          </div>
           <h2 className="text-page-title text-text-primary mb-3">开启快捷键监听</h2>
           <p className="text-body text-text-muted leading-relaxed mb-6">
-            Aiva 需要用右 Option 键来唤起语音输入。
+            Aiva 需要监听键盘事件来响应语音唤起。请在系统设置中授予权限。
           </p>
           <Button
             variant="primary"
@@ -271,11 +268,11 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             {/* 更多服务商 */}
             <button
               onClick={() => setShowMoreProviders(!showMoreProviders)}
-              className="w-full flex items-center justify-between p-3 rounded-lg border border-dashed border-border-default bg-bg-surface-0/50"
+              className="w-full flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-1 transition-colors"
             >
-              <span className="text-body-sm text-text-muted">更多服务商</span>
-              <span className="text-body-sm text-text-muted/50">
-                +{getMoreProviders().length}
+              <span className="text-body-sm">{showMoreProviders ? '收起' : `更多服务商 (${getMoreProviders().length})`}</span>
+              <span className={`text-xs transition-transform duration-200 ${showMoreProviders ? 'rotate-180' : ''}`}>
+                ▾
               </span>
             </button>
 
@@ -302,7 +299,46 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             ))}
           </div>
 
+          {/* 模型选择 */}
+          {selectedProvider && (
+            <div className="text-left mb-6">
+              <p className="text-body-sm text-text-muted mb-2">选择模型</p>
+              <div className="space-y-2">
+                {getProvider(selectedProvider).models.map((model) => {
+                  const isSelected = selectedModel === model.id;
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => setSelectedModel(model.id)}
+                      className={`w-full p-3 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'border-brand/50 bg-brand/8'
+                          : 'border-border-default bg-bg-surface-1'
+                      }`}
+                    >
+                      <div className={`text-body font-medium ${
+                        isSelected ? 'text-brand' : 'text-text-primary'
+                      }`}>
+                        {model.name}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${
+                        isSelected ? 'text-brand/70' : 'text-text-muted'
+                      }`}>
+                        {model.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* API Key 输入 */}
+          <div className="text-left mb-2">
+            <p className="text-body-sm text-text-muted">
+              请输入 {getProvider(selectedProvider).nameZh} 的 API Key
+            </p>
+          </div>
           <SingleLineInput
             type="password"
             value={apiKey}

@@ -11,10 +11,10 @@ import { BottomActionBar } from '@/components/ui/BottomActionBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   getProvidersByCategory,
+  getProvider,
   type ProviderPreset,
+  type ModelInfo,
 } from '@/lib/provider-config';
-
-type ModelPreset = 'opus' | 'sonnet' | 'haiku';
 
 const CATEGORY_ORDER: { key: string; title: string }[] = [
   { key: 'official', title: '官方' },
@@ -22,30 +22,24 @@ const CATEGORY_ORDER: { key: string; title: string }[] = [
   { key: 'aggregator', title: '聚合平台' },
 ];
 
-const MODEL_OPTIONS = [
-  { value: 'opus', label: '高性能' },
-  { value: 'sonnet', label: '均衡' },
-  { value: 'haiku', label: '快速' },
-];
-
 export default function ProviderSettingsPage() {
-  const [provider, setProvider] = useState('glm-cn');
-  const [modelPreset, setModelPreset] = useState<ModelPreset>('opus');
+  const [provider, setProvider] = useState('anthropic');
+  const [model, setModel] = useState('claude-sonnet-4-6');
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [keyInput, setKeyInput] = useState('');
-  const [draftModel, setDraftModel] = useState<ModelPreset>('opus');
+  const [draftModel, setDraftModel] = useState('claude-sonnet-4-6');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const [initialProvider, setInitialProvider] = useState('glm-cn');
-  const [initialModel, setInitialModel] = useState<ModelPreset>('opus');
+  const [initialProvider, setInitialProvider] = useState('anthropic');
+  const [initialModel, setInitialModel] = useState('claude-sonnet-4-6');
 
   useEffect(() => {
     getIpcRenderer()?.invoke('settings:load').then((settings: any) => {
-      const p = settings.provider || 'glm-cn';
-      const m = settings.modelPreset || 'opus';
+      const p = settings.provider || 'anthropic';
+      const m = settings.model || 'claude-sonnet-4-6';
       setProvider(p);
-      setModelPreset(m);
+      setModel(m);
       setDraftModel(m);
       setInitialProvider(p);
       setInitialModel(m);
@@ -59,6 +53,9 @@ export default function ProviderSettingsPage() {
     draftModel !== initialModel ||
     keyInput.trim().length > 0;
 
+  const currentProviderConfig = getProvider(provider);
+  const modelOptions = currentProviderConfig?.models.map(m => ({ value: m.id, label: m.name })) || [];
+
   const handleSelectProvider = (key: string) => {
     if (key === expandedKey) return;
     setKeyInput('');
@@ -70,13 +67,13 @@ export default function ProviderSettingsPage() {
     setStatus('saving');
     try {
       const ipc = getIpcRenderer();
-      await ipc?.invoke('settings:save', { provider, modelPreset: draftModel });
+      await ipc?.invoke('settings:save', { provider, model: draftModel });
       if (keyInput.trim() && expandedKey) {
         await ipc?.invoke('settings:save-api-key', { key: keyInput.trim(), providerKey: expandedKey });
         setApiKeyStatus(prev => ({ ...prev, [expandedKey]: true }));
         setKeyInput('');
       }
-      setModelPreset(draftModel);
+      setModel(draftModel);
       setInitialProvider(provider);
       setInitialModel(draftModel);
       setStatus('saved');
@@ -138,10 +135,10 @@ export default function ProviderSettingsPage() {
                     isSelected={provider === p.key}
                     isExpanded={expandedKey === p.key}
                     keyConfigured={apiKeyStatus[p.key] ?? false}
-                    draftModel={expandedKey === p.key ? draftModel : (provider === p.key ? modelPreset : 'opus')}
+                    draftModel={expandedKey === p.key ? draftModel : (provider === p.key ? model : p.defaultModel)}
                     keyInput={expandedKey === p.key ? keyInput : ''}
                     onSelect={() => handleSelectProvider(p.key)}
-                    onModelChange={m => setDraftModel(m as ModelPreset)}
+                    onModelChange={m => setDraftModel(m)}
                     onKeyChange={v => setKeyInput(v)}
                     onOpenLink={openExternal}
                   />
@@ -188,10 +185,8 @@ function ProviderCard({
   onKeyChange: (v: string) => void;
   onOpenLink: (url: string) => void;
 }) {
-  const modelOptions = MODEL_OPTIONS.map(m => {
-    const displayName = provider.modelDisplayNames[m.value as keyof typeof provider.modelDisplayNames];
-    return { value: m.value, label: displayName || m.label };
-  });
+  const modelOptions = provider.models.map(m => ({ value: m.id, label: m.name }));
+  const selectedModel = provider.models.find(m => m.id === draftModel);
 
   return (
     <div
@@ -223,6 +218,9 @@ function ProviderCard({
               value={draftModel}
               onChange={onModelChange}
             />
+            {selectedModel?.description && (
+              <p className="text-body-sm text-text-muted mt-1">{selectedModel.description}</p>
+            )}
           </div>
           <div className="mt-2">
             <SingleLineInput

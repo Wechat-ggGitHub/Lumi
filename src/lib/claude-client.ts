@@ -24,14 +24,14 @@ export async function executeClaude(
   cwd: string,
   apiKey: string,
   providerKey: string,
-  modelPreset: string,
+  model: string,
   callbacks: ClaudeCallbacks,
   abortSignal?: AbortSignal,
   claudeExecutablePath?: string,
   resumeSessionId?: string,
   skillCatalog?: string,
 ): Promise<ClaudeExecutionResult> {
-  log.info('Claude SDK: 开始执行, cwd:', cwd, 'provider:', providerKey, 'model:', modelPreset);
+  log.info('Claude SDK: 开始执行, cwd:', cwd, 'provider:', providerKey, 'model:', model);
   if (claudeExecutablePath) {
     log.info('Claude SDK: 使用指定二进制路径:', claudeExecutablePath);
   }
@@ -53,7 +53,7 @@ export async function executeClaude(
     permissionMode: 'bypassPermissions' as const,
     allowDangerouslySkipPermissions: true,
     abortController,
-    env: buildSdkEnv(providerKey, apiKey, modelPreset),
+    env: buildSdkEnv(providerKey, apiKey, model),
     skills: [],
     systemPrompt: {
       type: 'preset',

@@ -51,7 +51,7 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isBusy ? '处理中...' : '输入消息，/clear 清空对话'}
+          placeholder={isBusy ? '处理中...' : '输入消息'}
           disabled={isBusy}
           rows={1}
           className="flex-1 bg-transparent text-body text-text-primary outline-none resize-none
