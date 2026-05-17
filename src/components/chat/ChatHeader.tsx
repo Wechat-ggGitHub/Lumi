@@ -42,7 +42,6 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
   const dotColor = getDotColorClass(appState);
   const isActive = appState !== 'idle';
   const displayName = personaName || 'Lumi';
-  const initial = displayName[0] || 'S';
 
   const menuItems = [
     { label: '分身设定', href: '/persona', icon: '👤' },
@@ -53,15 +52,9 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
 
   return (
     <div className="flex-shrink-0 px-4 pt-12 pb-3 border-b border-line-default flex items-center gap-2.5" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-      {personaAvatar ? (
-        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <img src={personaAvatar} alt={displayName} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="w-9 h-9 rounded-full bg-brand-soft flex items-center justify-center text-label text-brand font-semibold flex-shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          {initial}
-        </div>
-      )}
+      <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <img src={personaAvatar || ''} alt={displayName} className="w-full h-full object-cover" />
+      </div>
       <div className="flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="text-card-title text-text-primary">{displayName}</div>
         {isActive && (

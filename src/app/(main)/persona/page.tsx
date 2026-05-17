@@ -81,8 +81,6 @@ export default function PersonaPage() {
     setAvatar(null);
   }, [ipcRenderer]);
 
-  const initial = name?.[0] || 'S';
-
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader title="分身设定" subtitle="配置你的 AI 分身身份和行为风格"
@@ -91,34 +89,23 @@ export default function PersonaPage() {
         <div className="mb-section-gap">
           <SectionHeader title="基础身份" />
           <div className="flex items-center gap-4 mb-block-gap">
-            {avatar ? (
-              <div
-                className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer relative group"
-                onClick={handleAvatarClick}
-                onContextMenu={(e) => { e.preventDefault(); handleAvatarRemove(); }}
-              >
-                <img src={avatar} alt={name} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">更换</span>
-                </div>
+            <div
+              className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer relative group"
+              onClick={handleAvatarClick}
+              onContextMenu={(e) => { e.preventDefault(); handleAvatarRemove(); }}
+            >
+              <img src={avatar || ''} alt={name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">更换</span>
               </div>
-            ) : (
-              <div
-                className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center text-section-title text-brand font-semibold flex-shrink-0 cursor-pointer"
-                onClick={handleAvatarClick}
-              >
-                {initial}
-              </div>
-            )}
+            </div>
             <div className="flex-1">
               <SingleLineInput value={name} onChange={e => { setName(e.target.value); setDirty(true); }} placeholder="分身名称" />
             </div>
           </div>
-          {avatar && (
-            <button onClick={handleAvatarRemove} className="text-label-xs text-text-muted hover:text-danger transition-colors">
-              移除头像
-            </button>
-          )}
+          <button onClick={handleAvatarRemove} className="text-label-xs text-text-muted hover:text-danger transition-colors">
+            恢复默认头像
+          </button>
         </div>
         <div className="flex-1">
           <SectionHeader title="人格设定" />
