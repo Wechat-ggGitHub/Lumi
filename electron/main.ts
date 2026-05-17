@@ -1254,6 +1254,11 @@ function registerIpcHandlers(): void {
       mainWindow.close();
     }
     createMainWindow();
+    // Onboarding 完成后才设置 wakeWordEnabled，但启动初始化已经跳过了，
+    // 需要在这里补启动唤醒词引擎
+    if (isWakeWordEnabled()) {
+      startWakeWord().catch(err => log.error('Onboarding 后启动唤醒词失败:', err));
+    }
   });
 
   // persona

@@ -42,6 +42,29 @@ export function loadPhoneDict(phoneDictPath: string): Map<string, string> {
   return dict;
 }
 
+function isVowelChar(ch: string): boolean {
+  return ch.length === 1 && 'aeiou'.includes(ch);
+}
+
+function countVowelGroups(word: string): number {
+  let count = 0;
+  let inVowel = false;
+  for (const ch of word) {
+    if (isVowelChar(ch)) {
+      if (!inVowel) { count++; inVowel = true; }
+    } else {
+      inVowel = false;
+    }
+  }
+  return count;
+}
+
+// Custom phoneme entries for names not in en.phone that don't follow regular English rules.
+// Only add entries where letterToPhone produces wrong phonemes that the model can't match.
+const CUSTOM_PHONE_ENTRIES: Record<string, string> = {
+  'LUMI': 'L UW1 M IY0',
+};
+
 const CONSONANT: Record<string, string> = {
   b: 'B', d: 'D', f: 'F', g: 'G', h: 'HH', j: 'JH', k: 'K',
   l: 'L', m: 'M', n: 'N', p: 'P', r: 'R', s: 'S', t: 'T',
@@ -65,6 +88,7 @@ const VOWEL_PAIR: Record<string, string> = {
 export function letterToPhone(text: string): string[] {
   const w = text.toLowerCase();
   const phones: string[] = [];
+  const multiSyllable = countVowelGroups(w) > 1;
   let i = 0;
 
   while (i < w.length) {
@@ -105,16 +129,38 @@ export function letterToPhone(text: string): string[] {
     }
 
     const atEnd = i >= w.length - 1;
+    // Open syllable: vowel followed by consonant+another vowel, or at word end
+    const nextNext = i + 2 < w.length ? w[i + 2] : '';
+    const openSyllable = atEnd || (isVowelChar(next)) ||
+      (next !== '' && !isVowelChar(next) && isVowelChar(nextNext));
+
     if (ch === 'a') {
       phones.push(atEnd ? 'AH0' : 'AE1');
     } else if (ch === 'e') {
       if (!atEnd) phones.push('EH1');
     } else if (ch === 'i') {
-      phones.push(atEnd ? 'AY1' : 'IH1');
+      // In multi-syllable names (lumi, miki), final 'i' = "ee" not "eye"
+      if (atEnd && multiSyllable) {
+        phones.push('IY0');
+      } else if (atEnd) {
+        phones.push('AY1');
+      } else {
+        phones.push('IH1');
+      }
     } else if (ch === 'o') {
-      phones.push(atEnd ? 'OW0' : 'AA1');
+      if (atEnd) {
+        phones.push('OW0');
+      } else if (openSyllable) {
+        phones.push('OW1'); // "no" in nova
+      } else {
+        phones.push('AA1'); // "ho" in hot
+      }
     } else if (ch === 'u') {
-      phones.push('AH1');
+      if (openSyllable) {
+        phones.push('UW1'); // "lu" in lumi
+      } else {
+        phones.push('AH1'); // "cu" in cup
+      }
     }
     i++;
   }
@@ -128,7 +174,7 @@ export function englishToKeyword(text: string, phoneDict: Map<string, string>): 
 
   for (const word of words) {
     const upper = word.toUpperCase();
-    const phones = phoneDict.get(upper);
+    const phones = phoneDict.get(upper) || CUSTOM_PHONE_ENTRIES[upper];
     if (phones) {
       phoneParts.push(phones);
     } else {

@@ -60,22 +60,55 @@ describe('loadPhoneDict', () => {
 });
 
 describe('letterToPhone', () => {
-  it('converts each letter to ARPAbet phones', () => {
-    expect(letterToPhone('A')).toEqual(['EY1']);
-    expect(letterToPhone('B')).toEqual(['B IY1']);
-    expect(letterToPhone('X')).toEqual(['EH1 K S']);
+  it('converts single vowels', () => {
+    expect(letterToPhone('a')).toEqual(['AH0']);
+    expect(letterToPhone('o')).toEqual(['OW0']);
   });
 
-  it('handles multi-letter input', () => {
-    expect(letterToPhone('HI')).toEqual(['EY1 CH', 'AY1']);
+  it('converts consonants', () => {
+    expect(letterToPhone('b')).toEqual(['B']);
+    expect(letterToPhone('k')).toEqual(['K']);
+  });
+
+  it('handles vowel pairs', () => {
+    expect(letterToPhone('ai')).toEqual(['AY1']);
+    expect(letterToPhone('oo')).toEqual(['UW1']);
+  });
+
+  it('handles open syllable u (lumi) vs closed (cup)', () => {
+    // "lumi": u before consonant+vowel = open syllable → UW1
+    const lumi = letterToPhone('lumi');
+    expect(lumi).toEqual(['L', 'UW1', 'M', 'IY0']);
+
+    // "cup": u before consonant at end = closed syllable → AH1
+    const cup = letterToPhone('cup');
+    expect(cup).toEqual(['K', 'AH1', 'P']);
+  });
+
+  it('handles open syllable o (nova) vs closed (hot)', () => {
+    // "nova": o before consonant+vowel = open → OW1
+    const nova = letterToPhone('nova');
+    expect(nova).toEqual(['N', 'OW1', 'V', 'AH0']);
+
+    // "hot": o before consonant at end = closed → AA1
+    const hot = letterToPhone('hot');
+    expect(hot).toEqual(['HH', 'AA1', 'T']);
+  });
+
+  it('final i in multi-syllable = IY0, single = AY1', () => {
+    // "lumi" (2 syllables): final i → IY0
+    expect(letterToPhone('lumi')[3]).toBe('IY0');
+
+    // "hi" (1 syllable): final i → AY1
+    expect(letterToPhone('hi')).toEqual(['HH', 'AY1']);
   });
 
   it('lowercases input', () => {
-    expect(letterToPhone('a')).toEqual(['EY1']);
+    expect(letterToPhone('a')).toEqual(letterToPhone('A'));
   });
 
   it('ignores non-letter characters', () => {
-    expect(letterToPhone('A-B')).toEqual(['EY1', 'B IY1']);
+    expect(letterToPhone('a-b')).toEqual(['AH0', 'B']);
   });
 });
 
@@ -86,14 +119,29 @@ describe('englishToKeyword', () => {
     expect(englishToKeyword('AIVA', dict)).toBe('EY2 IY0 V AH0 @AIVA');
   });
 
-  it('converts multi-word name with underscore', () => {
-    expect(englishToKeyword('HEY JARVIS', dict)).toBe('HH EY1_JH AA1 R V AH0 S @HEY JARVIS');
+  it('uses CUSTOM_PHONE_ENTRIES when not in dictionary', () => {
+    // LUMI is not in test fixture but is in CUSTOM_PHONE_ENTRIES
+    const emptyDict = new Map<string, string>();
+    expect(englishToKeyword('lumi', emptyDict)).toBe('L UW1 M IY0 @lumi');
   });
 
-  it('falls back to letter-by-letter for unknown words', () => {
-    const result = englishToKeyword('XYLO', dict);
-    expect(result).toContain('@XYLO');
-    expect(result).toMatch(/^EH1 K S/);
+  it('AIVA falls back to letterToPhone (not in CUSTOM_PHONE_ENTRIES)', () => {
+    // AIVA was removed from CUSTOM_PHONE_ENTRIES because letterToPhone produces
+    // the correct phonemes (AY1 V AH0) that the sherpa-onnx model can detect
+    const emptyDict = new Map<string, string>();
+    expect(englishToKeyword('aiva', emptyDict)).toBe('AY1 V AH0 @aiva');
+  });
+
+  it('converts multi-word name with underscore', () => {
+    expect(englishToKeyword('HEY JARVIS', dict)).toBe('HH EY1 JH AA1 R V AH0 S @HEY_JARVIS');
+  });
+
+  it('falls back to letterToPhone for unknown words', () => {
+    const emptyDict = new Map<string, string>();
+    const result = englishToKeyword('koda', emptyDict);
+    expect(result).toContain('@koda');
+    // "ko" = open syllable (k before o, o before d+a) → OW1
+    expect(result).toContain('OW1');
   });
 
   it('handles lowercase input', () => {
@@ -113,8 +161,8 @@ describe('nameToKeyword', () => {
   });
 
   it('handles English without dictionary (letter fallback)', () => {
-    const result = nameToKeyword('XYLO');
-    expect(result).toContain('@XYLO');
+    const result = nameToKeyword('koda');
+    expect(result).toContain('@koda');
   });
 
   it('handles Chinese without dictionary', () => {
