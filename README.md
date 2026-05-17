@@ -1,8 +1,10 @@
+**English** | [中文](./README_CN.md)
+
 <h1 align="center">Lumi</h1>
 
-<p align="center"><strong>住在你菜单栏的 AI Agent。</strong></p>
+<p align="center"><strong>The AI Agent that lives in your menu bar.</strong></p>
 
-<p align="center">语音优先，随时唤起，懂你记你。</p>
+<p align="center">Voice-first. Always ready. Knows you, remembers you.</p>
 
 <p align="center">
 <img src="https://img.shields.io/badge/macOS-13%2B-informational" />
@@ -15,66 +17,66 @@
 <img src="assets/banner.png" alt="Lumi Banner" width="800" />
 </p>
 
-Lumi 是一个 macOS 原生桌面语音 AI 助手。住在菜单栏里，你说它听，它干活——查资料、写代码、操作系统，还能记住你们聊过的每一件事。
+Lumi is a native macOS voice AI assistant. It lives in your menu bar — you speak, it listens, it gets things done. Search the web, write code, control your system, and it remembers everything you've talked about.
 
-我们相信，人和 AI 最自然的交互方式是语音——你说，它听。而 AI 回应人最好的方式，是视觉——做出来给你看。[Karpathy](https://x.com/karpathy/status/2053872850101285137) 说，语音是人类最自然的输入，视觉是机器最自然的输出，大脑有近三分之一的算力在处理视觉信息。Lumi 目前还是一个早期 Demo，但我们想沿着这个方向持续打磨，探索人和真正智能的 AI 之间，交互到底应该是什么样。
+We believe the most natural way to interact with AI is voice — you speak, it listens. And the best way for AI to respond is through vision — it shows you. [Karpathy](https://x.com/karpathy/status/2053872850101285137) said that voice is the natural input for humans, and vision is the natural output for machines — nearly a third of the brain's processing power is dedicated to visual information. Lumi is still an early demo, but we want to keep refining in this direction, exploring what the interaction between humans and truly intelligent AI should look like.
 
-## 功能特性
+## Features
 
-### 🎙️ 语音优先交互
+### 🎙️ Voice-First Interaction
 
-说出来就是指令。Lumi 实时监听，通过 ASR 转写你说的话，AI 处理完再通过 TTS 语音回复。你甚至不需要看屏幕——透明字幕弹窗会实时显示回复内容。支持 Chat 模式，说完一句自动接着听下一句。
+Just speak. Lumi listens in real time, transcribes your voice via ASR, processes it with AI, and responds via TTS. You don't even need to look at the screen — a transparent subtitle popup shows the response in real time. Supports Chat mode: after you finish speaking, it automatically listens for the next sentence.
 
-### ⚡ 随时唤起
+### ⚡ Always Ready
 
-两种方式，随你选择：
+Two ways to invoke, your choice:
 
-- **快捷键**：默认 Right Option 一键唤起录音，松开即发送
-- **唤醒词**：呼唤 AI 的名字，它就会开始听你说话
+- **Hotkey**: Press Right Option to start recording, release to send
+- **Wake Word**: Call the AI by name and it starts listening
 
-### 🎭 个性化性格与分身
+### 🎭 Personalities & Personas
 
-通过 Persona 系统定制 AI 的性格、说话风格和行为方式。每个人设是一个 Markdown 文件，支持自定义头像。你可以创建多个分身——工作助手、创意伙伴、学习教练，随时切换。
+Customize the AI's personality, speaking style, and behavior through the Persona system. Each persona is a Markdown file with a custom avatar. Create multiple personas — work assistant, creative partner, study coach — and switch between them anytime.
 
-### 🛠️ 技能系统
+### 🛠️ Skill System
 
-给 AI 装上技能。通过 Markdown 或 Zip 文件导入技能包，让 AI 学会使用特定工具、遵循特定流程。内置技能目录管理，启用/禁用一键切换。
+Equip the AI with skills. Import skill packs via Markdown or Zip files to teach it specific tools and workflows. Built-in skill directory management with one-click enable/disable.
 
-### 🧠 记忆系统
+### 🧠 Memory System
 
-AI 会自动记住你每天聊了什么。每日记忆自动写入，核心记忆定期评估，越用越懂你。你可以随时回顾历史记忆，了解 AI 记住了哪些关于你的事。
+The AI automatically remembers what you talked about each day. Daily memories are written automatically, core memories are periodically evaluated — the more you use it, the better it knows you. Review past memories anytime to see what the AI has learned about you.
 
-### 🔌 多 Provider 支持
+### 🔌 Multi-Provider Support
 
-支持 13 个 AI 后端，按需切换：
+Supports 13 AI backends, switch on the fly:
 
-- **海外**：Anthropic (Claude)、OpenAI (ChatGPT)
-- **国内服务商**：GLM（国内/国际）、DeepSeek、Moonshot (Kimi)、MiniMax（国内/国际）、通义千问（百炼）、火山引擎（豆包）、小米 MiMo
-- **聚合平台**：OpenRouter、SiliconFlow
+- **International**: Anthropic (Claude), OpenAI (ChatGPT)
+- **Chinese Providers**: GLM (CN/Global), DeepSeek, Moonshot (Kimi), MiniMax (CN/Global), Qwen (Bailian), Volcengine (Doubao), Xiaomi MiMo
+- **Aggregators**: OpenRouter, SiliconFlow
 
-语音服务同样支持多供应商：火山引擎（豆包语音）和阿里云百炼（Paraformer ASR + CosyVoice TTS），ASR 和 TTS 可独立选择不同供应商。
+Voice services also support multiple providers: Volcengine (Doubao Voice) and Alibaba Cloud Bailian (Paraformer ASR + CosyVoice TTS). ASR and TTS providers can be selected independently.
 
-### 📍 菜单栏常驻
+### 📍 Menu Bar Resident
 
-不占 Dock 位，不抢桌面空间。Lumi 安静地住在菜单栏里，托盘图标的状态指示点实时反映当前状态：灰色空闲、蓝色思考、绿色完成、红色出错。
+No Dock icon, no desktop clutter. Lumi quietly lives in the menu bar. The tray indicator dot reflects the current state in real time: gray for idle, blue for thinking, green for done, red for error.
 
 ## Demo
 
-> 视频中部分片段经过剪辑快放处理，实际 Agent 执行需要一定时间。
+> Some clips in the videos are sped up for demonstration. Actual Agent execution takes time.
 
 https://github.com/user-attachments/assets/fc44c44b-82ee-4923-b701-030fe7c096b4
 
 https://github.com/user-attachments/assets/de213cfb-6a36-4bae-a5bc-e74c91fc3015
 
-## 快速开始
+## Getting Started
 
-### 环境要求
+### Prerequisites
 
 - macOS 13.0+
 - Node.js 18+
-- Xcode Command Line Tools（用于编译原生模块）
+- Xcode Command Line Tools (for compiling native modules)
 
-### 安装与运行
+### Install & Run
 
 ```bash
 git clone https://github.com/Wechat-ggGitHub/Lumi.git
@@ -83,28 +85,28 @@ npm install
 npm run electron:dev
 ```
 
-### 构建
+### Build
 
 ```bash
 npm run electron:build
 ```
 
-构建产物在 `release/` 目录下。
+The build output is in the `release/` directory.
 
-### 可用脚本
+### Available Scripts
 
-| 脚本 | 说明 |
+| Script | Description |
 |---|---|
-| `npm run electron:dev` | 开发模式，Next.js + Electron 同时启动 |
-| `npm run electron:build` | 完整构建并打包 DMG |
-| `npm run build:electron` | 仅编译 Electron 主进程 |
-| `npm run build` | 仅构建 Next.js |
+| `npm run electron:dev` | Dev mode, starts Next.js + Electron concurrently |
+| `npm run electron:build` | Full build and package DMG |
+| `npm run build:electron` | Compile Electron main process only |
+| `npm run build` | Build Next.js only |
 
-## 技术架构
+## Architecture
 
-### 整体架构
+### Overview
 
-Electron 主进程在随机端口 spawn Next.js 15 standalone 服务器，通过 IPC（而非 REST API）连接前后端。生产环境下，Next.js 作为子进程运行在 Electron 内部。
+The Electron main process spawns a Next.js 15 standalone server on a random port, connecting front-end and back-end via IPC (not REST API). In production, Next.js runs as a child process inside Electron.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -122,72 +124,72 @@ Electron 主进程在随机端口 spawn Next.js 15 standalone 服务器，通过
 └─────────────────────────────────────────┘
 ```
 
-### 语音管线
+### Voice Pipeline
 
 ```
 AudioListener → WakeWordEngine (sherpa-onnx)
-             → VoiceEndpoint (VAD 静音检测)
-             → AudioRecorder (录音)
-             → ASR Provider (火山引擎 / 阿里云百炼)
-             → Claude Agent SDK (AI 处理)
-             → TTS Provider (火山引擎 / 阿里云百炼)
-             → SubtitlePopup (字幕弹窗)
+             → VoiceEndpoint (VAD silence detection)
+             → AudioRecorder (recording)
+             → ASR Provider (Volcengine / Alibaba Bailian)
+             → Claude Agent SDK (AI processing)
+             → TTS Provider (Volcengine / Alibaba Bailian)
+             → SubtitlePopup (subtitle overlay)
 ```
 
-### 状态机
+### State Machine
 
 ```
 idle → recording → transcribing → thinking → executing → completed → idle
 ```
 
-### 目录结构
+### Directory Structure
 
 ```
 Lumi/
-├── electron/                  # Electron 主进程
-│   ├── main.ts                # 核心编排（窗口、状态机、语音管线、IPC）
-│   ├── tray.ts                # 菜单栏托盘 + 状态指示点
-│   ├── shortcuts.ts           # 全局快捷键
-│   ├── recorder.ts            # 音频录制 + ASR
-│   ├── tts.ts                 # TTS + 句子解析
-│   ├── voice-providers/       # 语音供应商抽象层
-│   ├── voice-bar.ts           # 浮动语音录制指示条
-│   ├── subtitle-popup.ts      # 透明字幕弹窗
-│   ├── wake-word.ts           # sherpa-onnx 唤醒词引擎
-│   ├── audio-listener.ts      # 麦克风音频流监听
-│   └── native/                # Swift 原生模块（键盘事件拦截）
+├── electron/                  # Electron main process
+│   ├── main.ts                # Core orchestration (window, state machine, voice pipeline, IPC)
+│   ├── tray.ts                # Menu bar tray + status indicator
+│   ├── shortcuts.ts           # Global hotkeys
+│   ├── recorder.ts            # Audio recording + ASR
+│   ├── tts.ts                 # TTS + sentence parsing
+│   ├── voice-providers/       # Voice provider abstraction layer
+│   ├── voice-bar.ts           # Floating voice recording indicator
+│   ├── subtitle-popup.ts      # Transparent subtitle popup
+│   ├── wake-word.ts           # sherpa-onnx wake word engine
+│   ├── audio-listener.ts      # Microphone audio stream listener
+│   └── native/                # Swift native module (keyboard event interception)
 ├── src/
 │   ├── app/
-│   │   ├── (main)/            # 主窗口页面（chat/memory/persona/skills/settings）
-│   │   └── (transparent)/     # 透明弹窗（字幕、语音条）
-│   ├── components/            # UI 组件
-│   ├── lib/                   # 共享库（状态管理、AI 客户端、记忆、技能）
-│   └── types/                 # TypeScript 类型定义
-├── resources/                 # 应用资源（图标、sherpa-onnx 模型）
-└── scripts/                   # 构建脚本
+│   │   ├── (main)/            # Main window pages (chat/memory/persona/skills/settings)
+│   │   └── (transparent)/     # Transparent popups (subtitle, voice bar)
+│   ├── components/            # UI components
+│   ├── lib/                   # Shared libraries (state management, AI client, memory, skills)
+│   └── types/                 # TypeScript type definitions
+├── resources/                 # App resources (icons, sherpa-onnx models)
+└── scripts/                   # Build scripts
 ```
 
-### 技术栈
+### Tech Stack
 
-| 层 | 技术 |
+| Layer | Technology |
 |---|---|
-| 桌面框架 | Electron 35 |
-| 前端 | Next.js 15、React 19、TypeScript |
-| 样式 | Tailwind CSS |
-| 语音引擎 | sherpa-onnx（唤醒词 + VAD） |
-| 语音识别 | 火山引擎 ASR、阿里云百炼 Paraformer |
-| 语音合成 | 火山引擎 TTS、阿里云百炼 CosyVoice |
-| AI 执行 | Claude Agent SDK |
-| 数据库 | better-sqlite3 |
-| 原生模块 | Swift（键盘事件拦截）、uiohook-napi |
-| 打包 | electron-builder（DMG） |
+| Desktop Framework | Electron 35 |
+| Frontend | Next.js 15, React 19, TypeScript |
+| Styling | Tailwind CSS |
+| Voice Engine | sherpa-onnx (wake word + VAD) |
+| Speech Recognition | Volcengine ASR, Alibaba Bailian Paraformer |
+| Speech Synthesis | Volcengine TTS, Alibaba Bailian CosyVoice |
+| AI Execution | Claude Agent SDK |
+| Database | better-sqlite3 |
+| Native Modules | Swift (keyboard event interception), uiohook-napi |
+| Packaging | electron-builder (DMG) |
 
-## 路线图
+## Roadmap
 
-- [ ] **意图分流** — 自动判断任务复杂度，简单问答走快速响应，复杂任务才启动 Agent 全套工具链，兼顾速度与能力
-- [ ] **语音先应答** — AI 开始执行任务前先用语音回应，让交互更自然，不再沉默处理完才说话
-- [ ] **屏幕感知** — 监听鼠标所在区域，AI 能理解当前屏幕上下文，基于你正在看的内容进行对话和操作
-- [ ] **音色选择与克隆** — 支持切换不同 TTS 音色，以及上传少量样本克隆自定义声音
+- [ ] **Intent Routing** — Automatically assess task complexity: simple Q&A gets fast responses, complex tasks engage the full Agent toolchain
+- [ ] **Voice-First Response** — AI responds with voice before executing tasks, making interaction feel more natural instead of staying silent until done
+- [ ] **Screen Awareness** — Monitor the area around the cursor so AI understands on-screen context for contextual conversation and actions
+- [ ] **Voice Selection & Cloning** — Support switching TTS voices and cloning custom voices from a few audio samples
 
 ## License
 
