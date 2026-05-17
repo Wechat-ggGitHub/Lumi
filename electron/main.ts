@@ -1273,6 +1273,13 @@ function registerIpcHandlers(): void {
       const mime = ext === 'jpg' ? 'jpeg' : ext;
       avatarDataUrl = `data:image/${mime};base64,${data.toString('base64')}`;
     }
+    if (!avatarDataUrl) {
+      const defaultIconPath = path.join(process.resourcesPath ?? path.join(__dirname, '..', 'resources'), 'icon.png');
+      if (fs.existsSync(defaultIconPath)) {
+        const data = fs.readFileSync(defaultIconPath);
+        avatarDataUrl = `data:image/png;base64,${data.toString('base64')}`;
+      }
+    }
     return {
       name: profile.name,
       avatar: avatarDataUrl,
