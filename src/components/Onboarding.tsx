@@ -8,8 +8,6 @@ import { OnboardingShell } from '@/components/OnboardingShell';
 import { CompletionScreen } from '@/components/CompletionScreen';
 import { getAllProviders, getProvider, type ProviderPreset } from '@/lib/provider-config';
 
-// TODO: 替换为实际教程链接
-const VOLCENGINE_TUTORIAL_URL = 'https://TODO_ADD_TUTORIAL_URL';
 
 type Step = 'welcome' | 'accessibility' | 'volcengine' | 'provider-key' | 'completion';
 
@@ -224,9 +222,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           </Button>
           <button
             onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.open(VOLCENGINE_TUTORIAL_URL, '_blank');
-              }
+              ipcRenderer?.send('navigate:route', { path: '/settings/voice/tutorial?provider=volcengine' });
             }}
             className="block mx-auto mt-3 bg-transparent border-none text-brand text-body-sm cursor-pointer hover:underline"
           >

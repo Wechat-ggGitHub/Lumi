@@ -28,12 +28,17 @@ const VOLCENGINE_STEPS: TutorialStep[] = [
     link: { label: '打开豆包语音控制台', url: 'https://console.volcengine.com/speech/service/overview' },
   },
   {
-    title: '4. 创建应用',
-    description: '应用名称填 lumi，应用简介写「自己用」，接入能力选择「豆包流式语音识别模型 2.0 小时版」，点击确定。',
+    title: '4. 创建应用并开通能力',
+    description:
+      '应用名称填 lumi，应用简介写「自己用」。\n' +
+      '接入能力需要同时勾选以下两个（缺一不可）：\n' +
+      '· 语音识别：豆包流式语音识别模型 2.0 小时版\n' +
+      '· 语音合成：豆包语音合成大模型（双向流式）小时版\n' +
+      '点击确定完成创建。',
   },
   {
     title: '5. 获取密钥',
-    description: '创建成功后，在左侧「API 服务中心」找到 App ID 和 Access Token（点击小眼睛显示）。火山引擎提供 20 小时免费额度。',
+    description: '创建成功后，在左侧「API 服务中心」找到 App ID 和 Access Token（点击小眼睛显示）。火山引擎提供免费试用额度。',
   },
 ]
 
