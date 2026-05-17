@@ -11,7 +11,9 @@
 <img src="https://img.shields.io/badge/license-MIT-green" />
 </p>
 
----
+<p align="center">
+<img src="assets/banner.png" alt="Lumi Banner" width="800" />
+</p>
 
 Lumi 是一个 macOS 原生桌面语音 AI 助手。住在菜单栏里，你说它听，它干活——查资料、写代码、操作系统，还能记住你们聊过的每一件事。
 
