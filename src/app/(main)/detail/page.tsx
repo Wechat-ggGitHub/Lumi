@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send } from 'lucide-react';
+import { Send, ChevronDown, ChevronRight } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -41,7 +41,7 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
         <span className="text-text-muted overflow-hidden text-ellipsis whitespace-nowrap flex-1">
           {toolCall.target}
         </span>
-        <span className="text-text-muted">{expanded ? '▼' : '▶'}</span>
+        <span className="text-text-muted">{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
       </div>
       {expanded && toolCall.detail && (
         <div className="px-2.5 py-2 border-t border-line-default">

@@ -45,6 +45,7 @@ const config: Config = {
       },
       borderRadius: {
         card: '12px',
+        input: '8px',
         btn: '10px',
         'icon-box': '9px',
         chip: '999px',

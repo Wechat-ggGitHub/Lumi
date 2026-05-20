@@ -120,6 +120,24 @@ body {
   50% { opacity: 0.3; }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes staggerItem {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+button, a, [role="button"] {
+  transition: all 0.15s ease-out;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
