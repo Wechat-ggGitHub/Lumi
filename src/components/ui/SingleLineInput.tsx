@@ -13,16 +13,16 @@ export function SingleLineInput({ label, labelAction, helperText, placeholderCla
   return (
     <div className="mb-block-gap">
       {(label || labelAction) && (
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1.5">
           {label && <label className="text-label text-text-muted">{label}</label>}
           {labelAction}
         </div>
       )}
       <input
-        className={`w-full h-10 px-3 rounded-input bg-bg-surface-2 border border-line-default text-body text-text-primary
+        className={`w-full h-10 px-3.5 rounded-btn bg-bg-surface-1/60 border border-line-default text-body text-text-primary
           outline-none transition-colors duration-150
           ${placeholderClassName ? placeholderClassName : 'placeholder:text-text-muted'}
-          focus:border-brand
+          focus:border-brand-primary/30
           disabled:opacity-40 ${className}`}
         {...props}
       />
