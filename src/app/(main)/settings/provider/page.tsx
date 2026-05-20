@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { BottomActionBar } from '@/components/ui/BottomActionBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ChevronDown } from 'lucide-react';
 import {
   getProvidersByCategory,
   getProvider,
@@ -232,9 +233,7 @@ function ProviderCard({
           onClick={onToggleExpand}
           className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-[#f0f0f3] hover:text-text-primary transition-colors"
         >
-          <span className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}>
-            ▾
-          </span>
+          <ChevronDown size={14} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
 

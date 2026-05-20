@@ -2,9 +2,11 @@
 
 import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { ArrowRight } from 'lucide-react'
 import { getIpcRenderer } from '@/lib/electron-ipc'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { ChipGroup } from '@/components/ui/ChipGroup'
 
 interface TutorialStep {
   title: string
@@ -75,23 +77,12 @@ function TutorialContent() {
         onBack={() => getIpcRenderer()?.send('navigate:route', { path: '/settings/voice' })} />
 
       <div className="flex-1 overflow-auto px-page-x pb-6">
-        <div className="flex gap-2 mb-section-gap">
-          <button
-            className={`px-4 py-2 rounded-input text-body-sm transition-colors ${
-              activeTab === 'volcengine' ? 'bg-brand text-white' : 'bg-bg-surface-2 text-text-primary'
-            }`}
-            onClick={() => setActiveTab('volcengine')}
-          >
-            火山引擎
-          </button>
-          <button
-            className={`px-4 py-2 rounded-input text-body-sm transition-colors ${
-              activeTab === 'aliyun' ? 'bg-brand text-white' : 'bg-bg-surface-2 text-text-primary'
-            }`}
-            onClick={() => setActiveTab('aliyun')}
-          >
-            阿里云百炼
-          </button>
+        <div className="mb-section-gap">
+          <ChipGroup
+            options={['volcengine', 'aliyun']}
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as 'volcengine' | 'aliyun')}
+          />
         </div>
 
         <div className="flex flex-col gap-4">
@@ -101,10 +92,10 @@ function TutorialContent() {
               <p className="text-body-sm text-text-muted whitespace-pre-line">{step.description}</p>
               {step.link && (
                 <button
-                  className="text-body-sm text-brand mt-2 block"
+                  className="text-body-sm text-brand mt-2 inline-flex items-center gap-1"
                   onClick={() => getIpcRenderer()?.send('open-external', step.link!.url)}
                 >
-                  {step.link.label} →
+                  {step.link.label} <ArrowRight size={12} />
                 </button>
               )}
             </div>

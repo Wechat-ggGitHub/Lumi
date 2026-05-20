@@ -3,6 +3,7 @@
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { ChipGroup } from '@/components/ui/ChipGroup';
+import GlassCard from '@/components/ui/GlassCard';
 import { useEffect, useState } from 'react';
 import { getThemePreference, setThemePreference } from '@/lib/theme';
 
@@ -33,18 +34,18 @@ export default function AppearanceSettingsPage() {
             onChange={handleChange}
           />
           <div className="mt-block-gap flex gap-4">
-            <div className="flex-1 rounded-card p-card-p border border-line-default text-center">
+            <GlassCard variant="content" className="flex-1 text-center">
               <div className="text-card-title text-text-primary mb-1">浅色</div>
               <div className="text-body-sm text-text-muted">适合明亮环境</div>
-            </div>
-            <div className="flex-1 rounded-card p-card-p border border-line-default text-center">
+            </GlassCard>
+            <GlassCard variant="content" className="flex-1 text-center">
               <div className="text-card-title text-text-primary mb-1">深色</div>
               <div className="text-body-sm text-text-muted">适合暗光环境</div>
-            </div>
-            <div className="flex-1 rounded-card p-card-p border border-line-default text-center">
+            </GlassCard>
+            <GlassCard variant="content" className="flex-1 text-center">
               <div className="text-card-title text-text-primary mb-1">跟随系统</div>
               <div className="text-body-sm text-text-muted">自动适配</div>
-            </div>
+            </GlassCard>
           </div>
         </div>
       </div>

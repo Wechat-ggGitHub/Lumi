@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Cpu, Mic, Sun, Terminal, AudioWaveform } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { SummaryCard } from '@/components/ui/SummaryCard';
+import GlassCard from '@/components/ui/GlassCard';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { getProvider } from '@/lib/provider-config';
 import { VOICE_PROVIDERS } from '@/lib/voice-provider-config';
 
@@ -71,54 +74,23 @@ export default function SettingsPage() {
   const currentModel = currentProvider.models.find(m => m.id === summary.model);
   const modelLabel = currentModel?.name || summary.model;
 
-  const settingsGroups = [
-    {
-      title: '模型与凭证',
-      summary: summary.hasApiKey
-        ? `${providerName} / ${modelLabel}`
-        : '尚未配置 API Key',
-      status: summary.hasApiKey ? 'configured' as const : 'unconfigured' as const,
-      path: '/settings/provider',
-    },
-    {
-      title: '语音',
-      summary: (() => {
-        const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
-        const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
-        if (asrOk && ttsOk) {
-          return `ASR: ${VOICE_PROVIDERS[summary.asrProvider]?.name || '火山引擎'} · TTS: ${VOICE_PROVIDERS[summary.ttsProvider]?.name || '火山引擎'}`;
-        }
-        const missing: string[] = [];
-        if (!asrOk) missing.push('ASR');
-        if (!ttsOk) missing.push('TTS');
-        return `${missing.join('/')} 服务未配置`;
-      })(),
-      status: (() => {
-        const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
-        const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
-        return (asrOk && ttsOk) ? 'configured' as const : 'unconfigured' as const;
-      })(),
-      path: '/settings/voice',
-    },
-    {
-      title: '语音唤醒与连续对话',
-      summary: '说出名称唤起，回复后可直接追问',
-      status: 'default' as const,
-      path: '/settings/wake-word',
-    },
-    {
-      title: '运行环境',
-      summary: summary.defaultCwd,
-      status: 'configured' as const,
-      path: '/settings/runtime',
-    },
-    {
-      title: '外观',
-      summary: '选择浅色或深色模式',
-      status: 'default' as const,
-      path: '/settings/appearance',
-    },
-  ];
+  const voiceConfigured = (() => {
+    const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+    const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+    return asrOk && ttsOk;
+  })();
+
+  const voiceDescription = (() => {
+    const asrOk = summary.asrProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+    const ttsOk = summary.ttsProvider === 'volcengine' ? summary.hasVolcCreds : summary.hasAliyunCreds;
+    if (asrOk && ttsOk) {
+      return `ASR: ${VOICE_PROVIDERS[summary.asrProvider]?.name || '火山引擎'} · TTS: ${VOICE_PROVIDERS[summary.ttsProvider]?.name || '火山引擎'}`;
+    }
+    const missing: string[] = [];
+    if (!asrOk) missing.push('ASR');
+    if (!ttsOk) missing.push('TTS');
+    return `${missing.join('/')} 服务未配置`;
+  })();
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
@@ -128,16 +100,66 @@ export default function SettingsPage() {
       />
 
       <div className="flex-1 overflow-auto px-page-x pb-6">
-        <div className="flex flex-col gap-3">
-          {settingsGroups.map(group => (
-            <SummaryCard
-              key={group.path}
-              title={group.title}
-              summary={group.summary}
-              status={group.status}
-              onClick={() => navigate(group.path)}
-            />
-          ))}
+        <div className="flex flex-col gap-6">
+          <div>
+            <SectionHeader title="服务连接" tag="服务连接" />
+            <div className="flex flex-col gap-2">
+              <GlassCard
+                variant="status"
+                icon={Cpu}
+                iconColor="brand"
+                title="AI 模型服务"
+                description={summary.hasApiKey ? `${providerName} / ${modelLabel}` : '尚未配置 API Key'}
+                badge={
+                  <StatusBadge
+                    status={summary.hasApiKey ? 'success' : 'warning'}
+                    label={summary.hasApiKey ? '已配置' : '未配置'}
+                  />
+                }
+                onClick={() => navigate('/settings/provider')}
+              />
+              <GlassCard
+                variant="status"
+                icon={Mic}
+                title="语音服务"
+                description={voiceDescription}
+                badge={
+                  <StatusBadge
+                    status={voiceConfigured ? 'success' : 'warning'}
+                    label={voiceConfigured ? '已配置' : '未配置'}
+                  />
+                }
+                onClick={() => navigate('/settings/voice')}
+              />
+            </div>
+          </div>
+
+          <div>
+            <SectionHeader title="通用设置" tag="通用设置" />
+            <div className="flex flex-col gap-2">
+              <GlassCard
+                variant="nav"
+                icon={AudioWaveform}
+                title="唤醒词"
+                description="说出名称唤起，回复后可直接追问"
+                onClick={() => navigate('/settings/wake-word')}
+              />
+              <GlassCard
+                variant="nav"
+                icon={Terminal}
+                title="运行环境"
+                description={summary.defaultCwd}
+                onClick={() => navigate('/settings/runtime')}
+              />
+              <GlassCard
+                variant="nav"
+                icon={Sun}
+                title="外观"
+                description="选择浅色或深色模式"
+                onClick={() => navigate('/settings/appearance')}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
