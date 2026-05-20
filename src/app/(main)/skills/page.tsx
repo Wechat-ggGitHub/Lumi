@@ -57,7 +57,7 @@ export default function SkillsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="技能管理" subtitle="Lumi 当前具备的技能"
+      <PageHeader title="技能管理"
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {enabledSkills.length > 0 && (

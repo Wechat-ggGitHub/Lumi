@@ -71,7 +71,7 @@ function TutorialContent() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="获取密钥教程" subtitle="按步骤获取语音服务的 API 密钥"
+      <PageHeader title="获取密钥教程"
         onBack={() => getIpcRenderer()?.send('navigate:route', { path: '/settings/voice' })} />
 
       <div className="flex-1 overflow-auto px-page-x pb-6">

@@ -37,7 +37,7 @@ export default function RuntimeSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="运行环境" subtitle="Claude Code 将在工作目录下执行命令"
+      <PageHeader title="运行环境"
         onBack={() => getIpcRenderer()?.send('navigate:route', { path: '/settings' })} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         <SectionHeader title="默认工作目录" />

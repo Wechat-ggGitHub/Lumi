@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SummaryCard } from '@/components/ui/SummaryCard';
-import { Button } from '@/components/ui/Button';
 import { getProvider } from '@/lib/provider-config';
 import { VOICE_PROVIDERS } from '@/lib/voice-provider-config';
 
@@ -125,23 +124,10 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader
         title="设置"
-        subtitle="系统配置与偏好"
         onBack={() => navigate('/chat')}
       />
 
       <div className="flex-1 overflow-auto px-page-x pb-6">
-        <div className="flex gap-2 mb-section-gap">
-          {[
-            { path: '/persona', label: '分身设定' },
-            { path: '/memory', label: '记忆管理' },
-            { path: '/skills', label: '技能管理' },
-          ].map(item => (
-            <Button key={item.path} variant="secondary" size="sm" onClick={() => navigate(item.path)}>
-              {item.label}
-            </Button>
-          ))}
-        </div>
-
         <div className="flex flex-col gap-3">
           {settingsGroups.map(group => (
             <SummaryCard

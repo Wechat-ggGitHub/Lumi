@@ -50,7 +50,7 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="服务连接" subtitle="Lumi 能访问的外部服务"
+      <PageHeader title="服务连接"
         onBack={() => window.history.back()}
         actions={<Button variant="primary" size="sm" onClick={() => setShowForm(!showForm)}>{showForm ? '取消' : '+ 新增连接'}</Button>} />
       <div className="flex-1 overflow-auto px-page-x pb-6">

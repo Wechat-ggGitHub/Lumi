@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface WakeWordStatus {
   enabled: boolean;
@@ -56,17 +57,8 @@ export default function WakeWordSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <div className="flex-shrink-0 px-page-x pt-12 pb-4" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-        <div className="flex items-center gap-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <button
-            onClick={() => ipcRenderer?.send('navigate:route', { path: '/settings' })}
-            className="text-body-sm text-text-muted hover:text-text-primary transition-colors"
-          >
-            ← 设置
-          </button>
-          <h1 className="text-page-title text-text-primary">语音唤醒与连续对话</h1>
-        </div>
-      </div>
+      <PageHeader title="语音唤醒与连续对话"
+        onBack={() => ipcRenderer?.send('navigate:route', { path: '/settings' })} />
 
       <div className="flex-1 overflow-auto px-page-x pb-6 space-y-6">
         {error && (

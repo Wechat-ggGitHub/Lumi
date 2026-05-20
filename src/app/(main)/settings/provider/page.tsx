@@ -113,7 +113,6 @@ export default function ProviderSettingsPage() {
     <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader
         title="模型与凭证"
-        subtitle="配置 API 服务商和密钥"
         onBack={() => getIpcRenderer()?.send('navigate:route', { path: '/settings' })}
       />
       <div className="flex-1 overflow-auto px-page-x pb-24">

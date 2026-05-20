@@ -216,7 +216,7 @@ export default function DetailPage() {
   const subtitleParts: string[] = [];
   if (record?.duration_ms != null) subtitleParts.push(formatDuration(record.duration_ms));
   if (record?.cost_usd != null) subtitleParts.push(`$${record.cost_usd.toFixed(4)}`);
-  const subtitle = subtitleParts.join(' · ');
+  const subtitleText = subtitleParts.join(' · ');
 
   const recordStatusBadge = record?.status === 'completed'
     ? <StatusBadge status="success" label="已完成" />
@@ -240,8 +240,12 @@ export default function DetailPage() {
         <>
           <PageHeader
             title={title}
-            subtitle={subtitle}
-            actions={recordStatusBadge}
+            actions={
+              <div className="flex items-center gap-2">
+                {subtitleText && <span className="text-page-subtitle text-text-muted">{subtitleText}</span>}
+                {recordStatusBadge}
+              </div>
+            }
           />
 
           <div ref={scrollRef} className="flex-1 overflow-auto px-page-x">

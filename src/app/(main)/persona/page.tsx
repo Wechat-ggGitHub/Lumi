@@ -83,7 +83,7 @@ export default function PersonaPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="分身设定" subtitle="配置你的 AI 分身身份和行为风格"
+      <PageHeader title="分身设定"
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         <div className="mb-section-gap">

@@ -177,13 +177,13 @@ export default function VoiceSettingsPage() {
 
   return (
     <div className="min-h-screen bg-bg-window flex flex-col">
-      <PageHeader title="语音" subtitle="语音识别与合成服务配置"
+      <PageHeader title="语音"
         onBack={() => navigate('/settings')} />
 
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {/* ASR 区块 */}
         <div className="mb-section-gap">
-          <SectionHeader title="语音识别（ASR）" description="将语音转为文字" />
+          <SectionHeader title="语音识别（ASR）" />
           <div className="flex items-center gap-2 mb-3">
             <span className="text-body-sm text-text-muted">配置状态:</span>
             <StatusBadge status={asrCredConfigured ? 'success' : 'warning'}
@@ -207,7 +207,7 @@ export default function VoiceSettingsPage() {
 
         {/* TTS 区块 */}
         <div className="mb-section-gap">
-          <SectionHeader title="语音合成（TTS）" description="将文字转为语音播报" />
+          <SectionHeader title="语音合成（TTS）" />
           <div className="flex items-center gap-2 mb-3">
             <span className="text-body-sm text-text-muted">配置状态:</span>
             <StatusBadge status={ttsCredConfigured ? 'success' : 'warning'}
