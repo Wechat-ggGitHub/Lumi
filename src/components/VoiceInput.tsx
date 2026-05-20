@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 
 type VoiceState = 'recording' | 'transcribing' | 'too-short' | 'error';
 
@@ -74,10 +75,10 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
 
   const showClose = state === 'recording' || state === 'error';
   const barColor =
-    state === 'recording' ? '#4CAF50'
-    : state === 'transcribing' ? '#7AA8FF'
-    : state === 'too-short' ? '#cfa44a'
-    : '#ff6b6b';
+    state === 'recording' ? 'var(--success)'
+    : state === 'transcribing' ? 'var(--brand-primary)'
+    : state === 'too-short' ? 'var(--warning)'
+    : 'var(--danger)';
   const messageColor =
     state === 'error' ? '#ff8b8b'
     : state === 'too-short' ? 'rgba(255,255,255,0.55)'
@@ -92,7 +93,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 10,
-        background: 'rgb(40, 40, 52)',
+        background: 'var(--bg-surface-1)',
         borderRadius: 14,
         padding: '10px 14px',
         boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.08)',
@@ -141,9 +142,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.20)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
           >
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-              <path d="M1 1L7 7M7 1L1 7" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <X size={14} style={{ color: 'rgba(255,255,255,0.55)' }} />
           </button>
         )}
       </div>

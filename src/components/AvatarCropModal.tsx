@@ -54,7 +54,7 @@ export function AvatarCropModal({ imageSrc, onConfirm, onCancel }: AvatarCropMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-bg-surface rounded-2xl shadow-2xl w-[360px] flex flex-col overflow-hidden">
+      <div className="bg-bg-surface-1 rounded-2xl shadow-2xl w-[360px] flex flex-col overflow-hidden">
         <div className="px-5 pt-5 pb-3">
           <h3 className="text-card-title text-text-primary">裁剪头像</h3>
         </div>

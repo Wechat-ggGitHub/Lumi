@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
+import { X } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 
 interface TtsWord {
@@ -221,7 +222,7 @@ function SubtitleContent() {
         display: 'flex',
         flexDirection: 'column',
         padding: '14px 18px',
-        background: 'rgb(28, 28, 35)',
+        background: 'var(--bg-window)',
         borderRadius: '14px',
         boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
         opacity: visible ? 1 : 0,
@@ -257,9 +258,7 @@ function SubtitleContent() {
           e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
         }}
       >
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-          <path d="M1 1L7 7M7 1L1 7" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+        <X size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />
       </button>
 
       {/* Header: avatar + waveform */}
@@ -290,7 +289,7 @@ function SubtitleContent() {
               style={{
                 width: '2px',
                 height: `${h}px`,
-                background: '#4CAF50',
+                background: 'var(--brand-primary)',
                 borderRadius: '1px',
                 animation: isPlaying ? `waveBar 0.5s ease-in-out ${i * 0.1}s infinite alternate` : 'none',
               }}
@@ -318,8 +317,8 @@ function SubtitleContent() {
           {words.length > 0
             ? words.map((w, i) => {
                 let color = 'transparent';
-                if (i < currentIndex) color = 'rgba(255, 255, 255, 0.5)';
-                else if (i === currentIndex) color = '#ffffff';
+                if (i < currentIndex) color = 'var(--text-muted)';
+                else if (i === currentIndex) color = 'var(--text-primary)';
                 return (
                   <span
                     key={i}
@@ -342,7 +341,7 @@ function SubtitleContent() {
           left: '18px',
           right: '18px',
           height: '28px',
-          background: 'linear-gradient(transparent, rgb(28, 28, 35))',
+          background: 'linear-gradient(transparent, var(--bg-window))',
           pointerEvents: 'none',
           zIndex: 5,
         }}
