@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Send } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
+import GlassCard from '@/components/ui/GlassCard';
 import type { ExecutionRecord, ConversationMessage, ToolCallRecord, AppState, SdkSubState } from '@/types';
 
 function formatDuration(ms: number): string {
@@ -26,7 +28,7 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
   };
 
   return (
-    <div className="bg-bg-surface-1 border border-line-default rounded-md my-1">
+    <GlassCard variant="content" className="my-1 p-0">
       <div
         onClick={() => setExpanded(!expanded)}
         className="px-2.5 py-1.5 flex items-center gap-2 cursor-pointer text-xs"
@@ -48,7 +50,7 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCallRecord }) {
           </pre>
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 }
 
@@ -56,7 +58,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end mb-3">
-        <div className="bg-brand-soft border border-brand/30 rounded-xl rounded-br-sm px-3 py-2 max-w-[75%] text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
+        <div className="bg-brand-soft border border-brand-primary/20 rounded-xl rounded-br-sm px-3 py-2 max-w-[75%] text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
           {message.content}
         </div>
       </div>
@@ -67,7 +69,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
     <div className="mb-3">
       <div className="text-[11px] text-brand mb-1 font-medium">Claude</div>
       {message.content && (
-        <div className="bg-bg-surface-1 rounded-md rounded-tr-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
+        <div className="bg-bg-surface-1/50 backdrop-blur-xl border border-line-default rounded-md rounded-tr-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
           {message.content}
         </div>
       )}
@@ -242,7 +244,7 @@ export default function DetailPage() {
             title={title}
             actions={
               <div className="flex items-center gap-2">
-                {subtitleText && <span className="text-page-subtitle text-text-muted">{subtitleText}</span>}
+                {subtitleText && <span className="text-body-sm text-text-muted">{subtitleText}</span>}
                 {recordStatusBadge}
               </div>
             }
@@ -276,7 +278,7 @@ export default function DetailPage() {
                 onClick={handleSend}
                 disabled={isSending || !inputText.trim()}
               >
-                ➤
+                <Send size={14} />
               </Button>
             </div>
           )}
