@@ -183,12 +183,12 @@ export default function VoiceSettingsPage() {
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {/* ASR 区块 */}
         <div className="mb-section-gap">
-          <SectionHeader title="语音识别（ASR）" />
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-body-sm text-text-muted">配置状态:</span>
-            <StatusBadge status={asrCredConfigured ? 'success' : 'warning'}
-              label={asrCredConfigured ? '已配置' : '未配置'} />
-          </div>
+          <SectionHeader title="语音识别（ASR）"
+            action={
+              <StatusBadge status={asrCredConfigured ? 'success' : 'warning'}
+                label={asrCredConfigured ? '已配置' : '未配置'} />
+            }
+          />
           <Select label="服务商" options={PROVIDER_OPTIONS} value={asrProvider}
             onChange={v => setAsrProvider(v)} />
           {renderCredentialInputs(asrProvider, 'asr')}
@@ -205,14 +205,16 @@ export default function VoiceSettingsPage() {
           {renderBlockMessage('asr')}
         </div>
 
+        <div className="border-t border-line-default my-section-gap" />
+
         {/* TTS 区块 */}
         <div className="mb-section-gap">
-          <SectionHeader title="语音合成（TTS）" />
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-body-sm text-text-muted">配置状态:</span>
-            <StatusBadge status={ttsCredConfigured ? 'success' : 'warning'}
-              label={ttsCredConfigured ? '已配置' : '未配置'} />
-          </div>
+          <SectionHeader title="语音合成（TTS）"
+            action={
+              <StatusBadge status={ttsCredConfigured ? 'success' : 'warning'}
+                label={ttsCredConfigured ? '已配置' : '未配置'} />
+            }
+          />
           <Select label="服务商" options={PROVIDER_OPTIONS} value={ttsProvider}
             onChange={v => setTtsProvider(v)} />
           {showReuseHint && (
