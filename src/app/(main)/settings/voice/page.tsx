@@ -136,11 +136,21 @@ export default function VoiceSettingsPage() {
     clearBlock(type)
   }
 
+  const howToGetLink = (providerKey: string) => (
+    <button
+      type="button"
+      onClick={() => navigate(`/settings/voice/tutorial?provider=${providerKey}`)}
+      className="text-label-xs text-brand hover:text-brand/80 transition-colors"
+    >
+      如何获取
+    </button>
+  )
+
   const renderCredentialInputs = (providerKey: string, _block: 'asr' | 'tts') => {
     if (providerKey === 'volcengine') {
       return (
         <>
-          <SingleLineInput label="App ID" value={volcAppId} onChange={e => setVolcAppId(e.target.value)}
+          <SingleLineInput label="App ID" labelAction={howToGetLink(providerKey)} value={volcAppId} onChange={e => setVolcAppId(e.target.value)}
             placeholder={hasVolcCreds ? '已存储（输入新 ID 替换）' : '输入 App ID'} />
           <SingleLineInput label="Access Token" type="password" value={volcAccessToken}
             onChange={e => setVolcAccessToken(e.target.value)}
@@ -150,7 +160,7 @@ export default function VoiceSettingsPage() {
     }
     return (
       <>
-        <SingleLineInput label="API Key" type="password" value={aliyunApiKey}
+        <SingleLineInput label="API Key" labelAction={howToGetLink(providerKey)} type="password" value={aliyunApiKey}
           onChange={e => setAliyunApiKey(e.target.value)}
           placeholder={hasAliyunCreds ? '已存储（输入新 Key 替换）' : '输入 API Key（sk-xxx 格式）'} />
       </>
@@ -186,14 +196,6 @@ export default function VoiceSettingsPage() {
             onChange={v => setAsrProvider(v)} />
           {renderCredentialInputs(asrProvider, 'asr')}
           <div className="flex items-center justify-end gap-2 mt-3">
-            <button
-              onClick={() => navigate(`/settings/voice/tutorial?provider=${asrProvider}`)}
-              className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-2 transition-colors"
-              title="如何获取密钥"
-            >
-              <span className="text-sm">↗</span>
-            </button>
-            <div className="flex-1" />
             <Button variant="secondary"
               onClick={() => asrProvider === 'volcengine' ? handleSaveVolcengine('asr') : handleSaveAliyun('asr')}
               disabled={asrBlock.status === 'saving'}>
@@ -230,14 +232,6 @@ export default function VoiceSettingsPage() {
           )}
           {!showReuseHint && renderCredentialInputs(ttsProvider, 'tts')}
           <div className="flex items-center justify-end gap-2 mt-3">
-            <button
-              onClick={() => navigate(`/settings/voice/tutorial?provider=${ttsProvider}`)}
-              className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-2 transition-colors"
-              title="如何获取密钥"
-            >
-              <span className="text-sm">↗</span>
-            </button>
-            <div className="flex-1" />
             {!showReuseHint && (
               <Button variant="secondary"
                 onClick={() => ttsProvider === 'volcengine' ? handleSaveVolcengine('tts') : handleSaveAliyun('tts')}

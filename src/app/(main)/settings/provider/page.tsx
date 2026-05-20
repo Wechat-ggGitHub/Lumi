@@ -227,18 +227,6 @@ function ProviderCard({
           />
         </button>
 
-        {/* ↗ 外链 icon */}
-        {provider.websiteUrl && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onOpenLink(); }}
-            className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-[#f0f0f3] hover:text-text-primary transition-colors disabled:opacity-40"
-            disabled={saving}
-            title="获取 API Key"
-          >
-            <span className="text-sm">↗</span>
-          </button>
-        )}
-
         {/* ▾ chevron */}
         <button
           onClick={onToggleExpand}
@@ -264,6 +252,17 @@ function ProviderCard({
           <div className="mt-2">
             <SingleLineInput
               label="API Key"
+              labelAction={
+                provider.websiteUrl ? (
+                  <button
+                    type="button"
+                    onClick={onOpenLink}
+                    className="text-label-xs text-brand hover:text-brand/80 transition-colors"
+                  >
+                    如何获取
+                  </button>
+                ) : undefined
+              }
               type="password"
               value={keyInput}
               onChange={(e) => onKeyChange(e.target.value)}
