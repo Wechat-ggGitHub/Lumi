@@ -102,7 +102,7 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-auto px-page-x pb-6">
         <div className="flex flex-col gap-6">
           <div>
-            <SectionHeader title="服务连接" tag="服务连接" />
+            <SectionHeader title="服务连接" />
             <div className="flex flex-col gap-2">
               <GlassCard
                 variant="status"
@@ -135,7 +135,7 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <SectionHeader title="通用设置" tag="通用设置" />
+            <SectionHeader title="通用设置" />
             <div className="flex flex-col gap-2">
               <GlassCard
                 variant="nav"

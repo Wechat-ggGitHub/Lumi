@@ -25,7 +25,7 @@ export function PageHeader({ title, onBack, actions }: PageHeaderProps) {
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
       </div>
-      <h1 className="text-page-title text-text-primary font-display mt-1">{title}</h1>
+      <h1 className="text-page-title text-text-primary mt-1">{title}</h1>
     </div>
   );
 }

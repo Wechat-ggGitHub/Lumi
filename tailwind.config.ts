@@ -30,8 +30,7 @@ const config: Config = {
         info: 'var(--info)',
       },
       fontFamily: {
-        sans: ["'Clash Display'", 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', "'PingFang SC'", "'Hiragino Sans GB'", "'Microsoft YaHei'", 'sans-serif'],
-        display: ["'Playfair Display'", 'serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', "'PingFang SC'", "'Hiragino Sans GB'", "'Microsoft YaHei'", 'sans-serif'],
       },
       fontSize: {
         'page-title': ['24px', { lineHeight: '1.2', fontWeight: '700' }],
