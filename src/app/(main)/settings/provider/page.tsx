@@ -13,7 +13,6 @@ import {
   getProvidersByCategory,
   getProvider,
   type ProviderPreset,
-  type ModelInfo,
 } from '@/lib/provider-config';
 
 const CATEGORY_ORDER: { key: string; title: string }[] = [
@@ -23,24 +22,21 @@ const CATEGORY_ORDER: { key: string; title: string }[] = [
 ];
 
 export default function ProviderSettingsPage() {
-  const [provider, setProvider] = useState('anthropic');
-  const [model, setModel] = useState('claude-sonnet-4-6');
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [keyInput, setKeyInput] = useState('');
-  const [draftModel, setDraftModel] = useState('claude-sonnet-4-6');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
   const [initialProvider, setInitialProvider] = useState('anthropic');
   const [initialModel, setInitialModel] = useState('claude-sonnet-4-6');
+  const [draftProvider, setDraftProvider] = useState('anthropic');
+  const [draftModels, setDraftModels] = useState<Record<string, string>>({});
+  const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     getIpcRenderer()?.invoke('settings:load').then((settings: any) => {
       const p = settings.provider || 'anthropic';
       const m = settings.model || 'claude-sonnet-4-6';
-      setProvider(p);
-      setModel(m);
-      setDraftModel(m);
+      setDraftProvider(p);
+      setDraftModels({ [p]: m });
       setInitialProvider(p);
       setInitialModel(m);
       setExpandedKey(p);
@@ -48,34 +44,55 @@ export default function ProviderSettingsPage() {
     });
   }, []);
 
+  const activeModel =
+    draftModels[draftProvider] ?? getProvider(draftProvider)?.defaultModel ?? '';
+
   const hasChanges =
-    provider !== initialProvider ||
-    draftModel !== initialModel ||
-    keyInput.trim().length > 0;
+    draftProvider !== initialProvider ||
+    activeModel !== initialModel ||
+    Object.values(keyInputs).some(v => v.trim().length > 0);
 
-  const currentProviderConfig = getProvider(provider);
-  const modelOptions = currentProviderConfig?.models.map(m => ({ value: m.id, label: m.name })) || [];
+  const handleActivate = (key: string) => {
+    setDraftProvider(key);
+  };
 
-  const handleSelectProvider = (key: string) => {
-    if (key === expandedKey) return;
-    setKeyInput('');
-    setExpandedKey(key);
-    setProvider(key);
+  const handleToggleExpand = (key: string) => {
+    setExpandedKey(prev => (prev === key ? null : key));
+  };
+
+  const handleOpenLink = (url: string) => {
+    const ipc = getIpcRenderer();
+    if (ipc) {
+      try {
+        ipc.send('open-external', url);
+      } catch {
+        window.open(url, '_blank');
+      }
+    }
   };
 
   const handleSave = async () => {
     setStatus('saving');
     try {
       const ipc = getIpcRenderer();
-      await ipc?.invoke('settings:save', { provider, model: draftModel });
-      if (keyInput.trim() && expandedKey) {
-        await ipc?.invoke('settings:save-api-key', { key: keyInput.trim(), providerKey: expandedKey });
-        setApiKeyStatus(prev => ({ ...prev, [expandedKey]: true }));
-        setKeyInput('');
+      await ipc?.invoke('settings:save', { provider: draftProvider, model: activeModel });
+
+      const pendingKeys = Object.entries(keyInputs).filter(([, key]) => key.trim());
+      await Promise.all(
+        pendingKeys.map(([providerKey, key]) =>
+          ipc?.invoke('settings:save-api-key', { key: key.trim(), providerKey })
+        )
+      );
+      if (pendingKeys.length > 0) {
+        setApiKeyStatus(prev => ({
+          ...prev,
+          ...Object.fromEntries(pendingKeys.map(([providerKey]) => [providerKey, true])),
+        }));
       }
-      setModel(draftModel);
-      setInitialProvider(provider);
-      setInitialModel(draftModel);
+
+      setInitialProvider(draftProvider);
+      setInitialModel(activeModel);
+      setKeyInputs({});
       setStatus('saved');
       setTimeout(() => setStatus('idle'), 2000);
     } catch {
@@ -85,22 +102,11 @@ export default function ProviderSettingsPage() {
   };
 
   const handleCancel = () => {
-    setProvider(initialProvider);
-    setDraftModel(initialModel);
+    setDraftProvider(initialProvider);
+    setDraftModels({ [initialProvider]: initialModel });
     setExpandedKey(initialProvider);
-    setKeyInput('');
+    setKeyInputs({});
     setStatus('idle');
-  };
-
-  const openExternal = (url: string) => {
-    const ipc = getIpcRenderer();
-    if (ipc) {
-      try {
-        ipc.send('open-external', url);
-      } catch {
-        window.open(url, '_blank');
-      }
-    }
   };
 
   return (
@@ -132,15 +138,17 @@ export default function ProviderSettingsPage() {
                   <ProviderCard
                     key={p.key}
                     provider={p}
-                    isSelected={provider === p.key}
+                    isActive={draftProvider === p.key}
                     isExpanded={expandedKey === p.key}
                     keyConfigured={apiKeyStatus[p.key] ?? false}
-                    draftModel={expandedKey === p.key ? draftModel : (provider === p.key ? model : p.defaultModel)}
-                    keyInput={expandedKey === p.key ? keyInput : ''}
-                    onSelect={() => handleSelectProvider(p.key)}
-                    onModelChange={m => setDraftModel(m)}
-                    onKeyChange={v => setKeyInput(v)}
-                    onOpenLink={openExternal}
+                    draftModel={draftModels[p.key] ?? p.defaultModel}
+                    keyInput={keyInputs[p.key] ?? ''}
+                    saving={status === 'saving'}
+                    onActivate={() => handleActivate(p.key)}
+                    onToggleExpand={() => handleToggleExpand(p.key)}
+                    onOpenLink={() => p.websiteUrl && handleOpenLink(p.websiteUrl)}
+                    onModelChange={(m) => setDraftModels(prev => ({ ...prev, [p.key]: m }))}
+                    onKeyChange={(v) => setKeyInputs(prev => ({ ...prev, [p.key]: v }))}
                   />
                 ))}
               </div>
@@ -164,51 +172,86 @@ export default function ProviderSettingsPage() {
 
 function ProviderCard({
   provider,
-  isSelected,
+  isActive,
   isExpanded,
   keyConfigured,
   draftModel,
   keyInput,
-  onSelect,
+  saving,
+  onActivate,
+  onToggleExpand,
+  onOpenLink,
   onModelChange,
   onKeyChange,
-  onOpenLink,
 }: {
   provider: ProviderPreset;
-  isSelected: boolean;
+  isActive: boolean;
   isExpanded: boolean;
   keyConfigured: boolean;
   draftModel: string;
   keyInput: string;
-  onSelect: () => void;
+  saving: boolean;
+  onActivate: () => void;
+  onToggleExpand: () => void;
+  onOpenLink: () => void;
   onModelChange: (m: string) => void;
   onKeyChange: (v: string) => void;
-  onOpenLink: (url: string) => void;
 }) {
   const modelOptions = provider.models.map(m => ({ value: m.id, label: m.name }));
-  const selectedModel = provider.models.find(m => m.id === draftModel);
 
   return (
-    <div
-      className={`rounded-card border transition-colors duration-150 ${
-        isSelected ? 'border-brand' : 'border-line-default hover:border-line-strong'
-      }`}
-    >
-      <button
-        className="w-full p-card-p flex items-center justify-between text-left cursor-pointer"
-        onClick={onSelect}
-      >
-        <div className="flex items-center gap-3">
+    <div className={`rounded-card border transition-colors duration-150 ${
+      isActive ? 'border-brand' : 'border-line-default hover:border-line-strong'
+    }`}>
+      {/* 标题行：三个独立可点击区 */}
+      <div className="p-card-p flex items-center gap-3">
+        {/* Radio：切换生效 provider */}
+        <button
+          onClick={onActivate}
+          className={`flex-shrink-0 w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center transition-colors
+            ${isActive ? 'border-brand' : 'border-[#b0b0b5]'}
+            hover:border-brand/80 disabled:opacity-40`}
+          disabled={saving}
+        >
+          {isActive && <div className="w-[11px] h-[11px] rounded-full bg-brand" />}
+        </button>
+
+        {/* Provider 名称 + Badge：点击展开/折叠 */}
+        <button
+          onClick={onToggleExpand}
+          className="flex items-center gap-3 flex-1 text-left"
+        >
           <span className="text-card-title text-text-primary">{provider.nameZh}</span>
           <StatusBadge
             status={keyConfigured ? 'success' : 'warning'}
             label={keyConfigured ? '已配置' : '未配置'}
           />
-        </div>
-        <span className={`text-text-muted transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}>
-          ▾
-        </span>
-      </button>
+        </button>
+
+        {/* ↗ 外链 icon */}
+        {provider.websiteUrl && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpenLink(); }}
+            className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-[#f0f0f3] hover:text-text-primary transition-colors disabled:opacity-40"
+            disabled={saving}
+            title="获取 API Key"
+          >
+            <span className="text-sm">↗</span>
+          </button>
+        )}
+
+        {/* ▾ chevron */}
+        <button
+          onClick={onToggleExpand}
+          className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-[#f0f0f3] hover:text-text-primary transition-colors"
+        >
+          <span className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}>
+            ▾
+          </span>
+        </button>
+      </div>
+
+      {/* 展开面板 */}
       {isExpanded && (
         <div className="px-card-p pb-card-p pt-0 border-t border-line-default/50">
           <div className="mt-3">
@@ -218,28 +261,17 @@ function ProviderCard({
               value={draftModel}
               onChange={onModelChange}
             />
-            {selectedModel?.description && (
-              <p className="text-body-sm text-text-muted mt-1">{selectedModel.description}</p>
-            )}
           </div>
           <div className="mt-2">
             <SingleLineInput
               label="API Key"
               type="password"
               value={keyInput}
-              onChange={e => onKeyChange(e.target.value)}
-              placeholder={provider.keyPlaceholder}
-              helperText="Key 将加密存储在本地"
+              onChange={(e) => onKeyChange(e.target.value)}
+              placeholder={keyConfigured ? '●●●●●●●●●●●●●●●●●●●●' : provider.keyPlaceholder}
+              placeholderClassName={keyConfigured ? 'text-text-primary tracking-wider' : undefined}
             />
           </div>
-          {provider.websiteUrl && (
-            <button
-              className="text-body-sm text-brand hover:underline mt-1 cursor-pointer"
-              onClick={() => onOpenLink(provider.websiteUrl!)}
-            >
-              获取 API Key →
-            </button>
-          )}
         </div>
       )}
     </div>
