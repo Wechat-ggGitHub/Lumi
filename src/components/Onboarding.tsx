@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { Button } from '@/components/ui/Button';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
@@ -167,7 +168,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 setStep('volcengine');
               }
             }}
-            className="block mx-auto mt-3 bg-transparent border-none text-brand text-body-sm cursor-pointer hover:underline"
+            className="block mx-auto mt-3 bg-transparent border-none text-brand-primary text-body-sm cursor-pointer hover:underline"
           >
             已授权
           </button>
@@ -224,7 +225,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             onClick={() => {
               ipcRenderer?.send('navigate:route', { path: '/settings/voice/tutorial?provider=volcengine' });
             }}
-            className="block mx-auto mt-3 bg-transparent border-none text-brand text-body-sm cursor-pointer hover:underline"
+            className="block mx-auto mt-3 bg-transparent border-none text-brand-primary text-body-sm cursor-pointer hover:underline"
           >
             如何获取凭证？
           </button>
@@ -246,17 +247,17 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 onClick={() => setSelectedProvider(provider.key)}
                 className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
                   selectedProvider === provider.key
-                    ? 'border-brand/50 bg-brand/8'
+                    ? 'border-brand-primary/50 bg-brand-soft'
                     : 'border-border-default bg-bg-surface-1'
                 }`}
               >
                 <span className={`text-body font-medium ${
-                  selectedProvider === provider.key ? 'text-brand' : 'text-text-primary'
+                  selectedProvider === provider.key ? 'text-brand-primary' : 'text-text-primary'
                 }`}>
                   {provider.name}
                 </span>
                 {selectedProvider === provider.key && (
-                  <span className="text-brand text-sm">✓</span>
+                  <Check size={14} className="text-brand-primary" />
                 )}
               </button>
             ))}
@@ -267,8 +268,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
               className="w-full flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-1 transition-colors"
             >
               <span className="text-body-sm">{showMoreProviders ? '收起' : `更多服务商 (${getMoreProviders().length})`}</span>
-              <span className={`text-xs transition-transform duration-200 ${showMoreProviders ? 'rotate-180' : ''}`}>
-                ▾
+              <span className={`transition-transform duration-200 ${showMoreProviders ? 'rotate-180' : ''}`}>
+                <ChevronDown size={14} />
               </span>
             </button>
 
@@ -279,17 +280,17 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                 onClick={() => setSelectedProvider(provider.key)}
                 className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
                   selectedProvider === provider.key
-                    ? 'border-brand/50 bg-brand/8'
+                    ? 'border-brand-primary/50 bg-brand-soft'
                     : 'border-border-default bg-bg-surface-1'
                 }`}
               >
                 <span className={`text-body font-medium ${
-                  selectedProvider === provider.key ? 'text-brand' : 'text-text-primary'
+                  selectedProvider === provider.key ? 'text-brand-primary' : 'text-text-primary'
                 }`}>
                   {provider.name}
                 </span>
                 {selectedProvider === provider.key && (
-                  <span className="text-brand text-sm">✓</span>
+                  <Check size={14} className="text-brand-primary" />
                 )}
               </button>
             ))}
@@ -308,17 +309,17 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                       onClick={() => setSelectedModel(model.id)}
                       className={`w-full p-3 rounded-lg border text-left transition-all ${
                         isSelected
-                          ? 'border-brand/50 bg-brand/8'
+                          ? 'border-brand-primary/50 bg-brand-soft'
                           : 'border-border-default bg-bg-surface-1'
                       }`}
                     >
                       <div className={`text-body font-medium ${
-                        isSelected ? 'text-brand' : 'text-text-primary'
+                        isSelected ? 'text-brand-primary' : 'text-text-primary'
                       }`}>
                         {model.name}
                       </div>
                       <div className={`text-xs mt-0.5 ${
-                        isSelected ? 'text-brand/70' : 'text-text-muted'
+                        isSelected ? 'text-brand-primary/70' : 'text-text-muted'
                       }`}>
                         {model.description}
                       </div>

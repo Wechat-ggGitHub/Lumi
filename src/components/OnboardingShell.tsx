@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
 
 interface OnboardingShellProps {
   currentStep: number;
@@ -19,9 +20,9 @@ export function OnboardingShell({ currentStep, totalSteps, showBack, onBack, chi
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={onBack}
-              className="text-text-muted hover:text-text-primary text-sm transition-colors"
+              className="text-text-muted hover:text-text-primary transition-colors"
             >
-              ← 返回
+              <ArrowLeft size={14} strokeWidth={2} />
             </button>
             <div className="flex gap-1.5">
               {Array.from({ length: totalSteps }).map((_, i) => (
@@ -29,10 +30,10 @@ export function OnboardingShell({ currentStep, totalSteps, showBack, onBack, chi
                   key={i}
                   className={`w-1.5 h-1.5 rounded-full transition-colors ${
                     i < currentStep
-                      ? 'bg-brand/50'
+                      ? 'bg-brand-primary/50'
                       : i === currentStep
-                        ? 'bg-brand'
-                        : 'bg-text-muted/20'
+                        ? 'bg-brand-primary'
+                        : 'bg-bg-surface-2'
                   }`}
                 />
               ))}

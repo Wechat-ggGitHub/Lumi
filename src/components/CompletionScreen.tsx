@@ -1,5 +1,8 @@
 'use client';
 
+import { Mic, Command } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+
 interface CompletionScreenProps {
   onComplete: () => void;
 }
@@ -17,24 +20,21 @@ export function CompletionScreen({ onComplete }: CompletionScreenProps) {
         </div>
         <div className="flex gap-6">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-11 h-11 rounded-xl bg-brand-soft/50 flex items-center justify-center text-xl">
-              🎙️
+            <div className="w-11 h-11 rounded-xl bg-brand-soft/50 flex items-center justify-center text-text-muted">
+              <Mic size={22} strokeWidth={1.8} />
             </div>
             <span className="text-xs text-text-muted whitespace-nowrap">说出 Lumi 唤醒我</span>
           </div>
           <div className="flex flex-col items-center gap-2">
-            <div className="w-11 h-11 rounded-xl bg-brand-soft/50 flex items-center justify-center text-base text-text-muted font-mono">
-              ⌥
+            <div className="w-11 h-11 rounded-xl bg-brand-soft/50 flex items-center justify-center text-text-muted">
+              <Command size={22} strokeWidth={1.8} />
             </div>
             <span className="text-xs text-text-muted whitespace-nowrap">按右 Option 开始聊天</span>
           </div>
         </div>
-        <button
-          onClick={onComplete}
-          className="bg-brand text-white rounded-xl px-10 py-2.5 text-[15px] font-medium hover:opacity-90 transition-opacity"
-        >
+        <Button variant="primary" onClick={onComplete} className="px-10 py-2.5 text-[15px]">
           准备好了
-        </button>
+        </Button>
       </div>
     </div>
   );
