@@ -2,8 +2,8 @@ import { BrowserWindow, screen } from 'electron';
 import { log } from '../src/lib/logger';
 
 const TOGGLE_DEBOUNCE_MS = 200;
-const WINDOW_WIDTH = 840;
-const WINDOW_HEIGHT = 600;
+const WINDOW_WIDTH = 960;
+const WINDOW_HEIGHT = 680;
 
 export class DetailWindow {
   private win: BrowserWindow | null = null;
@@ -73,8 +73,8 @@ export class DetailWindow {
       x,
       y,
       title: 'Lumi',
-      minWidth: 600,
-      minHeight: 400,
+      minWidth: 720,
+      minHeight: 480,
       show: false,
       webPreferences: {
         nodeIntegration: true,

@@ -1779,10 +1779,10 @@ app.whenReady().then(async () => {
 function createMainWindow(): void {
   log.info('创建主窗口...');
   mainWindow = new BrowserWindow({
-    width: 920,
-    height: 640,
-    minWidth: 880,
-    minHeight: 620,
+    width: 1080,
+    height: 720,
+    minWidth: 960,
+    minHeight: 640,
     show: false,
     titleBarStyle: 'hidden',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111110' : '#faf9f5',
@@ -1830,8 +1830,8 @@ nativeTheme.on('updated', () => {
 function createOnboardingWindow(): void {
   log.info('创建 Onboarding 窗口...');
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 500,
+    width: 680,
+    height: 540,
     show: false,
     resizable: false,
     titleBarStyle: 'hidden',
