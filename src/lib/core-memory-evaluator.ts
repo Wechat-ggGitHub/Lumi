@@ -141,19 +141,29 @@ export async function evaluateAndWriteCoreMemory(
 
     const data = await response.json() as any;
     const text = data.content?.[0]?.text;
-    if (!text) return;
+    if (!text) {
+      log.warn('核心记忆评估: API 返回空文本, response:', JSON.stringify(data).slice(0, 300));
+      return;
+    }
 
     let actions: CoreMemoryAction[];
     try {
       const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(jsonStr);
-      actions = Array.isArray(parsed?.actions) ? parsed.actions : [];
+      if (!Array.isArray(parsed?.actions)) {
+        log.warn('核心记忆评估: 返回格式非预期, text:', text.slice(0, 300));
+        return;
+      }
+      actions = parsed.actions;
     } catch {
-      log.warn('核心记忆评估: JSON 解析失败:', text.slice(0, 200));
+      log.warn('核心记忆评估: JSON 解析失败:', text.slice(0, 300));
       return;
     }
 
-    if (actions.length === 0) return;
+    if (actions.length === 0) {
+      log.info('核心记忆评估: 无需变更');
+      return;
+    }
 
     executeActions(memoriesDir, actions);
     log.info('核心记忆评估完成, 执行了', actions.length, '个操作');

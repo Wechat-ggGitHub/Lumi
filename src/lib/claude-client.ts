@@ -1,3 +1,5 @@
+import os from 'os';
+import path from 'path';
 import type { SdkSubState, ConversationMessage, ToolCallRecord } from '../types';
 import { buildSdkEnv } from './provider-config';
 import { log } from './logger';
@@ -60,7 +62,7 @@ export async function executeClaude(
       preset: 'claude_code',
       ...(skillCatalog ? { append: skillCatalog } : {}),
     },
-    autoMemoryDirectory: '~/.lumi/memories',
+    autoMemoryDirectory: path.join(os.homedir(), '.lumi', 'memories'),
     autoMemoryEnabled: true,
     autoDreamEnabled: true,
     ...(resumeSessionId ? { resume: resumeSessionId } : {}),

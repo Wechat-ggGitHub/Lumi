@@ -89,18 +89,29 @@ export async function evaluateAndWriteDailyMemory(
 
     const data = await response.json() as any;
     const text = data.content?.[0]?.text;
-    if (!text) return;
+    if (!text) {
+      log.warn('每日记忆评估: API 返回空文本, response:', JSON.stringify(data).slice(0, 300));
+      return;
+    }
 
     let result: EvalResult;
     try {
       const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       result = JSON.parse(jsonStr);
     } catch {
-      log.warn('每日记忆评估: JSON 解析失败:', text.slice(0, 200));
+      log.warn('每日记忆评估: JSON 解析失败:', text.slice(0, 300));
       return;
     }
 
-    if (!result.shouldRecord) return;
+    if (typeof result.shouldRecord !== 'boolean') {
+      log.warn('每日记忆评估: shouldRecord 不是布尔值, text:', text.slice(0, 300));
+      return;
+    }
+
+    if (!result.shouldRecord) {
+      log.info('每日记忆评估: 无需记录');
+      return;
+    }
 
     const now = new Date();
     const dateStr = toLocalDate(now);
