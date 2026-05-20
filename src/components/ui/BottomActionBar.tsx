@@ -8,7 +8,7 @@ interface BottomActionBarProps {
 
 export function BottomActionBar({ children }: BottomActionBarProps) {
   return (
-    <div className="flex-shrink-0 px-page-x py-4 border-t border-line-default flex items-center justify-end gap-3">
+    <div className="flex-shrink-0 bg-bg-window/90 backdrop-blur-xl border-t border-line-default px-page-x py-3.5 flex justify-end gap-2.5">
       {children}
     </div>
   );
