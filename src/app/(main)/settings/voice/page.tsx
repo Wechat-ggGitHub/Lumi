@@ -136,8 +136,7 @@ export default function VoiceSettingsPage() {
     clearBlock(type)
   }
 
-  const renderCredentialInputs = (providerKey: string, block: 'asr' | 'tts') => {
-    const blockState = block === 'asr' ? asrBlock : ttsBlock
+  const renderCredentialInputs = (providerKey: string, _block: 'asr' | 'tts') => {
     if (providerKey === 'volcengine') {
       return (
         <>
@@ -146,9 +145,6 @@ export default function VoiceSettingsPage() {
           <SingleLineInput label="Access Token" type="password" value={volcAccessToken}
             onChange={e => setVolcAccessToken(e.target.value)}
             placeholder={hasVolcCreds ? '输入新 Token 替换' : '输入 Access Token'} />
-          <Button variant="secondary" onClick={() => handleSaveVolcengine(block)} disabled={blockState.status === 'saving'}>
-            {blockState.status === 'saving' ? '保存中...' : '保存密钥'}
-          </Button>
         </>
       )
     }
@@ -157,9 +153,6 @@ export default function VoiceSettingsPage() {
         <SingleLineInput label="API Key" type="password" value={aliyunApiKey}
           onChange={e => setAliyunApiKey(e.target.value)}
           placeholder={hasAliyunCreds ? '已存储（输入新 Key 替换）' : '输入 API Key（sk-xxx 格式）'} />
-        <Button variant="secondary" onClick={() => handleSaveAliyun(block)} disabled={blockState.status === 'saving'}>
-          {blockState.status === 'saving' ? '保存中...' : '保存密钥'}
-        </Button>
       </>
     )
   }
@@ -192,16 +185,25 @@ export default function VoiceSettingsPage() {
           <Select label="服务商" options={PROVIDER_OPTIONS} value={asrProvider}
             onChange={v => setAsrProvider(v)} />
           {renderCredentialInputs(asrProvider, 'asr')}
-          <div className="mt-3">
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button
+              onClick={() => navigate(`/settings/voice/tutorial?provider=${asrProvider}`)}
+              className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-2 transition-colors"
+              title="如何获取密钥"
+            >
+              <span className="text-sm">↗</span>
+            </button>
+            <div className="flex-1" />
+            <Button variant="secondary"
+              onClick={() => asrProvider === 'volcengine' ? handleSaveVolcengine('asr') : handleSaveAliyun('asr')}
+              disabled={asrBlock.status === 'saving'}>
+              {asrBlock.status === 'saving' ? '保存中...' : '保存密钥'}
+            </Button>
             <Button variant="primary" onClick={() => handleApplyProvider('asr', asrProvider)}
               disabled={asrBlock.status === 'saving'}>
-              应用 ASR 服务商
+              应用
             </Button>
           </div>
-          <button className="text-body-sm text-brand mt-2 block"
-            onClick={() => navigate(`/settings/voice/tutorial?provider=${asrProvider}`)}>
-            如何获取密钥？
-          </button>
           {renderBlockMessage('asr')}
         </div>
 
@@ -227,16 +229,27 @@ export default function VoiceSettingsPage() {
             </div>
           )}
           {!showReuseHint && renderCredentialInputs(ttsProvider, 'tts')}
-          <div className="mt-3">
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button
+              onClick={() => navigate(`/settings/voice/tutorial?provider=${ttsProvider}`)}
+              className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-surface-2 transition-colors"
+              title="如何获取密钥"
+            >
+              <span className="text-sm">↗</span>
+            </button>
+            <div className="flex-1" />
+            {!showReuseHint && (
+              <Button variant="secondary"
+                onClick={() => ttsProvider === 'volcengine' ? handleSaveVolcengine('tts') : handleSaveAliyun('tts')}
+                disabled={ttsBlock.status === 'saving'}>
+                {ttsBlock.status === 'saving' ? '保存中...' : '保存密钥'}
+              </Button>
+            )}
             <Button variant="primary" onClick={() => handleApplyProvider('tts', ttsProvider)}
               disabled={ttsBlock.status === 'saving'}>
-              应用 TTS 服务商
+              应用
             </Button>
           </div>
-          <button className="text-body-sm text-brand mt-2 block"
-            onClick={() => navigate(`/settings/voice/tutorial?provider=${ttsProvider}`)}>
-            如何获取密钥？
-          </button>
           {renderBlockMessage('tts')}
         </div>
       </div>
