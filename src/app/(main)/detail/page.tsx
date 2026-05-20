@@ -272,8 +272,7 @@ export default function DetailPage() {
                 className="flex-1 bg-bg-surface-1 border border-line-default rounded-lg px-3 py-2 text-[13px] text-text-primary outline-none placeholder:text-text-muted focus:border-line-strong"
               />
               <Button
-                variant="primary"
-                size="icon"
+                variant="icon"
                 onClick={handleSend}
                 disabled={isSending || !inputText.trim()}
               >

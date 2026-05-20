@@ -1,24 +1,23 @@
-'use client';
-
-type BadgeStatus = 'success' | 'warning' | 'danger' | 'info' | 'default';
+'use client'
 
 interface StatusBadgeProps {
-  status: BadgeStatus;
-  label: string;
+  status: 'success' | 'warning' | 'danger' | 'info' | 'default'
+  label: string
 }
 
-const statusColors: Record<BadgeStatus, string> = {
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/15 text-warning',
-  danger: 'bg-danger/15 text-danger',
-  info: 'bg-info/15 text-info',
-  default: 'bg-bg-surface-3 text-text-muted',
-};
+const dotColors: Record<StatusBadgeProps['status'], string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+  info: 'bg-info',
+  default: 'bg-text-muted',
+}
 
 export function StatusBadge({ status, label }: StatusBadgeProps) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-chip text-label-xs ${statusColors[status]}`}>
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-chip bg-white/[0.03] dark:bg-white/[0.03] bg-black/[0.03] text-label text-text-secondary">
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColors[status]}`} />
       {label}
     </span>
-  );
+  )
 }

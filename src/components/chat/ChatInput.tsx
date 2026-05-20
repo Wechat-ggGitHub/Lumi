@@ -58,11 +58,10 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
             placeholder:text-text-muted disabled:opacity-40 min-h-[24px] max-h-[120px] leading-relaxed"
         />
         <Button
-          variant="primary"
-          size="icon"
+          variant="icon"
           onClick={handleSubmit}
           disabled={isBusy || !text.trim()}
-          className="!rounded-full !w-9 !h-9 flex-shrink-0"
+          className="!rounded-full flex-shrink-0"
         >
           ➤
         </Button>
