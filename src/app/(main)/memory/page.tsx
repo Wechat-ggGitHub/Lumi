@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Textarea } from '@/components/ui/Textarea';
+import { ChipGroup } from '@/components/ui/ChipGroup';
+import GlassCard from '@/components/ui/GlassCard';
 
 interface CoreMemory {
   filename: string;
@@ -13,7 +16,7 @@ interface CoreMemory {
 }
 
 export default function MemoryPage() {
-  const [tab, setTab] = useState<'core' | 'daily'>('core');
+  const [tab, setTab] = useState('核心记忆');
   const [coreMemories, setCoreMemories] = useState<CoreMemory[]>([]);
   const [dailyDates, setDailyDates] = useState<string[]>([]);
   const [expandedDaily, setExpandedDaily] = useState<string | null>(null);
@@ -81,27 +84,22 @@ export default function MemoryPage() {
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
         {/* Tab switcher */}
-        <div className="flex gap-2 mb-section-gap">
-          <button
-            className={`px-4 py-2 rounded-card-sm text-body-sm font-medium transition-colors ${tab === 'core' ? 'bg-brand text-white' : 'bg-bg-surface-2 text-text-muted hover:bg-bg-surface-3'}`}
-            onClick={() => setTab('core')}>
-            核心记忆
-          </button>
-          <button
-            className={`px-4 py-2 rounded-card-sm text-body-sm font-medium transition-colors ${tab === 'daily' ? 'bg-brand text-white' : 'bg-bg-surface-2 text-text-muted hover:bg-bg-surface-3'}`}
-            onClick={() => setTab('daily')}>
-            每日记忆
-          </button>
+        <div className="mb-section-gap">
+          <ChipGroup
+            options={['核心记忆', '每日记忆']}
+            value={tab}
+            onChange={setTab}
+          />
         </div>
 
         {/* Core memories tab */}
-        {tab === 'core' && (
+        {tab === '核心记忆' && (
           <>
             {coreMemories.length === 0 && (
               <EmptyState title="暂无核心记忆" description="Claude 会在对话中自主记录重要信息到核心记忆" />
             )}
             {coreMemories.map(memory => (
-              <div key={memory.filename} className="bg-bg-surface-1 border border-line-default rounded-card-sm p-card-p mb-2">
+              <GlassCard key={memory.filename} variant="content" className="mb-2">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-label-xs text-text-muted mb-1">{memory.filename}</div>
@@ -124,31 +122,31 @@ export default function MemoryPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </>
         )}
 
         {/* Daily memories tab */}
-        {tab === 'daily' && (
+        {tab === '每日记忆' && (
           <>
             {dailyDates.length === 0 && (
               <EmptyState title="暂无每日记忆" description="每次对话完成后，有价值的交流会被自动记录到每日记忆中" />
             )}
             {dailyDates.map(date => (
-              <div key={date} className="bg-bg-surface-1 border border-line-default rounded-card-sm mb-2 overflow-hidden">
+              <GlassCard key={date} variant="content" className="mb-2 !p-0 overflow-hidden">
                 <button
-                  className="w-full text-left p-card-p flex items-center justify-between hover:bg-bg-surface-2 transition-colors"
+                  className="w-full text-left p-card-p flex items-center justify-between hover:bg-bg-surface-2/50 transition-colors"
                   onClick={() => handleExpandDaily(date)}>
                   <span className="text-card-title text-text-primary">{date}</span>
-                  <span className="text-text-muted text-label">{expandedDaily === date ? '▲' : '▼'}</span>
+                  {expandedDaily === date ? <ChevronUp size={14} className="text-text-muted" /> : <ChevronDown size={14} className="text-text-muted" />}
                 </button>
                 {expandedDaily === date && dailyContent[date] && (
                   <div className="px-card-p pb-card-p border-t border-line-default">
                     <div className="text-body-sm leading-relaxed whitespace-pre-wrap mt-2">{dailyContent[date]}</div>
                   </div>
                 )}
-              </div>
+              </GlassCard>
             ))}
           </>
         )}
