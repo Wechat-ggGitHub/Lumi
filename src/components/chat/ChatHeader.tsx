@@ -1,5 +1,6 @@
 'use client';
 
+import { User, Brain, Zap, Settings } from 'lucide-react';
 import type { AppState, SdkSubState } from '@/types';
 import { HeaderDropdown } from '@/components/ui/HeaderDropdown';
 
@@ -28,7 +29,7 @@ function getStatusText(appState: AppState, sdkSubState: SdkSubState, currentTool
 function getDotColorClass(appState: AppState): string {
   switch (appState) {
     case 'thinking':
-    case 'executing': return 'bg-brand';
+    case 'executing': return 'bg-brand-primary';
     case 'completed': return 'bg-success';
     case 'error': return 'bg-danger';
     case 'recording': return 'bg-warning';
@@ -44,10 +45,10 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
   const displayName = personaName || 'Lumi';
 
   const menuItems = [
-    { label: '分身设定', href: '/persona', icon: '👤' },
-    { label: '记忆管理', href: '/memory', icon: '🧠' },
-    { label: '技能管理', href: '/skills', icon: '⚡' },
-    { label: '设置', href: '/settings', icon: '⚙️' },
+    { label: '分身设定', href: '/persona', icon: User },
+    { label: '记忆管理', href: '/memory', icon: Brain },
+    { label: '技能管理', href: '/skills', icon: Zap },
+    { label: '设置', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -65,15 +66,7 @@ export function ChatHeader({ appState, sdkSubState, currentToolName, personaName
         )}
       </div>
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <HeaderDropdown
-          items={menuItems}
-          dividerIndex={4}
-          trigger={
-            <svg className="w-5 h-5 text-text-muted hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-            </svg>
-          }
-        />
+        <HeaderDropdown items={menuItems} />
       </div>
     </div>
   );

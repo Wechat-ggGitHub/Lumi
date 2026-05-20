@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Send } from 'lucide-react';
 import type { AppState } from '@/types';
 import { Button } from '@/components/ui/Button';
 
@@ -45,7 +46,7 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
 
   return (
     <div className="flex-shrink-0 px-page-x py-2.5 border-t border-line-default">
-      <div className="flex items-end gap-2 bg-bg-surface-2 border border-line-default rounded-btn p-2 transition-colors focus-within:border-brand">
+      <div className="flex items-end gap-2 bg-bg-surface-1/60 backdrop-blur-xl border border-line-default rounded-btn p-2 transition-colors duration-150 focus-within:border-brand-primary/30">
         <textarea
           ref={textareaRef}
           value={text}
@@ -61,10 +62,9 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
           variant="icon"
           onClick={handleSubmit}
           disabled={isBusy || !text.trim()}
-          className="!rounded-full flex-shrink-0"
-        >
-          ➤
-        </Button>
+          icon={Send}
+          className="!rounded-full flex-shrink-0 text-brand-primary hover:text-brand-primary-hover"
+        />
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ function shouldShowDateDivider(messages: ChatMessage[], index: number): boolean 
 function UserMessage({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-end mb-3">
-      <div className="bg-brand-soft border border-brand/30 rounded-[12px_12px_4px_12px] px-3.5 py-2 max-w-[75%] text-body-sm leading-relaxed whitespace-pre-wrap break-words">
+      <div className="bg-brand-soft border border-brand-primary/20 rounded-[12px_12px_4px_12px] px-3.5 py-2 max-w-[75%] text-body-sm leading-relaxed whitespace-pre-wrap break-words">
         {message.content}
       </div>
     </div>
@@ -37,7 +37,7 @@ function UserMessage({ message }: { message: ChatMessage }) {
 function AssistantMessage({ message }: { message: ChatMessage }) {
   return (
     <div className="mb-3">
-      <div className="bg-bg-surface-1 rounded-[4px_12px_12px_12px] px-3.5 py-2.5 text-body-sm leading-relaxed whitespace-pre-wrap break-words text-text-secondary">
+      <div className="bg-bg-surface-1/50 backdrop-blur-xl border border-line-default rounded-[4px_12px_12px_12px] px-3.5 py-2.5 text-body-sm leading-relaxed whitespace-pre-wrap break-words text-text-secondary">
         {message.content || '...'}
       </div>
     </div>
@@ -82,7 +82,7 @@ export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
       ))}
       {isStreaming && (
         <div className="flex items-center gap-2 py-1">
-          <div className="w-3 h-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+          <div className="w-3 h-3 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
           <span className="text-label text-text-muted">Lumi 正在回复...</span>
         </div>
       )}
