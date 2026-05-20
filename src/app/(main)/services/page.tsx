@@ -8,7 +8,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SingleLineInput } from '@/components/ui/SingleLineInput';
 import { Button } from '@/components/ui/Button';
-import { ListCard } from '@/components/ui/ListCard';
+import GlassCard from '@/components/ui/GlassCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 export default function ServicesPage() {
@@ -71,7 +71,7 @@ export default function ServicesPage() {
             <SectionHeader title="已连接服务" description={`${servers.length} 个`} />
             <div className="flex flex-col gap-2">
               {servers.map(server => (
-                <ListCard key={server.id}>
+                <GlassCard key={server.id} variant="content">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -87,7 +87,7 @@ export default function ServicesPage() {
                       <Button variant="ghost" size="sm" onClick={() => handleRemove(server.id)} className="!text-danger">断开</Button>
                     </div>
                   </div>
-                </ListCard>
+                </GlassCard>
               ))}
             </div>
           </div>

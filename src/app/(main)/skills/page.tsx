@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
-import { ListCard } from '@/components/ui/ListCard';
+import GlassCard from '@/components/ui/GlassCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 interface SkillInfo {
@@ -65,7 +65,7 @@ export default function SkillsPage() {
             <SectionHeader title="已启用技能" description={`${enabledSkills.length} 个`} />
             <div className="flex flex-col gap-2">
               {enabledSkills.map(skill => (
-                <ListCard key={skill.name}>
+                <GlassCard key={skill.name} variant="content">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="text-card-title text-text-primary">{skill.name}</div>
@@ -77,7 +77,7 @@ export default function SkillsPage() {
                       <Button variant="ghost" size="sm" onClick={() => handleToggle(skill.name, false)}>停用</Button>
                     </div>
                   </div>
-                </ListCard>
+                </GlassCard>
               ))}
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function SkillsPage() {
             <SectionHeader title="待配置" description={`${disabledSkills.length} 个`} />
             <div className="flex flex-col gap-2">
               {disabledSkills.map(skill => (
-                <ListCard key={skill.name} className="opacity-60">
+                <GlassCard key={skill.name} variant="content" className="opacity-60">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="text-card-title text-text-primary">{skill.name}</div>
@@ -99,7 +99,7 @@ export default function SkillsPage() {
                       <Button variant="ghost" size="sm" onClick={() => handleDelete(skill.name)} className="!text-danger">删除</Button>
                     </div>
                   </div>
-                </ListCard>
+                </GlassCard>
               ))}
             </div>
           </div>
