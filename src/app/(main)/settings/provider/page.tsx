@@ -28,16 +28,15 @@ export default function ProviderSettingsPage() {
   const [initialProvider, setInitialProvider] = useState('anthropic');
   const [initialModel, setInitialModel] = useState('claude-sonnet-4-6');
   const [draftProvider, setDraftProvider] = useState('anthropic');
-  const [draftModel, setDraftModel] = useState('claude-sonnet-4-6');
+  const [draftModels, setDraftModels] = useState<Record<string, string>>({});
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
-  const [userTouchedModel, setUserTouchedModel] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getIpcRenderer()?.invoke('settings:load').then((settings: any) => {
       const p = settings.provider || 'anthropic';
       const m = settings.model || 'claude-sonnet-4-6';
       setDraftProvider(p);
-      setDraftModel(m);
+      setDraftModels({ [p]: m });
       setInitialProvider(p);
       setInitialModel(m);
       setExpandedKey(p);
@@ -45,17 +44,16 @@ export default function ProviderSettingsPage() {
     });
   }, []);
 
+  const activeModel =
+    draftModels[draftProvider] ?? getProvider(draftProvider)?.defaultModel ?? '';
+
   const hasChanges =
     draftProvider !== initialProvider ||
-    draftModel !== initialModel ||
+    activeModel !== initialModel ||
     Object.values(keyInputs).some(v => v.trim().length > 0);
 
   const handleActivate = (key: string) => {
     setDraftProvider(key);
-    if (!userTouchedModel.has(key)) {
-      const providerConfig = getProvider(key);
-      setDraftModel(providerConfig?.defaultModel ?? '');
-    }
   };
 
   const handleToggleExpand = (key: string) => {
@@ -77,19 +75,24 @@ export default function ProviderSettingsPage() {
     setStatus('saving');
     try {
       const ipc = getIpcRenderer();
-      await ipc?.invoke('settings:save', { provider: draftProvider, model: draftModel });
+      await ipc?.invoke('settings:save', { provider: draftProvider, model: activeModel });
 
-      for (const [providerKey, key] of Object.entries(keyInputs)) {
-        if (key.trim()) {
-          await ipc?.invoke('settings:save-api-key', { key: key.trim(), providerKey });
-          setApiKeyStatus(prev => ({ ...prev, [providerKey]: true }));
-        }
+      const pendingKeys = Object.entries(keyInputs).filter(([, key]) => key.trim());
+      await Promise.all(
+        pendingKeys.map(([providerKey, key]) =>
+          ipc?.invoke('settings:save-api-key', { key: key.trim(), providerKey })
+        )
+      );
+      if (pendingKeys.length > 0) {
+        setApiKeyStatus(prev => ({
+          ...prev,
+          ...Object.fromEntries(pendingKeys.map(([providerKey]) => [providerKey, true])),
+        }));
       }
 
       setInitialProvider(draftProvider);
-      setInitialModel(draftModel);
+      setInitialModel(activeModel);
       setKeyInputs({});
-      setUserTouchedModel(new Set());
       setStatus('saved');
       setTimeout(() => setStatus('idle'), 2000);
     } catch {
@@ -100,10 +103,9 @@ export default function ProviderSettingsPage() {
 
   const handleCancel = () => {
     setDraftProvider(initialProvider);
-    setDraftModel(initialModel);
+    setDraftModels({ [initialProvider]: initialModel });
     setExpandedKey(initialProvider);
     setKeyInputs({});
-    setUserTouchedModel(new Set());
     setStatus('idle');
   };
 
@@ -139,16 +141,13 @@ export default function ProviderSettingsPage() {
                     isActive={draftProvider === p.key}
                     isExpanded={expandedKey === p.key}
                     keyConfigured={apiKeyStatus[p.key] ?? false}
-                    draftModel={draftProvider === p.key ? draftModel : p.defaultModel}
+                    draftModel={draftModels[p.key] ?? p.defaultModel}
                     keyInput={keyInputs[p.key] ?? ''}
                     saving={status === 'saving'}
                     onActivate={() => handleActivate(p.key)}
                     onToggleExpand={() => handleToggleExpand(p.key)}
                     onOpenLink={() => p.websiteUrl && handleOpenLink(p.websiteUrl)}
-                    onModelChange={(m) => {
-                      setDraftModel(m);
-                      setUserTouchedModel(prev => new Set(prev).add(p.key));
-                    }}
+                    onModelChange={(m) => setDraftModels(prev => ({ ...prev, [p.key]: m }))}
                     onKeyChange={(v) => setKeyInputs(prev => ({ ...prev, [p.key]: v }))}
                   />
                 ))}
