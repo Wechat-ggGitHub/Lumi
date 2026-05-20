@@ -1,3 +1,49 @@
+/* ── Clash Display ── */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display/ClashDisplay-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display/ClashDisplay-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display/ClashDisplay-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display/ClashDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Playfair Display ── */
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
@@ -12,10 +58,10 @@
   --text-primary: #141413;
   --text-secondary: #3d3d3a;
   --text-muted: #6c6a64;
-  --brand-primary: #82699b;
-  --brand-primary-hover: #947db0;
-  --brand-primary-active: #725a8a;
-  --brand-soft: rgba(130, 105, 155, 0.12);
+  --brand-primary: #B8723D;
+  --brand-primary-hover: #CA8350;
+  --brand-primary-active: #A06130;
+  --brand-soft: rgba(184, 114, 61, 0.12);
   --success: #4a9e5f;
   --warning: #b88a0f;
   --danger: #b33a3a;
@@ -25,18 +71,18 @@
 :root.dark {
   --bg-app: #111110;
   --bg-window: #1a1918;
-  --bg-surface-1: #242321;
-  --bg-surface-2: #2e2c29;
-  --bg-surface-3: #38352f;
+  --bg-surface-1: #242320;
+  --bg-surface-2: #2e2c28;
+  --bg-surface-3: #383530;
   --line-default: rgba(255, 255, 255, 0.06);
   --line-strong: rgba(255, 255, 255, 0.10);
   --text-primary: #faf9f5;
   --text-secondary: #c7c4bb;
   --text-muted: #8e8b82;
-  --brand-primary: #a382ba;
-  --brand-primary-hover: #b395c8;
-  --brand-primary-active: #9170a8;
-  --brand-soft: rgba(163, 130, 186, 0.12);
+  --brand-primary: #D4915C;
+  --brand-primary-hover: #E0A46F;
+  --brand-primary-active: #C07E4A;
+  --brand-soft: rgba(212, 145, 92, 0.15);
   --success: #5db872;
   --warning: #d4a017;
   --danger: #c64545;
