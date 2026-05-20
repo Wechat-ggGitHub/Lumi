@@ -46,13 +46,14 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     authStyle: 'auth_token',
     models: [
       { id: 'glm-5.1', name: 'GLM-5.1', description: '旗舰模型' },
+      { id: 'glm-5.1-highspeed', name: 'GLM-5.1-HighSpeed', description: '高速' },
       { id: 'glm-5-turbo', name: 'GLM-5-Turbo', description: 'Agent 优化' },
       { id: 'glm-4.7-flashx', name: 'GLM-4.7-FlashX', description: '快速' },
     ],
     defaultModel: 'glm-5-turbo',
     envOverrides: { ANTHROPIC_TIMEOUT: '3000000' },
     keyPlaceholder: '从 open.bigmodel.cn 获取您的 API Key',
-    websiteUrl: 'https://open.bigmodel.cn/usercenter/api-keys',
+    websiteUrl: 'https://open.bigmodel.cn/coding-plan/personal/overview',
   },
   'glm-global': {
     key: 'glm-global',
@@ -63,13 +64,14 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     authStyle: 'auth_token',
     models: [
       { id: 'glm-5.1', name: 'GLM-5.1', description: '旗舰模型' },
+      { id: 'glm-5.1-highspeed', name: 'GLM-5.1-HighSpeed', description: '高速' },
       { id: 'glm-5-turbo', name: 'GLM-5-Turbo', description: 'Agent 优化' },
       { id: 'glm-4.7-flashx', name: 'GLM-4.7-FlashX', description: '快速' },
     ],
     defaultModel: 'glm-5-turbo',
     envOverrides: { ANTHROPIC_TIMEOUT: '3000000' },
-    keyPlaceholder: '从 open.bigmodel.cn 获取您的 API Key',
-    websiteUrl: 'https://open.bigmodel.cn/usercenter/api-keys',
+    keyPlaceholder: '从 z.ai 获取您的 API Key',
+    websiteUrl: 'https://z.ai/manage-apikey/apikey-list',
   },
   deepseek: {
     key: 'deepseek',
@@ -100,7 +102,7 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     ],
     defaultModel: 'MiniMax-M2.7',
     keyPlaceholder: '从 platform.minimaxi.com 获取您的 API Key',
-    websiteUrl: 'https://platform.minimaxi.com/',
+    websiteUrl: 'https://platform.minimaxi.com/user-center/basic-information/interface-key',
   },
   'minimax-global': {
     key: 'minimax-global',
@@ -115,8 +117,8 @@ const PROVIDERS: Record<string, ProviderPreset> = {
       { id: 'MiniMax-M2.5', name: 'MiniMax-M2.5', description: '高效' },
     ],
     defaultModel: 'MiniMax-M2.7',
-    keyPlaceholder: '从 api.minimax.io 获取您的 API Key',
-    websiteUrl: 'https://www.minimax.io/',
+    keyPlaceholder: '从 platform.minimax.io 获取您的 API Key',
+    websiteUrl: 'https://platform.minimax.io/user-center/basic-information/interface-key',
   },
   kimi: {
     key: 'kimi',
@@ -130,8 +132,8 @@ const PROVIDERS: Record<string, ProviderPreset> = {
       { id: 'kimi-k2.5', name: 'Kimi-K2.5', description: '高性能' },
     ],
     defaultModel: 'kimi-k2.5',
-    keyPlaceholder: '从 platform.kimi.com 获取您的 API Key',
-    websiteUrl: 'https://platform.kimi.com/',
+    keyPlaceholder: '从 kimi.com/code 获取您的 API Key',
+    websiteUrl: 'https://www.kimi.com/code',
   },
   bailian: {
     key: 'bailian',
@@ -146,7 +148,7 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     ],
     defaultModel: 'qwen3-coder-plus',
     keyPlaceholder: '从 bailian.console.aliyun.com 获取您的 API Key',
-    websiteUrl: 'https://bailian.console.aliyun.com/',
+    websiteUrl: 'https://bailian.console.aliyun.com/?tab=model#/api-key',
   },
   openai: {
     key: 'openai',
@@ -176,7 +178,7 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     ],
     defaultModel: 'doubao-1.5-pro-256k',
     keyPlaceholder: '输入火山引擎方舟 API Key',
-    websiteUrl: 'https://console.volcengine.com/ark',
+    websiteUrl: 'https://console.volcengine.com/ark/region:ark+cn-beijing/apikey',
   },
   mimo: {
     key: 'mimo',
@@ -191,7 +193,8 @@ const PROVIDERS: Record<string, ProviderPreset> = {
       { id: 'MiMo-V2-Flash', name: 'MiMo-V2-Flash', description: '快速' },
     ],
     defaultModel: 'MiMo-V2.5',
-    keyPlaceholder: '输入小米 MiMo API Key',
+    keyPlaceholder: '从 platform.xiaomimimo.com 获取您的 API Key',
+    websiteUrl: 'https://platform.xiaomimimo.com/',
   },
   openrouter: {
     key: 'openrouter',
