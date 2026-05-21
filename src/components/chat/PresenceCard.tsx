@@ -1,6 +1,6 @@
 'use client';
 
-import { Brain, Zap, Settings } from 'lucide-react';
+import { Brain, Zap, Settings, User } from 'lucide-react';
 import type { AppState, SdkSubState } from '@/types';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 
@@ -36,6 +36,7 @@ function getRingState(appState: AppState): string {
 }
 
 const actionItems = [
+  { label: '分身', href: '/persona', icon: User },
   { label: '记忆', href: '/memory', icon: Brain },
   { label: '技能', href: '/skills', icon: Zap },
   { label: '设置', href: '/settings', icon: Settings },
@@ -62,15 +63,17 @@ export function PresenceCard({ appState, sdkSubState, currentToolName, personaNa
       <div className="text-label-xs text-text-muted mb-6 min-h-[16px] transition-opacity duration-300 text-center">
         {statusText}
       </div>
-      <div className="flex flex-col gap-2 w-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div className="flex gap-4 items-center justify-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         {actionItems.map(item => (
           <button
             key={item.href}
             onClick={() => getIpcRenderer()?.send('navigate:route', { path: item.href })}
-            className="flex items-center gap-2 px-3 py-2 rounded-btn bg-bg-surface-1 border border-line-default text-label text-text-secondary hover:bg-bg-surface-2 hover:border-line-strong hover:text-text-primary active:scale-[0.98] transition-all duration-150"
+            className="group relative flex items-center justify-center w-7 h-7 rounded-full text-text-muted hover:text-text-secondary hover:bg-bg-surface-1/60 active:scale-[0.92] transition-all duration-150"
           >
-            <item.icon size={14} />
-            {item.label}
+            <item.icon size={15} strokeWidth={1.8} />
+            <span className="absolute left-full ml-2 px-1.5 py-0.5 rounded-md bg-bg-surface-2 text-label-xs text-text-secondary whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
+              {item.label}
+            </span>
           </button>
         ))}
       </div>
