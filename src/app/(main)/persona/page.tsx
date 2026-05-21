@@ -82,7 +82,7 @@ export default function PersonaPage() {
   }, [ipcRenderer]);
 
   return (
-    <div className="min-h-screen bg-bg-window flex flex-col">
+    <div className="h-screen bg-bg-window flex flex-col">
       <PageHeader title="分身设定"
         onBack={() => window.history.back()} />
       <div className="flex-1 overflow-auto px-page-x pb-6">
