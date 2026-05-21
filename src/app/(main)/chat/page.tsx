@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChatHeader } from '@/components/chat/ChatHeader';
+import { PresenceCard } from '@/components/chat/PresenceCard';
 import { ChatStream } from '@/components/chat/ChatStream';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { getIpcRenderer } from '@/lib/electron-ipc';
@@ -110,20 +110,22 @@ export default function ChatPage() {
   const isStreaming = appState === 'thinking' || appState === 'executing';
 
   return (
-    <div className="h-screen flex flex-col bg-bg-window">
-      <ChatHeader
+    <div className="h-screen flex bg-bg-window">
+      <PresenceCard
         appState={appState}
         sdkSubState={sdkSubState}
         currentToolName={currentToolName}
         personaName={personaName}
         personaAvatar={personaAvatar}
       />
-      <ChatStream messages={messages} isStreaming={isStreaming} />
-      <ChatInput
-        appState={appState}
-        onSend={handleSend}
-        onClear={handleClear}
-      />
+      <div className="flex-1 flex flex-col min-w-0">
+        <ChatStream messages={messages} isStreaming={isStreaming} personaName={personaName} personaAvatar={personaAvatar} />
+        <ChatInput
+          appState={appState}
+          onSend={handleSend}
+          onClear={handleClear}
+        />
+      </div>
     </div>
   );
 }

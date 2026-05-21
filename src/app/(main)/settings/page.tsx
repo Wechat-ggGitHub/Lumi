@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Cpu, Mic, Sun, Terminal, AudioWaveform } from 'lucide-react';
+import { Cpu, Mic, Sun, Terminal, AudioWaveform, ChevronRight } from 'lucide-react';
 import { getIpcRenderer } from '@/lib/electron-ipc';
 import { PageHeader } from '@/components/ui/PageHeader';
-import GlassCard from '@/components/ui/GlassCard';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { getProvider } from '@/lib/provider-config';
@@ -103,32 +102,19 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-6">
           <div>
             <SectionHeader title="服务连接" />
-            <div className="flex flex-col gap-2">
-              <GlassCard
-                variant="status"
+            <div className="flex flex-col gap-px bg-line-default rounded-card overflow-hidden">
+              <SettingsRow
                 icon={Cpu}
-                iconColor="brand"
                 title="AI 模型服务"
                 description={summary.hasApiKey ? `${providerName} / ${modelLabel}` : '尚未配置 API Key'}
-                badge={
-                  <StatusBadge
-                    status={summary.hasApiKey ? 'success' : 'warning'}
-                    label={summary.hasApiKey ? '已配置' : '未配置'}
-                  />
-                }
+                badge={<StatusBadge status={summary.hasApiKey ? 'success' : 'warning'} label={summary.hasApiKey ? '已配置' : '未配置'} />}
                 onClick={() => navigate('/settings/provider')}
               />
-              <GlassCard
-                variant="status"
+              <SettingsRow
                 icon={Mic}
                 title="语音服务"
                 description={voiceDescription}
-                badge={
-                  <StatusBadge
-                    status={voiceConfigured ? 'success' : 'warning'}
-                    label={voiceConfigured ? '已配置' : '未配置'}
-                  />
-                }
+                badge={<StatusBadge status={voiceConfigured ? 'success' : 'warning'} label={voiceConfigured ? '已配置' : '未配置'} />}
                 onClick={() => navigate('/settings/voice')}
               />
             </div>
@@ -136,23 +122,20 @@ export default function SettingsPage() {
 
           <div>
             <SectionHeader title="通用设置" />
-            <div className="flex flex-col gap-2">
-              <GlassCard
-                variant="nav"
+            <div className="flex flex-col gap-px bg-line-default rounded-card overflow-hidden">
+              <SettingsRow
                 icon={AudioWaveform}
                 title="唤醒词"
                 description="说出名称唤起，回复后可直接追问"
                 onClick={() => navigate('/settings/wake-word')}
               />
-              <GlassCard
-                variant="nav"
+              <SettingsRow
                 icon={Terminal}
                 title="运行环境"
                 description={summary.defaultCwd}
                 onClick={() => navigate('/settings/runtime')}
               />
-              <GlassCard
-                variant="nav"
+              <SettingsRow
                 icon={Sun}
                 title="外观"
                 description="选择浅色或深色模式"
@@ -163,5 +146,30 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SettingsRow({ icon: Icon, title, description, badge, onClick }: {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  title: string;
+  description?: string;
+  badge?: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-0 py-3 bg-bg-window hover:bg-bg-surface-1/60 active:bg-bg-surface-1 active:scale-[0.99] transition-colors text-left group"
+    >
+      <div className="w-8 h-8 rounded-icon-box flex items-center justify-center bg-bg-surface-1 group-hover:bg-bg-surface-2 transition-colors">
+        <Icon size={16} strokeWidth={1.8} className="text-text-muted" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-body text-text-primary">{title}</div>
+        {description && <div className="text-body-sm text-text-muted mt-0.5 truncate">{description}</div>}
+      </div>
+      {badge}
+      <ChevronRight size={14} className="text-text-muted flex-shrink-0" strokeWidth={2} />
+    </button>
   );
 }

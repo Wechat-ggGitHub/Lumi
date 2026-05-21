@@ -221,7 +221,7 @@ function ProviderCard({
           onClick={onToggleExpand}
           className="flex items-center gap-3 flex-1 text-left"
         >
-          <span className="text-card-title text-text-primary">{provider.nameZh}</span>
+          <span className="text-body text-text-primary">{provider.nameZh}</span>
           <StatusBadge
             status={keyConfigured ? 'success' : 'warning'}
             label={keyConfigured ? '已配置' : '未配置'}
@@ -231,7 +231,7 @@ function ProviderCard({
         {/* ▾ chevron */}
         <button
           onClick={onToggleExpand}
-          className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-[#f0f0f3] hover:text-text-primary transition-colors"
+          className="w-[28px] h-[28px] flex items-center justify-center rounded-lg text-text-muted hover:bg-bg-surface-2 hover:text-text-primary transition-colors"
         >
           <ChevronDown size={14} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
         </button>

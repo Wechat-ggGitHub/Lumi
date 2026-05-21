@@ -6,6 +6,8 @@ import type { ChatMessage } from '@/types';
 interface ChatStreamProps {
   messages: ChatMessage[];
   isStreaming: boolean;
+  personaName?: string;
+  personaAvatar?: string | null;
 }
 
 function formatDate(isoString: string): string {
@@ -34,9 +36,16 @@ function UserMessage({ message }: { message: ChatMessage }) {
   );
 }
 
-function AssistantMessage({ message }: { message: ChatMessage }) {
+function AssistantMessage({ message, personaName, personaAvatar }: { message: ChatMessage; personaName?: string; personaAvatar?: string | null }) {
+  const displayName = personaName || 'Lumi';
   return (
     <div className="mb-3">
+      <div className="flex items-center gap-1.5 mb-1 pl-0.5">
+        <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
+          <img src={personaAvatar || ''} alt={displayName} className="w-full h-full object-cover" />
+        </div>
+        <span className="text-label-xs font-medium text-text-muted">{displayName}</span>
+      </div>
       <div className="bg-bg-surface-1/50 backdrop-blur-xl border border-line-default rounded-[4px_12px_12px_12px] px-3.5 py-2.5 text-body-sm leading-relaxed whitespace-pre-wrap break-words text-text-secondary">
         {message.content || '...'}
       </div>
@@ -52,7 +61,7 @@ function SystemMessage({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
+export function ChatStream({ messages, isStreaming, personaName, personaAvatar }: ChatStreamProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,7 +85,7 @@ export function ChatStream({ messages, isStreaming }: ChatStreamProps) {
             </div>
           )}
           {msg.role === 'user' && <UserMessage message={msg} />}
-          {msg.role === 'assistant' && <AssistantMessage message={msg} />}
+          {msg.role === 'assistant' && <AssistantMessage message={msg} personaName={personaName} personaAvatar={personaAvatar} />}
           {msg.role === 'system' && <SystemMessage message={msg} />}
         </div>
       ))}

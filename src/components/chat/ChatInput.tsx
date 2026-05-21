@@ -46,7 +46,7 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
 
   return (
     <div className="flex-shrink-0 px-page-x py-2.5 border-t border-line-default">
-      <div className="flex items-end gap-2 bg-bg-surface-1/60 backdrop-blur-xl border border-line-default rounded-btn p-2 transition-colors duration-150 focus-within:border-brand-primary/30">
+      <div className="flex items-center gap-2 bg-bg-surface-1/60 backdrop-blur-xl border border-line-default rounded-btn px-3 py-2 transition-colors duration-150 focus-within:border-brand-primary/30">
         <textarea
           ref={textareaRef}
           value={text}
@@ -56,7 +56,7 @@ export function ChatInput({ appState, onSend, onClear }: ChatInputProps) {
           disabled={isBusy}
           rows={1}
           className="flex-1 bg-transparent text-body text-text-primary outline-none resize-none
-            placeholder:text-text-muted disabled:opacity-40 min-h-[24px] max-h-[120px] leading-relaxed"
+            placeholder:text-text-muted disabled:opacity-40 min-h-[20px] max-h-[120px] leading-[20px] py-0"
         />
         <Button
           variant="icon"
