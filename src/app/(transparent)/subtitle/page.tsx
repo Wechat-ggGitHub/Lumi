@@ -227,7 +227,7 @@ function SubtitleContent() {
         boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',
-        color: '#e0e0e0',
+        color: 'var(--text-secondary)',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
       }}
     >
@@ -242,7 +242,7 @@ function SubtitleContent() {
           height: '18px',
           borderRadius: '50%',
           border: 'none',
-          background: 'rgba(255, 255, 255, 0.08)',
+          background: 'var(--bg-surface-2)',
           cursor: 'pointer',
           padding: 0,
           display: 'flex',
@@ -252,13 +252,13 @@ function SubtitleContent() {
           zIndex: 10,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.background = 'var(--bg-surface-3)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.background = 'var(--bg-surface-2)';
         }}
       >
-        <X size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />
+        <X size={14} style={{ color: 'var(--text-muted)' }} />
       </button>
 
       {/* Header: avatar + waveform */}
@@ -358,8 +358,8 @@ export default function SubtitlePage() {
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }`}</style>
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line-default); }`}</style>
       <Suspense fallback={null}>
         <SubtitleContent />
       </Suspense>

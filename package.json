@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "build:electron": "node scripts/build-electron.mjs",
+    "test": "jest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "electron:dev": "node scripts/build-electron.mjs && concurrently \"next dev\" \"wait-on http://127.0.0.1:3000/api/health && electron .\"",
     "electron:build": "bash scripts/download-kws-models.sh && next build && node scripts/copy-native-deps.mjs && node scripts/build-electron.mjs && electron-builder",
     "rebuild": "electron-rebuild"

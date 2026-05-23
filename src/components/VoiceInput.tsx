@@ -80,9 +80,9 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
     : state === 'too-short' ? 'var(--warning)'
     : 'var(--danger)';
   const messageColor =
-    state === 'error' ? '#ff8b8b'
-    : state === 'too-short' ? 'rgba(255,255,255,0.55)'
-    : '#e6e6ec';
+    state === 'error' ? 'var(--danger)'
+    : state === 'too-short' ? 'var(--text-muted)'
+    : 'var(--text-secondary)';
 
   return (
     <>
@@ -96,7 +96,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
         background: 'var(--bg-surface-1)',
         borderRadius: 14,
         padding: '10px 14px',
-        boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 0 0 1px var(--line-strong)',
         color: messageColor,
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
         fontSize: 13,
@@ -131,7 +131,7 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
               height: 18,
               borderRadius: '50%',
               border: 'none',
-              background: 'rgba(255,255,255,0.08)',
+              background: 'var(--bg-surface-2)',
               cursor: 'pointer',
               padding: 0,
               display: 'flex',
@@ -139,10 +139,10 @@ export function VoiceInput({ onCancel }: VoiceInputProps) {
               justifyContent: 'center',
               marginLeft: 4,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.20)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-surface-3)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-surface-2)'; }}
           >
-            <X size={14} style={{ color: 'rgba(255,255,255,0.55)' }} />
+            <X size={14} style={{ color: 'var(--text-muted)' }} />
           </button>
         )}
       </div>
