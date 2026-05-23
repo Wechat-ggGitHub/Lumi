@@ -62,9 +62,8 @@ export async function executeClaude(
       preset: 'claude_code',
       ...(skillCatalog ? { append: skillCatalog } : {}),
     },
-    autoMemoryDirectory: path.join(os.homedir(), '.lumi', 'memories'),
-    autoMemoryEnabled: true,
-    autoDreamEnabled: true,
+    autoMemoryEnabled: false,
+    autoDreamEnabled: false,
     ...(resumeSessionId ? { resume: resumeSessionId } : {}),
   };
 

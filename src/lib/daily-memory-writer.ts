@@ -4,17 +4,19 @@ import { getProvider, resolveModel, buildAuthHeaders } from './provider-config';
 import { getDailyMemoryDir, toLocalDate } from './daily-memory-reader';
 import { log } from './logger';
 
-const EVAL_PROMPT = `你是一个日记助手。根据用户和助手的对话，判断这次对话是否有值得记录的内容。
+const EVAL_PROMPT = `你是一个日记助手。根据用户和助手的对话，判断这次对话是否有值得作为事件记录的内容。
 
-记录标准：
-- 用户表达了明确的偏好或决策 → 值得记录
+记录标准（仅记录事件/行动，不记录偏好和习惯）：
+- 完成了具体任务或达成了某个结果 → 值得记录
 - 发现了重要问题或 bug → 值得记录
 - 有待跟进或未完成的事项 → 值得记录
-- 学习了新技术方案或做了关键选择 → 值得记录
-- 纯执行任务、无新信息 → 不记录
-- 简单查询、无后续影响 → 不记录
+- 做了关键的技术选择或架构决策 → 值得记录
 
-注意：只记录用户相关的事实，不要记录助手的推荐、观点或情绪。
+不记录：
+- 用户表达偏好或习惯 → 这是核心记忆的职责，不记录
+- 纯执行无新信息 → 不记录
+- 简单查询无后续影响 → 不记录
+- 助手的推荐、观点或情绪 → 不记录
 
 返回 JSON 格式：
 {"shouldRecord": boolean, "title": "简短标题（10字以内）", "summary": "1-3个要点，每行以 - 开头"}

@@ -23,7 +23,7 @@ import { scanSkills, importSkill, importSkillFromMd, importSkillFromZip, deleteS
 import { buildLumiContext } from '../src/lib/lumi-context';
 import { listDailyMemoryDates, readDailyMemory } from '../src/lib/daily-memory-reader';
 import { evaluateAndWriteDailyMemory } from '../src/lib/daily-memory-writer';
-import { evaluateAndWriteCoreMemory } from '../src/lib/core-memory-evaluator';
+import { evaluateAndWriteCoreMemory, CORE_MEMORY_FILE } from '../src/lib/core-memory-evaluator';
 import { log, initLogger } from '../src/lib/logger';
 import type { ExecutionRecord, AppSettings, DotColor, ConversationMessage, ChatMessage, SdkSubState, ToolCallRecord } from '../src/types';
 
@@ -1423,29 +1423,24 @@ function registerIpcHandlers(): void {
 
   // memory (file-based)
   ipcMain.handle('memory:list-core', () => {
-    const memoriesDir = path.join(lumiDir, 'memories');
-    if (!fs.existsSync(memoriesDir)) return [];
-    const files = fs.readdirSync(memoriesDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
-    return files.map(f => {
-      const content = fs.readFileSync(path.join(memoriesDir, f), 'utf-8');
-      return { filename: f, content };
-    });
+    const filePath = path.join(lumiDir, 'memories', CORE_MEMORY_FILE);
+    if (!fs.existsSync(filePath)) return [];
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return [{ filename: CORE_MEMORY_FILE, content }];
   });
 
   ipcMain.handle('memory:update-core', (_, { filename, content }: { filename: string; content: string }) => {
-    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
+    if (filename !== CORE_MEMORY_FILE) return false;
     const memoriesDir = path.join(lumiDir, 'memories');
-    const filePath = path.join(memoriesDir, filename);
-    if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
-    fs.writeFileSync(filePath, content);
+    if (!fs.existsSync(memoriesDir)) fs.mkdirSync(memoriesDir, { recursive: true });
+    fs.writeFileSync(path.join(memoriesDir, CORE_MEMORY_FILE), content);
     return true;
   });
 
   ipcMain.handle('memory:delete-core', (_, { filename }: { filename: string }) => {
-    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) return false;
-    const memoriesDir = path.join(lumiDir, 'memories');
-    const filePath = path.join(memoriesDir, filename);
-    if (!filePath.startsWith(memoriesDir) || !fs.existsSync(filePath)) return false;
+    if (filename !== CORE_MEMORY_FILE) return false;
+    const filePath = path.join(lumiDir, 'memories', CORE_MEMORY_FILE);
+    if (!fs.existsSync(filePath)) return false;
     fs.unlinkSync(filePath);
     return true;
   });

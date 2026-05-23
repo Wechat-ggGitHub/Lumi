@@ -1,6 +1,6 @@
-import fs from 'fs';
 import path from 'path';
-import { readDailyMemory } from './daily-memory-reader';
+import { readRecentDailyMemories } from './daily-memory-reader';
+import { readCoreMemoryFile, CORE_MEMORY_FILE } from './core-memory-evaluator';
 
 const DELIVERY_INSTRUCTION = `## 结果交付方式
 当你完成用户指令后，根据结果的复杂度选择交付方式：
@@ -19,13 +19,20 @@ export function buildLumiContext(lumiDir: string, personaContent: string): strin
 
   parts.push(DELIVERY_INSTRUCTION);
 
-  // 注入前一天的每日记忆
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
-  const yesterdayMemory = readDailyMemory(lumiDir, yesterdayStr);
-  if (yesterdayMemory) {
-    parts.push(`\n## 近期动态\n以下是 ${yesterdayStr} 的记忆摘要：\n${yesterdayMemory}`);
+  // 注入核心记忆
+  const memoriesDir = path.join(lumiDir, 'memories');
+  const coreMemoryContent = readCoreMemoryFile(memoriesDir).trim();
+  if (coreMemoryContent) {
+    parts.push(`\n## 核心记忆\n以下是你对用户的长期了解，始终以此为参考：\n${coreMemoryContent}`);
+  }
+
+  // 注入近 3 天的每日记忆
+  const recentMemories = readRecentDailyMemories(lumiDir, 3);
+  if (recentMemories.size > 0) {
+    const memoryEntries = Array.from(recentMemories.entries())
+      .map(([date, content]) => `### ${date}\n${content}`)
+      .join('\n\n');
+    parts.push(`\n## 近期动态\n以下是近 3 天的记忆摘要：\n${memoryEntries}`);
   }
 
   parts.push(DAILY_MEMORY_HINT);

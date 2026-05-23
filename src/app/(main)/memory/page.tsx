@@ -96,7 +96,7 @@ export default function MemoryPage() {
         {tab === '核心记忆' && (
           <>
             {coreMemories.length === 0 && (
-              <EmptyState title="暂无核心记忆" description="Claude 会在对话中自主记录重要信息到核心记忆" />
+              <EmptyState title="暂无核心记忆" description="Claude 会在对话中自主记录关于你的长期信息到核心记忆" />
             )}
             {coreMemories.map(memory => (
               <GlassCard key={memory.filename} variant="content" className="mb-2">
