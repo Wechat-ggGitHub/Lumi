@@ -71,7 +71,7 @@ export function PresenceCard({ appState, sdkSubState, currentToolName, personaNa
             className="group relative flex items-center justify-center w-7 h-7 rounded-full text-text-muted hover:text-text-secondary hover:bg-bg-surface-1/60 active:scale-[0.92] transition-all duration-150"
           >
             <item.icon size={15} strokeWidth={1.8} />
-            <span className="absolute left-full ml-2 px-1.5 py-0.5 rounded-md bg-bg-surface-2 text-label-xs text-text-secondary whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
+            <span className="absolute top-full mt-1.5 px-1.5 py-0.5 rounded-md bg-bg-surface-2 text-label-xs text-text-secondary whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
               {item.label}
             </span>
           </button>

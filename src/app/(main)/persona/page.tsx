@@ -82,10 +82,10 @@ export default function PersonaPage() {
   }, [ipcRenderer]);
 
   return (
-    <div className="h-screen bg-bg-window flex flex-col">
+    <div className="min-h-screen bg-bg-window flex flex-col">
       <PageHeader title="分身设定"
         onBack={() => window.history.back()} />
-      <div className="flex-1 overflow-auto px-page-x pb-6">
+      <div className="flex-1 overflow-auto px-page-x pb-20">
         <div className="mb-section-gap">
           <SectionHeader title="基础身份" />
           <div className="flex items-center gap-4 mb-block-gap">
@@ -107,11 +107,11 @@ export default function PersonaPage() {
             恢复默认头像
           </button>
         </div>
-        <div className="flex-1">
+        <div>
           <SectionHeader title="人格设定" />
           <Textarea value={content} onChange={e => { setContent(e.target.value); setDirty(true); }}
             placeholder="用 Markdown 编写分身的人格设定..."
-            className="!font-mono min-h-[400px]" />
+            className="!font-mono min-h-[200px]" />
         </div>
       </div>
       <BottomActionBar>

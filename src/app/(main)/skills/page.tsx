@@ -73,7 +73,7 @@ export default function SkillsPage() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                       <StatusBadge status="success" label="已启用" />
-                      <Button variant="ghost" size="sm" onClick={() => handleViewDetail(skill.name)}>配置</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewDetail(skill.name)}>查看</Button>
                       <Button variant="ghost" size="sm" onClick={() => handleToggle(skill.name, false)}>停用</Button>
                     </div>
                   </div>
@@ -121,11 +121,11 @@ export default function SkillsPage() {
         {importError && <p className="text-body-sm text-danger">{importError}</p>}
       </div>
       {detailSkill && (
-        <div className="fixed inset-0 bg-bg-app/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDetailSkill(null)}>
+        <div className="fixed inset-0 bg-bg-app/80 backdrop-blur-sm flex items-center justify-center z-50" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => setDetailSkill(null)}>
           <div className="bg-bg-surface-2 rounded-card p-6 max-w-xl w-[90%] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-section-title text-text-primary">{detailSkill.name}</h2>
-              <Button variant="ghost" size="sm" onClick={() => setDetailSkill(null)}>关闭</Button>
+              <h2 className="text-section-title text-text-primary min-w-0 truncate">{detailSkill.name}</h2>
+              <Button variant="ghost" size="sm" className="flex-shrink-0 ml-3" onClick={() => setDetailSkill(null)}>关闭</Button>
             </div>
             <pre className="bg-bg-app rounded-input p-4 overflow-auto flex-1 text-body-sm leading-relaxed whitespace-pre-wrap break-words text-text-secondary">
               {detailSkill.content}
