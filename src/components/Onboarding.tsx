@@ -25,6 +25,7 @@ const PRIMARY_PROVIDERS: ProviderOption[] = [
   { key: 'minimax-cn', name: 'MiniMax Token Plan' },
   { key: 'kimi', name: 'Moonshot' },
   { key: 'deepseek', name: 'DeepSeek' },
+  { key: 'step', name: 'StepFun' },
 ];
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {

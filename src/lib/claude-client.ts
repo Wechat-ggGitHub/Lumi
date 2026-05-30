@@ -96,11 +96,8 @@ export async function executeClaude(
             sdkSessionId = message.session_id as string;
             log.info('Claude SDK: 获取 session_id:', sdkSessionId);
           }
-          if ('content' in message && typeof message.content === 'string') {
-            assistantContent += message.content;
-          }
-          if ('content' in message && Array.isArray(message.content)) {
-            for (const block of message.content) {
+          if ('message' in message && Array.isArray((message as any).message?.content)) {
+            for (const block of (message as any).message.content) {
               if (block.type === 'text') {
                 assistantContent += block.text;
               }

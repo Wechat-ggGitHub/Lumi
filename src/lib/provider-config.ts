@@ -196,6 +196,20 @@ const PROVIDERS: Record<string, ProviderPreset> = {
     keyPlaceholder: '从 platform.xiaomimimo.com 获取您的 API Key',
     websiteUrl: 'https://platform.xiaomimimo.com/',
   },
+  step: {
+    key: 'step',
+    name: 'StepFun',
+    nameZh: 'StepFun',
+    category: 'china',
+    baseUrl: 'https://api.stepfun.com/step_plan',
+    authStyle: 'auth_token',
+    models: [
+      { id: 'step-3.7-flash', name: 'Step 3.7 Flash', description: '最新' },
+    ],
+    defaultModel: 'step-3.7-flash',
+    keyPlaceholder: '从 platform.stepfun.com 获取您的 API Key',
+    websiteUrl: 'https://platform.stepfun.com',
+  },
   openrouter: {
     key: 'openrouter',
     name: 'OpenRouter',

@@ -404,7 +404,7 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   if (audioListener) audioListener.setMode('recording');
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 1.5;
+  const timeout = settings.wakeWordSilenceTimeout ?? 2;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
@@ -436,13 +436,13 @@ function startRecordingSession(trigger: 'wake-word' | 'shortcut' | 'continuous-c
   store.transition('recording');
   updateTrayDot();
 
-  // 8s 绝对超时兜底：避免 VAD 卡死永不收尾
+  // 30min 绝对超时兜底：避免 VAD 卡死永不收尾
   clearRecordingTimeoutTimer();
   recordingTimeoutTimer = setTimeout(() => {
-    log.warn('录音绝对超时（8s），强制 finish');
+    log.warn('录音绝对超时（30min），强制 finish');
     recordingTimeoutTimer = null;
     if (voiceEndpoint) voiceEndpoint.finish();
-  }, 8000);
+  }, 30 * 60 * 1000);
 }
 
 async function ensureAudioListener(): Promise<void> {
@@ -607,7 +607,7 @@ function startContinuousChat(): void {
   }
 
   const settings = loadSettings();
-  const timeout = settings.wakeWordSilenceTimeout ?? 1.5;
+  const timeout = settings.wakeWordSilenceTimeout ?? 2;
 
   if (voiceEndpoint) voiceEndpoint.destroy();
   voiceEndpoint = new VoiceEndpoint({
