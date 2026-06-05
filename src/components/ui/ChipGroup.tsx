@@ -15,7 +15,7 @@ export function ChipGroup({ options, value, onChange }: ChipGroupProps) {
           onClick={() => onChange(opt)}
           className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer
             ${value === opt
-              ? 'bg-brand-soft text-text-primary border border-brand-primary/20'
+              ? 'bg-brand-soft text-text-primary border border-brand/20'
               : 'text-text-muted hover:text-text-secondary'
             }`}
         >

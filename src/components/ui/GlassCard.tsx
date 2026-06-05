@@ -69,7 +69,7 @@ export default function GlassCard(props: GlassCardProps) {
       <div className={baseClass} onClick={onClick}>
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-icon-box flex items-center justify-center ${iconColor === 'brand' ? 'bg-brand-soft' : 'bg-bg-surface-2'}`}>
-            <Icon size={18} strokeWidth={1.8} className={iconColor === 'brand' ? 'text-brand-primary' : 'text-text-muted'} />
+            <Icon size={18} strokeWidth={1.8} className={iconColor === 'brand' ? 'text-brand' : 'text-text-muted'} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-card-title text-text-primary">{title}</div>

@@ -22,7 +22,7 @@ export function SingleLineInput({ label, labelAction, helperText, placeholderCla
         className={`w-full h-10 px-3.5 rounded-btn bg-bg-surface-1/60 border border-line-default text-body text-text-primary
           outline-none transition-colors duration-150
           ${placeholderClassName ? placeholderClassName : 'placeholder:text-text-muted'}
-          focus:border-brand-primary/30
+          focus:border-brand/30
           disabled:opacity-40 ${className}`}
         {...props}
       />

@@ -14,7 +14,7 @@ export function SectionHeader({ title, description, action, tag }: SectionHeader
     <div className="flex justify-between items-start mb-3">
       <div>
         {tag && (
-          <div className="text-section-tag text-brand-primary uppercase mb-2">{tag}</div>
+          <div className="text-section-tag text-brand uppercase mb-2">{tag}</div>
         )}
         <h2 className="text-section-title text-text-primary">{title}</h2>
         {description && (

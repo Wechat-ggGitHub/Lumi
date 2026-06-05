@@ -79,7 +79,7 @@ export default function WakeWordSettingsPage() {
               onClick={() => toggle(!status.enabled)}
               disabled={loading}
               className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                status.enabled ? 'bg-brand-primary' : 'bg-bg-surface-2'
+                status.enabled ? 'bg-brand' : 'bg-bg-surface-2'
               } ${loading ? 'opacity-50' : ''}`}
             >
               <span
@@ -127,7 +127,7 @@ export default function WakeWordSettingsPage() {
           {/* Info */}
           {status.enabled && (
             <div className="bg-brand-soft p-4 rounded-card space-y-2">
-              <p className="text-body font-medium text-brand-primary">
+              <p className="text-body font-medium text-brand">
                 使用说明
               </p>
               <ul className="text-body-sm text-text-secondary space-y-1">

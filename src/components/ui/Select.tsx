@@ -22,7 +22,7 @@ export function Select({ label, options, value, onChange, className = '' }: Sele
         onChange={e => onChange(e.target.value)}
         className={`w-full h-10 px-3.5 rounded-btn bg-bg-surface-1/60 border border-line-default text-body text-text-primary
           outline-none cursor-pointer transition-colors duration-150
-          focus:border-brand-primary/30 ${className}`}
+          focus:border-brand/30 ${className}`}
       >
         {options.map(opt => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>

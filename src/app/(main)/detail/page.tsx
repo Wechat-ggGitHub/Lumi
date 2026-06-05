@@ -58,7 +58,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end mb-3">
-        <div className="bg-brand-soft border border-brand-primary/20 rounded-xl rounded-br-sm px-3 py-2 max-w-[75%] text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
+        <div className="bg-brand-soft border border-brand/20 rounded-xl rounded-br-sm px-3 py-2 max-w-[75%] text-[13px] leading-relaxed whitespace-pre-wrap text-text-primary">
           {message.content}
         </div>
       </div>

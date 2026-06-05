@@ -15,7 +15,7 @@ export function Textarea({ label, helperText, className = '', ...props }: Textar
         className={`w-full min-h-[88px] px-3.5 py-2.5 rounded-btn bg-bg-surface-1/60 border border-line-default text-body text-text-primary
           outline-none resize-none transition-colors duration-150
           placeholder:text-text-muted
-          focus:border-brand-primary/30
+          focus:border-brand/30
           disabled:opacity-40 ${className}`}
         {...props}
       />

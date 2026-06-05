@@ -30,9 +30,9 @@ export function OnboardingShell({ currentStep, totalSteps, showBack, onBack, chi
                   key={i}
                   className={`w-1.5 h-1.5 rounded-full transition-colors ${
                     i < currentStep
-                      ? 'bg-brand-primary/50'
+                      ? 'bg-brand/50'
                       : i === currentStep
-                        ? 'bg-brand-primary'
+                        ? 'bg-brand'
                         : 'bg-bg-surface-2'
                   }`}
                 />

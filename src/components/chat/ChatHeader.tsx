@@ -29,7 +29,7 @@ function getStatusText(appState: AppState, sdkSubState: SdkSubState, currentTool
 function getDotColorClass(appState: AppState): string {
   switch (appState) {
     case 'thinking':
-    case 'executing': return 'bg-brand-primary';
+    case 'executing': return 'bg-brand';
     case 'completed': return 'bg-success';
     case 'error': return 'bg-danger';
     case 'recording': return 'bg-warning';
