@@ -6,6 +6,7 @@ import { log } from './logger';
 
 export interface ClaudeExecutionResult {
   summary: string;
+  finalText: string;
   costUsd: number | null;
   durationMs: number | null;
   numTurns: number | null;
@@ -192,7 +193,7 @@ export async function executeClaude(
 
   durationMs = durationMs ?? Date.now() - startTime;
 
-  return { summary, costUsd, durationMs, numTurns, sdkSessionId, status, error: errorMsg };
+  return { summary, finalText: assistantContent.trim(), costUsd, durationMs, numTurns, sdkSessionId, status, error: errorMsg };
 }
 
 function mapToolType(toolName: string): ToolCallRecord['type'] {

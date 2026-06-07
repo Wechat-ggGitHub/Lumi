@@ -888,25 +888,14 @@ async function executePrompt(prompt: string, isVoice = false): Promise<void> {
     sendToMainWindow('chat:execution-complete', { executionId });
 
     // 语音播报结果（仅语音输入触发）
-    if (isVoice) {
-      log.info('TTS 检查: status=', result.status, 'summary长度=', result.summary?.length ?? 0);
-      if (result.status === 'completed' && result.summary) {
-        log.info('TTS: 开始语音播报, summary:', result.summary.slice(0, 100));
-        speakResult(result.summary);
-      } else if (result.status === 'completed') {
-        // summary 为空时，使用 assistant 消息作为 fallback
-        const assistantText = conversationMessages
-          .filter(m => m.role === 'assistant')
-          .map(m => m.content)
-          .join('\n')
-          .trim();
-        if (assistantText) {
-          const fallback = assistantText.length > 500 ? assistantText.slice(-500) : assistantText;
-          log.info('TTS: summary 为空，使用 assistant 消息 fallback, 长度:', fallback.length);
-          speakResult(fallback);
-        } else {
-          log.info('TTS: 无可播报内容');
-        }
+    // 使用 finalText（经过 block.type === 'text' 过滤的最终纯文本），不含 thinking 和工具调用中间信息
+    if (isVoice && result.status === 'completed') {
+      const ttsText = result.finalText;
+      if (ttsText) {
+        log.info('TTS: 开始语音播报, 长度:', ttsText.length, '内容:', ttsText.slice(0, 100));
+        speakResult(ttsText);
+      } else {
+        log.info('TTS: 无可播报内容');
       }
     }
 
